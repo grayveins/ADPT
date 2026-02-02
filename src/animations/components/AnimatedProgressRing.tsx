@@ -1,0 +1,213 @@
+/**
+ * AnimatedProgressRing
+ * Circular progress ring with smooth fill animation and optional glow
+ */
+
+import React, { useEffect } from "react";
+import { StyleSheet, View, Text } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+} from "react-native-reanimated";
+import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import { darkColors, theme } from "@/src/theme";
+import { SPRING_CONFIG, TIMING } from "../constants";
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type AnimatedProgressRingProps = {
+  progress: number; // 0 to 1
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  backgroundColor?: string;
+  showPercentage?: boolean;
+  label?: string;
+  sublabel?: string;
+  breathe?: boolean;
+  glow?: boolean;
+  animated?: boolean;
+};
+
+export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
+  progress,
+  size = 120,
+  strokeWidth = 10,
+  color = darkColors.primary,
+  backgroundColor = darkColors.border,
+  showPercentage = true,
+  label,
+  sublabel,
+  breathe = true,
+  glow = false,
+  animated = true,
+}) => {
+  const animatedProgress = useSharedValue(0);
+  const breatheScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(glow ? 0.3 : 0);
+
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+
+  useEffect(() => {
+    if (animated) {
+      animatedProgress.value = withSpring(progress, {
+        ...SPRING_CONFIG.gentle,
+        overshootClamping: true,
+      });
+    } else {
+      animatedProgress.value = progress;
+    }
+
+    // Intensify glow when near completion
+    if (glow && progress > 0.9) {
+      glowOpacity.value = withTiming(0.6, { duration: TIMING.normal });
+    }
+  }, [progress, animated, glow]);
+
+  // Breathing animation
+  useEffect(() => {
+    if (breathe) {
+      breatheScale.value = withRepeat(
+        withSequence(
+          withTiming(1.02, {
+            duration: TIMING.breatheDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(1, {
+            duration: TIMING.breatheDuration / 2,
+            easing: Easing.inOut(Easing.ease),
+          })
+        ),
+        -1,
+        false
+      );
+    }
+  }, [breathe]);
+
+  const animatedCircleProps = useAnimatedProps(() => {
+    const strokeDashoffset = circumference * (1 - animatedProgress.value);
+    return {
+      strokeDashoffset,
+    };
+  });
+
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breatheScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const percentage = Math.round(progress * 100);
+
+  return (
+    <Animated.View style={[styles.container, containerStyle]}>
+      {/* Glow layer */}
+      {glow && (
+        <Animated.View
+          style={[
+            styles.glowLayer,
+            { width: size + 20, height: size + 20, borderRadius: (size + 20) / 2 },
+            glowStyle,
+          ]}
+        />
+      )}
+
+      <Svg width={size} height={size}>
+        <Defs>
+          <LinearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor={color} stopOpacity="1" />
+            <Stop offset="100%" stopColor={darkColors.primaryDark} stopOpacity="1" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Background circle */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={backgroundColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+
+        {/* Progress circle */}
+        <AnimatedCircle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke="url(#progressGradient)"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          animatedProps={animatedCircleProps}
+          rotation={-90}
+          origin={`${center}, ${center}`}
+        />
+      </Svg>
+
+      {/* Center content */}
+      <View style={[styles.centerContent, { width: size, height: size }]}>
+        {showPercentage && (
+          <Text allowFontScaling={false} style={styles.percentage}>
+            {percentage}%
+          </Text>
+        )}
+        {label && (
+          <Text allowFontScaling={false} style={styles.label}>
+            {label}
+          </Text>
+        )}
+        {sublabel && (
+          <Text allowFontScaling={false} style={styles.sublabel}>
+            {sublabel}
+          </Text>
+        )}
+      </View>
+    </Animated.View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glowLayer: {
+    position: "absolute",
+    backgroundColor: darkColors.primary,
+  },
+  centerContent: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  percentage: {
+    color: darkColors.text,
+    fontSize: 28,
+    fontFamily: theme.fonts.bodySemiBold,
+  },
+  label: {
+    color: darkColors.text,
+    fontSize: 14,
+    fontFamily: theme.fonts.bodyMedium,
+    marginTop: 2,
+  },
+  sublabel: {
+    color: darkColors.muted,
+    fontSize: 12,
+    fontFamily: theme.fonts.body,
+  },
+});
+
+export default AnimatedProgressRing;
