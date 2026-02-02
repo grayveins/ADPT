@@ -1,27 +1,41 @@
+/**
+ * Tab Layout
+ * 4-tab navigation: Home, Workout, Progress, Coach
+ * Light mode, iOS-native styling
+ */
+
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
-import { lightColors } from "@/src/theme";
+import { Platform, StyleSheet } from "react-native";
+import { useTheme } from "@/src/context/ThemeContext";
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 export default function TabLayout() {
+  const { colors, components, typography } = useTheme();
+  
+  // Tab bar configuration
+  const tabBarHeight = Platform.OS === "ios" ? 49 + 34 : 60; // iOS: 49 content + 34 safe area
+  const iconSize = 24;
+  
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: lightColors.bg,
-          borderTopColor: lightColors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 85 : 65,
-          paddingBottom: Platform.OS === "ios" ? 24 : 8,
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: tabBarHeight,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: lightColors.primary,
-        tabBarInactiveTintColor: lightColors.textMuted,
+        tabBarActiveTintColor: colors.tabBarActive,
+        tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: "Inter_500Medium",
+          fontSize: typography.sizes.caption2,
+          fontWeight: typography.weights.medium,
           marginTop: 2,
         },
       }}
@@ -30,8 +44,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -40,8 +58,12 @@ export default function TabLayout() {
         name="workout"
         options={{
           title: "Workout",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "barbell" : "barbell-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -50,18 +72,12 @@ export default function TabLayout() {
         name="progress"
         options={{
           title: "Progress",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up" size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="social"
-        options={{
-          title: "Social",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "stats-chart" : "stats-chart-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -70,9 +86,21 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: "Coach",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "chatbubble" : "chatbubble-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
+        }}
+      />
+
+      {/* Hide social tab from navigation but keep file for now */}
+      <Tabs.Screen
+        name="social"
+        options={{
+          href: null, // This hides it from the tab bar
         }}
       />
     </Tabs>
