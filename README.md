@@ -1,61 +1,50 @@
-<div align="center">
-  <h3 align="center">Coreva</h3>
+# Welcome to your Expo app 👋
 
-  <p align="center">
-    AI-powered fitness and nutrition platform built with a mobile-first, full-stack architecture.
-    <br />
-    <br />
-    <a href="#getting-started"><strong>Get Started »</strong></a>
-    &middot;
-    <a href="#roadmap">Roadmap</a>
-    &middot;
-    <a href="#contributing">Contributing</a>
-  </p>
-</div>
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
----
+## Get started
 
-## About The Project
+1. Install dependencies
 
-**Coreva** is a mobile-first AI fitness platform designed to combine workout tracking, meal logging, and adaptive coaching into a single, cohesive experience.
+   ```bash
+   npm install
+   ```
 
-The project focuses on:
-- Real user data persistence (workouts, meals, chat history)
-- Secure authentication and authorization
-- AI-assisted coaching via OpenAI
-- Scalable backend architecture suitable for production deployment
+2. Start the app
 
-This repository represents the active development of the Coreva MVP, built with a clear separation between frontend, backend, and AI services.
+   ```bash
+   npx expo start
+   ```
 
-### Built With
+In the output, you'll find options to open the app in a
 
-- **Frontend**
-  - React Native (Expo)
-  - TypeScript
-  - Expo Router
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-- **Backend**
-  - Fastify (Node.js)
-  - Supabase (PostgreSQL, Auth, Storage)
-  - Supabase Edge Functions
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-- **AI**
-  - OpenAI API (GPT-based coaching)
+## Get a fresh project
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+When you're ready, run:
 
----
+```bash
+npm run reset-project
+```
 
-## Getting Started
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-Follow these steps to run Coreva locally for development.
+## Learn more
 
-### Prerequisites
+To learn more about developing your project with Expo, look at the following resources:
 
-- Node.js (v18+ recommended)
-- npm
-- Expo CLI
-- Supabase account
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-```sh
-npm install -g expo-cli
+## Join the community
+
+Join our community of developers creating universal apps.
+
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
