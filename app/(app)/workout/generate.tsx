@@ -76,6 +76,10 @@ export default function GenerateProgramScreen() {
   const [experience, setExperience] = useState("intermediate");
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   
+  // User profile data (for equipment/limitations)
+  const [userEquipment, setUserEquipment] = useState<string[]>(["full_gym"]);
+  const [userLimitations, setUserLimitations] = useState<string[]>([]);
+  
   // Generation state
   const [loading, setLoading] = useState(false);
   const [program, setProgram] = useState<GeneratedProgram | null>(null);
@@ -109,8 +113,23 @@ export default function GenerateProgramScreen() {
           setDaysPerWeek(onboarding.workoutsPerWeek);
         }
         
-        if (onboarding.experience) {
-          setExperience(onboarding.experience);
+        if (onboarding.experienceLevel) {
+          setExperience(onboarding.experienceLevel);
+        }
+        
+        // Load equipment from onboarding data
+        if (onboarding.availableEquipment && onboarding.availableEquipment.length > 0) {
+          setUserEquipment(onboarding.availableEquipment);
+        } else if (onboarding.gymType) {
+          // Fall back to gym type if no specific equipment selected
+          setUserEquipment([onboarding.gymType]);
+        }
+        
+        // Load limitations from onboarding data
+        if (onboarding.limitations && onboarding.limitations.length > 0) {
+          // Filter out "none" if present
+          const limitations = onboarding.limitations.filter((l: string) => l !== "none");
+          setUserLimitations(limitations);
         }
       }
     };
@@ -129,8 +148,8 @@ export default function GenerateProgramScreen() {
           goal: goalOptions.find((g) => g.id === goal)?.label || goal,
           experience,
           workoutsPerWeek: daysPerWeek,
-          equipment: ["full gym"],
-          limitations: [],
+          equipment: userEquipment,
+          limitations: userLimitations,
           trainingStyle: goal === "get_stronger" ? "strength" : "hypertrophy",
         },
       });
