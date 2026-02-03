@@ -58,6 +58,8 @@ import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
 import { type BodyRegion } from "@/src/theme";
 import { recordCoachEvent } from "@/lib/coachContext";
 import { markCoachAsUnreadGlobal } from "@/src/hooks/useCoachUnread";
+import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
+import { invalidateAndNotify } from "@/lib/coachContextCache";
 
 // Types
 type SetData = {
@@ -283,6 +285,10 @@ export default function ActiveWorkoutScreen() {
   // Previous workout data for PREVIOUS column
   const exerciseNames = useMemo(() => workout.exercises.map(ex => ex.name), [workout.exercises]);
   const { getPreviousSet } = usePreviousWorkout(userId, exerciseNames);
+  
+  // Weekly summary for workouts count (add 1 for current workout being completed)
+  const { data: weeklySummary } = useWeeklySummary(userId);
+  const workoutsThisWeek = (weeklySummary?.workoutsCompleted || 0) + 1;
 
   // Get user ID
   useEffect(() => {
@@ -632,6 +638,12 @@ export default function ActiveWorkoutScreen() {
         
         // Store session ID for pain feedback
         sessionIdRef.current = sessionId;
+        
+        // Invalidate coach context cache so AI has fresh data
+        const invalidationReason = checkinData.feeling === "pain" 
+          ? "pain_reported" 
+          : "workout_complete";
+        await invalidateAndNotify(userId, invalidationReason);
         
         // Mark limitations as checked for this session
         if (painAreas.length > 0) {
@@ -1135,7 +1147,7 @@ export default function ActiveWorkoutScreen() {
           duration: formatTime(elapsedTime),
           exercises: workout.exercises.length,
           sets: progress.completedSets,
-          workoutsThisWeek: 3,
+          workoutsThisWeek: workoutsThisWeek,
         }}
         onContinue={handleFinish}
       />

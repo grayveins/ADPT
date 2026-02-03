@@ -61,6 +61,16 @@ export function useWeeklySummary(userId: string | null): UseWeeklySummaryReturn 
       const lastWeekStart = subWeeks(thisWeekStart, 1);
       const lastWeekEnd = subWeeks(thisWeekEnd, 1);
 
+      // Fetch user's workout target from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_data")
+        .eq("id", userId)
+        .single();
+      
+      const onboardingData = profile?.onboarding_data as Record<string, any> || {};
+      const workoutsTarget = onboardingData.workoutsPerWeek || 4;
+
       // Fetch sessions for this week and last week
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("workout_sessions")
@@ -166,7 +176,7 @@ export function useWeeklySummary(userId: string | null): UseWeeklySummaryReturn 
 
       setData({
         workoutsCompleted: thisWeekSessions.length,
-        workoutsTarget: 4, // TODO: Get from user settings
+        workoutsTarget: workoutsTarget,
         totalVolume: Math.round(thisWeekVolume),
         totalTimeMinutes: thisWeekTime,
         lastWeekWorkouts: lastWeekSessions.length,
