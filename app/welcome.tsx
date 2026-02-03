@@ -308,10 +308,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontSize: 16,
     },
     legalContainer: {
-      position: "absolute",
-      bottom: 24,
-      left: 24,
-      right: 24,
+      marginTop: 20,
+      paddingBottom: 16,
     },
     legal: {
       color: colors.inputPlaceholder,
