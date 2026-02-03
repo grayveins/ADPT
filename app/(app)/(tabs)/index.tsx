@@ -47,7 +47,8 @@ import { TabHeader } from "@/src/components/layout";
 import { ToastContainer } from "@/src/animations/celebrations";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { useStreak } from "@/src/hooks/useStreak";
-import { type ReadinessLevel, layout, spacing, shadows } from "@/src/theme";
+import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
+import { type ReadinessLevel, layout, spacing, shadows, bodyRegions } from "@/src/theme";
 import { PreWorkoutCheckin, type CheckinData } from "@/src/components/workout";
 
 type SessionRow = {
@@ -103,6 +104,10 @@ export default function HomeScreen() {
   
   // Streak data
   const { currentStreak, workedOutToday, refreshStreak } = useStreak(userId);
+
+  // Active limitations
+  const { limitations, getActiveLimitationAreas, markCheckedToday } = useActiveLimitations(userId);
+  const activeLimitationAreas = getActiveLimitationAreas();
 
   // Pre-workout check-in modal
   const [checkinOpen, setCheckinOpen] = useState(false);
@@ -321,6 +326,32 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
 
+        {/* Active Limitation Insight Card */}
+        {activeLimitationAreas.length > 0 && !workedOutToday && !isRestDay && (
+          <Animated.View 
+            entering={FadeInDown.delay(25).duration(400)}
+            style={[styles.limitationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <View style={styles.limitationHeader}>
+              <View style={[styles.limitationIcon, { backgroundColor: colors.primaryMuted }]}>
+                <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+              </View>
+              <Text allowFontScaling={false} style={[styles.limitationTitle, { color: colors.text }]}>
+                Training Around Your {activeLimitationAreas.map(area => bodyRegions[area].label).join(" & ")}
+              </Text>
+            </View>
+            <Text allowFontScaling={false} style={[styles.limitationBody, { color: colors.textSecondary }]}>
+              Today's workout has been adapted to avoid aggravation. Focus on controlled movement and proper form.
+            </Text>
+            <View style={styles.limitationFooter}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+              <Text allowFontScaling={false} style={[styles.limitationFooterText, { color: colors.textMuted }]}>
+                We'll check in after your workout
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+
         {/* Week Progress Bar */}
         <Animated.View 
           entering={FadeInDown.delay(50).duration(400)}
@@ -512,6 +543,47 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
+  },
+
+  // Limitation Card
+  limitationCard: {
+    borderRadius: 16,
+    padding: spacing.base,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+  },
+  limitationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  limitationIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  limitationTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  limitationBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  limitationFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  limitationFooterText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
 
   // Week Section

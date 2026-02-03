@@ -238,11 +238,41 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
               </View>
 
               {painAreas.length > 0 && (
-                <View style={[styles.painNote, { backgroundColor: colors.warningMuted }]}>
-                  <Ionicons name="information-circle" size={18} color={colors.warning} />
-                  <Text allowFontScaling={false} style={[styles.painNoteText, { color: colors.warning }]}>
-                    We'll suggest alternatives for exercises that stress these areas
+                <View style={[styles.adaptationCard, { backgroundColor: colors.primaryMuted }]}>
+                  <View style={styles.adaptationHeader}>
+                    <View style={[styles.adaptationIconContainer, { backgroundColor: colors.primary + "20" }]}>
+                      <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+                    </View>
+                    <Text allowFontScaling={false} style={[styles.adaptationTitle, { color: colors.text }]}>
+                      Adapting Your Workout
+                    </Text>
+                  </View>
+                  
+                  <Text allowFontScaling={false} style={[styles.adaptationBody, { color: colors.textSecondary }]}>
+                    We'll modify exercises to work around your {painAreas.map(area => bodyRegions[area].label.toLowerCase()).join(" and ")}. Your progress won't be affected — we're optimizing for long-term results.
                   </Text>
+
+                  <View style={styles.adaptationBullets}>
+                    <View style={styles.adaptationBullet}>
+                      <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                      <Text allowFontScaling={false} style={[styles.adaptationBulletText, { color: colors.textSecondary }]}>
+                        High-stress movements will be swapped for safer alternatives
+                      </Text>
+                    </View>
+                    <View style={styles.adaptationBullet}>
+                      <Ionicons name="analytics" size={14} color={colors.primary} />
+                      <Text allowFontScaling={false} style={[styles.adaptationBulletText, { color: colors.textSecondary }]}>
+                        We'll track how it feels and adjust future sessions
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.adaptationNote, { backgroundColor: colors.card }]}>
+                    <Ionicons name="bulb-outline" size={14} color={colors.textMuted} />
+                    <Text allowFontScaling={false} style={[styles.adaptationNoteText, { color: colors.textMuted }]}>
+                      Listen to your body. Skip any exercise that causes sharp pain.
+                    </Text>
+                  </View>
                 </View>
               )}
 
@@ -294,7 +324,7 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
                 ]}
               >
                 <Text allowFontScaling={false} style={[styles.primaryButtonText, { color: colors.textOnPrimary }]}>
-                  Start Workout
+                  {painAreas.length > 0 ? "Start Adapted Workout" : "Start Workout"}
                 </Text>
                 <Ionicons name="play" size={20} color={colors.textOnPrimary} />
               </Pressable>
@@ -404,17 +434,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_500Medium",
   },
-  painNote: {
+  // Adaptation Card (shown when pain areas selected)
+  adaptationCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  adaptationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  adaptationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adaptationTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  adaptationBody: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  adaptationBullets: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  adaptationBullet: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  adaptationBulletText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  adaptationNote: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: 10,
+    borderRadius: 8,
   },
-  painNoteText: {
+  adaptationNoteText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
   },
   summary: {

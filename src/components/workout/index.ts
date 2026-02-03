@@ -7,6 +7,7 @@ export { ExerciseCard } from "./ExerciseCard";
 export { RestTimer } from "./RestTimer";
 export { PreWorkoutCheckin, type CheckinData } from "./PreWorkoutCheckin";
 export { PostWorkoutCheckin, type PostWorkoutData } from "./PostWorkoutCheckin";
+export { PainFollowUpModal, type PainFeedback } from "./PainFollowUpModal";
 export { ExerciseInfo } from "./ExerciseInfo";
 
 // New premium components (Phase 2)

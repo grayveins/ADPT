@@ -27,10 +27,11 @@ import { format, parseISO, subDays, subMonths, startOfWeek, addDays, differenceI
 import Svg, { Circle, G, Text as SvgText } from "react-native-svg";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { layout, spacing, shadows } from "@/src/theme";
+import { layout, spacing, shadows, bodyRegions } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { useStreak } from "@/src/hooks/useStreak";
 import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
+import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
 import { WeeklyHeatmap, type LiftProgress } from "@/src/components/progress";
 import { defaultExercises } from "@/lib/exercises";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -74,6 +75,14 @@ export default function ProgressScreen() {
   
   // Weekly Summary (for insights and recovery)
   const { data: weeklySummary, loading: summaryLoading, refresh: refreshSummary } = useWeeklySummary(userId);
+  
+  // Active Limitations (for pain/injury tracking)
+  const { 
+    limitations, 
+    loading: limitationsLoading, 
+    resolveLimitation,
+    refresh: refreshLimitations 
+  } = useActiveLimitations(userId);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -179,6 +188,7 @@ export default function ProgressScreen() {
       
       refreshStreak();
       refreshSummary();
+      refreshLimitations();
       
     } catch (error) {
       console.error("Error fetching progress:", error);
@@ -186,7 +196,7 @@ export default function ProgressScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshStreak, refreshSummary]);
+  }, [refreshStreak, refreshSummary, refreshLimitations]);
   
   useEffect(() => {
     fetchData();
@@ -278,7 +288,7 @@ export default function ProgressScreen() {
     return { ready, moderate, rest };
   }, [weeklySummary]);
 
-  if (loading || streakLoading || summaryLoading) {
+  if (loading || streakLoading || summaryLoading || limitationsLoading) {
     return (
       <View style={[styles.safe, { backgroundColor: colors.bg }]}>
         <View style={styles.loadingContainer}>
@@ -403,6 +413,88 @@ export default function ProgressScreen() {
                   </Text>
                 </View>
               )}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Active Modifications Card - Pain/Injury Tracking */}
+        {limitations.length > 0 && (
+          <Animated.View 
+            entering={FadeInDown.delay(100).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <View style={styles.limitationsHeader}>
+              <View style={[styles.limitationsIcon, { backgroundColor: colors.gold + "20" }]}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.gold} />
+              </View>
+              <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
+                Active Modifications
+              </Text>
+            </View>
+            <Text allowFontScaling={false} style={[styles.limitationsSubtitle, { color: colors.textMuted }]}>
+              Your workouts are being adapted for these areas
+            </Text>
+            
+            <View style={styles.limitationsList}>
+              {limitations.map((limitation) => {
+                const daysSince = Math.floor(
+                  (new Date().getTime() - limitation.reportedAt.getTime()) / (1000 * 60 * 60 * 24)
+                );
+                const areaLabel = bodyRegions[limitation.area]?.label || limitation.area;
+                
+                return (
+                  <View 
+                    key={limitation.id} 
+                    style={[styles.limitationItem, { borderColor: colors.border }]}
+                  >
+                    <View style={styles.limitationInfo}>
+                      <Text allowFontScaling={false} style={[styles.limitationArea, { color: colors.text }]}>
+                        {areaLabel}
+                      </Text>
+                      <View style={styles.limitationMeta}>
+                        <Text allowFontScaling={false} style={[styles.limitationMetaText, { color: colors.textMuted }]}>
+                          {daysSince === 0 ? "Today" : daysSince === 1 ? "1 day" : `${daysSince} days`}
+                        </Text>
+                        <View style={[styles.limitationDot, { backgroundColor: colors.textMuted }]} />
+                        <Text allowFontScaling={false} style={[styles.limitationMetaText, { color: colors.textMuted }]}>
+                          {limitation.workoutsModified} workout{limitation.workoutsModified !== 1 ? "s" : ""} modified
+                        </Text>
+                      </View>
+                      {limitation.status === "monitoring" && (
+                        <View style={[styles.monitoringBadge, { backgroundColor: colors.success + "20" }]}>
+                          <Text allowFontScaling={false} style={[styles.monitoringText, { color: colors.success }]}>
+                            Improving
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        hapticPress();
+                        resolveLimitation(limitation.id);
+                      }}
+                      style={({ pressed }) => [
+                        styles.resolveButton,
+                        { backgroundColor: colors.success + "15" },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
+                      <Text allowFontScaling={false} style={[styles.resolveText, { color: colors.success }]}>
+                        Resolved
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+            
+            {/* Medical Disclaimer */}
+            <View style={[styles.disclaimer, { backgroundColor: colors.bg }]}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+              <Text allowFontScaling={false} style={[styles.disclaimerText, { color: colors.textMuted }]}>
+                If pain persists beyond 2 weeks, consult a healthcare professional
+              </Text>
             </View>
           </Animated.View>
         )}
@@ -934,5 +1026,94 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 20,
+  },
+  
+  // Active Modifications / Limitations
+  limitationsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  limitationsIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  limitationsSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginBottom: spacing.base,
+  },
+  limitationsList: {
+    gap: spacing.md,
+  },
+  limitationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  limitationInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  limitationArea: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  limitationMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  limitationMetaText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  limitationDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+  },
+  monitoringBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: spacing.xs,
+  },
+  monitoringText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  resolveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  resolveText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  disclaimer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    marginTop: spacing.base,
+    padding: spacing.md,
+    borderRadius: 8,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
   },
 });
