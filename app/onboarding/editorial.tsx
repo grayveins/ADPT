@@ -19,7 +19,7 @@ export default function EditorialOnboardingRoute() {
   if (!loaded) return null;
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="Onboarding" component={Onboarding} />
     </Stack.Navigator>
   );
