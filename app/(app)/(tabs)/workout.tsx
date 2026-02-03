@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -50,6 +51,7 @@ export default function WorkoutScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [showNewWorkoutSheet, setShowNewWorkoutSheet] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
   const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -381,93 +383,171 @@ export default function WorkoutScreen() {
           </View>
         </Animated.View>
 
-        {/* Quick Actions */}
+        {/* New Workout Card */}
         <Animated.View 
           entering={FadeInDown.delay(150).duration(300)}
           style={styles.section}
         >
-          <View style={styles.quickActionsGrid}>
+          <Pressable
+            onPress={() => {
+              hapticPress();
+              setShowNewWorkoutSheet(true);
+            }}
+            style={({ pressed }) => [
+              styles.newWorkoutCard,
+              { backgroundColor: colors.card },
+              pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+            ]}
+          >
+            <View style={[styles.newWorkoutIcon, { backgroundColor: colors.primaryMuted }]}>
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </View>
+            <View style={styles.newWorkoutInfo}>
+              <Text allowFontScaling={false} style={[styles.newWorkoutTitle, { color: colors.text }]}>
+                New Workout
+              </Text>
+              <Text allowFontScaling={false} style={[styles.newWorkoutSubtitle, { color: colors.textMuted }]}>
+                Build custom or let AI generate
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </Pressable>
+
+          {/* Secondary Links */}
+          <View style={styles.secondaryLinks}>
             <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
               onPress={() => {
                 hapticPress();
                 router.push("/(app)/workout/programs");
               }}
+              hitSlop={8}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="bookmark" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
+              <Text allowFontScaling={false} style={[styles.secondaryLinkText, { color: colors.textMuted }]}>
                 My Programs
               </Text>
             </Pressable>
-            
+            <Text allowFontScaling={false} style={[styles.linkDot, { color: colors.border }]}>
+              ·
+            </Text>
             <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/generate");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="sparkles" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                AI Program
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/exercises");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="list" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                Exercises
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
               onPress={() => {
                 hapticPress();
                 router.push("/(app)/workout/history");
               }}
+              hitSlop={8}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="time" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
+              <Text allowFontScaling={false} style={[styles.secondaryLinkText, { color: colors.textMuted }]}>
                 History
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                // Start a new blank workout
-                router.push({
-                  pathname: "/(app)/workout/active",
-                  params: { type: "Custom", name: "Custom Workout" }
-                });
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="add" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                Quick Start
               </Text>
             </Pressable>
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* New Workout Bottom Sheet */}
+      <Modal
+        visible={showNewWorkoutSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowNewWorkoutSheet(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable 
+            style={styles.sheetBackdropPress} 
+            onPress={() => setShowNewWorkoutSheet(false)} 
+          />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <Text allowFontScaling={false} style={[styles.sheetTitle, { color: colors.text }]}>
+              New Workout
+            </Text>
+
+            {/* AI Generate Option */}
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                setShowNewWorkoutSheet(false);
+                router.push("/(app)/workout/generate");
+              }}
+              style={({ pressed }) => [
+                styles.sheetOption,
+                { backgroundColor: colors.cardAlt },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: colors.primaryMuted }]}>
+                <Ionicons name="sparkles" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.sheetOptionContent}>
+                <Text allowFontScaling={false} style={[styles.sheetOptionTitle, { color: colors.text }]}>
+                  AI Generate
+                </Text>
+                <Text allowFontScaling={false} style={[styles.sheetOptionDesc, { color: colors.textMuted }]}>
+                  Describe what you want, AI builds it
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            {/* Build Manually Option */}
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                setShowNewWorkoutSheet(false);
+                router.push("/(app)/workout/exercises");
+              }}
+              style={({ pressed }) => [
+                styles.sheetOption,
+                { backgroundColor: colors.cardAlt },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: colors.selected }]}>
+                <Ionicons name="list" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.sheetOptionContent}>
+                <Text allowFontScaling={false} style={[styles.sheetOptionTitle, { color: colors.text }]}>
+                  Build Manually
+                </Text>
+                <Text allowFontScaling={false} style={[styles.sheetOptionDesc, { color: colors.textMuted }]}>
+                  Pick exercises from the library
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
+            {/* Start Empty Option */}
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                setShowNewWorkoutSheet(false);
+                router.push({
+                  pathname: "/(app)/workout/active",
+                  params: { type: "Custom", name: "Custom Workout" }
+                });
+              }}
+              style={({ pressed }) => [
+                styles.sheetOption,
+                { backgroundColor: colors.cardAlt },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: colors.selected }]}>
+                <Ionicons name="flash" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.sheetOptionContent}>
+                <Text allowFontScaling={false} style={[styles.sheetOptionTitle, { color: colors.text }]}>
+                  Start Empty
+                </Text>
+                <Text allowFontScaling={false} style={[styles.sheetOptionDesc, { color: colors.textMuted }]}>
+                  Add exercises as you go
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <ToastContainer />
     </View>
@@ -689,29 +769,101 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Quick Actions
-  quickActionsGrid: {
+  // New Workout Card
+  newWorkoutCard: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: layout.cardGap,
-  },
-  quickAction: {
-    width: "47%",
-    borderRadius: 12,
-    padding: spacing.base,
     alignItems: "center",
-    gap: spacing.sm,
+    borderRadius: 16,
+    padding: spacing.base,
+    gap: spacing.md,
   },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  newWorkoutIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  quickActionText: {
-    fontSize: 12,
+  newWorkoutInfo: {
+    flex: 1,
+  },
+  newWorkoutTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  newWorkoutSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  // Secondary Links
+  secondaryLinks: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  secondaryLinkText: {
+    fontSize: 14,
     fontFamily: "Inter_500Medium",
-    textAlign: "center",
+  },
+  linkDot: {
+    fontSize: 14,
+  },
+  // Bottom Sheet
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  sheetBackdropPress: {
+    flex: 1,
+  },
+  sheetContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 40,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: spacing.lg,
+  },
+  sheetOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    padding: spacing.base,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  sheetOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetOptionContent: {
+    flex: 1,
+  },
+  sheetOptionTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+  },
+  sheetOptionDesc: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
 });
