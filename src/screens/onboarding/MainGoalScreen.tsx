@@ -3,11 +3,12 @@
  * Primary fitness goal selection with animations
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -24,26 +25,28 @@ const goals = [
     icon: "barbell",
   },
   {
-    value: "lose_weight",
-    label: "Lose Weight",
+    value: "lose_fat",
+    label: "Lose Fat",
     description: "Burn fat and slim down",
     icon: "flame",
   },
   {
-    value: "get_toned",
-    label: "Get Toned",
-    description: "Lean and defined physique",
-    icon: "body",
+    value: "get_stronger",
+    label: "Get Stronger",
+    description: "Build serious strength",
+    icon: "fitness",
   },
   {
-    value: "endurance",
-    label: "Build Endurance",
-    description: "Stamina and cardiovascular",
+    value: "general_fitness",
+    label: "General Fitness",
+    description: "Overall health and wellness",
     icon: "heart",
   },
 ] as const;
 
 export default function MainGoalScreen({ onNext }: MainGoalScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   const selected = form.goal;
 
@@ -90,7 +93,7 @@ export default function MainGoalScreen({ onNext }: MainGoalScreenProps) {
                   <Ionicons 
                     name={goal.icon as any} 
                     size={28} 
-                    color={isSelected ? "#000" : darkColors.primary} 
+                    color={isSelected ? colors.textOnPrimary : colors.primary} 
                   />
                 </View>
                 <Text allowFontScaling={false} style={[
@@ -104,7 +107,7 @@ export default function MainGoalScreen({ onNext }: MainGoalScreenProps) {
                 </Text>
                 {isSelected && (
                   <View style={styles.checkmark}>
-                    <Ionicons name="checkmark-circle" size={20} color={darkColors.primary} />
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                   </View>
                 )}
               </Pressable>
@@ -127,87 +130,88 @@ export default function MainGoalScreen({ onNext }: MainGoalScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  cardWrap: {
-    width: "48%",
-  },
-  card: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 2,
-    borderColor: "transparent",
-    minHeight: 140,
-    position: "relative",
-  },
-  cardSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  cardPressed: {
-    opacity: 0.9,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconSelected: {
-    backgroundColor: darkColors.primary,
-  },
-  cardLabel: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-    textAlign: "center",
-  },
-  cardLabelSelected: {
-    color: darkColors.primary,
-  },
-  cardDescription: {
-    color: darkColors.muted,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-  },
-  checkmark: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    grid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    cardWrap: {
+      width: "48%",
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      alignItems: "center",
+      gap: 10,
+      borderWidth: 2,
+      borderColor: "transparent",
+      minHeight: 140,
+      position: "relative",
+    },
+    cardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    cardPressed: {
+      opacity: 0.9,
+    },
+    iconContainer: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconSelected: {
+      backgroundColor: colors.primary,
+    },
+    cardLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+      textAlign: "center",
+    },
+    cardLabelSelected: {
+      color: colors.primary,
+    },
+    cardDescription: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+      textAlign: "center",
+    },
+    checkmark: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

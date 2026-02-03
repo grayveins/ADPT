@@ -1,13 +1,13 @@
 import { Platform } from "react-native";
 
 /**
- * ADPT Color System - Warm Coral Theme
+ * ADPT Color System v3 - Teal/Cyan Theme
  * 
- * Design Philosophy: "Premium but Approachable"
- * - Warm, welcoming colors (not cold/sporty)
- * - Light mode default (less intimidating for beginners)
- * - Coral primary (#FF7A5C) for energy without aggression
- * - Sage green (#6B8E6B) for success/completed states
+ * Design Philosophy: "PT in Your Pocket"
+ * - Dark mode default (gym-readable, professional)
+ * - Teal/Cyan primary for trust + energy
+ * - Sage green for success/completed states
+ * - Gender-neutral, scientific, minimal
  * 
  * This file provides the legacy Colors API for backward compatibility.
  * New code should import from src/theme.ts directly.
@@ -16,51 +16,57 @@ import { Platform } from "react-native";
 export const Colors = {
   light: {
     // Text
-    text: "#1C1917",           // Warm black - primary text
+    text: "#171717",           // Primary text
     // Backgrounds
-    background: "#FDFCFB",     // Warm white - primary background
-    // Primary accent - Warm Coral
-    tint: "#FF7A5C",           // Primary actions, CTAs
+    background: "#FAFAFA",     // Clean white
+    // Primary accent - Teal (darker for light mode)
+    tint: "#00A89A",           // Primary actions, CTAs
     // Icons & muted elements
-    icon: "#78716C",           // Warm gray icons
+    icon: "#A3A3A3",           // Neutral gray icons
     // Cards & surfaces
     card: "#FFFFFF",           // Pure white cards
-    surface: "#F8F6F3",        // Cream secondary background
+    surface: "#F5F5F5",        // Secondary background
     // Borders
-    border: "#E8E4DF",         // Subtle warm border
+    border: "#E5E5E5",         // Subtle border
     // Muted text
-    muted: "#78716C",          // Secondary text
+    muted: "#525252",          // Secondary text
     // Accent variants
-    accentMuted: "rgba(255, 122, 92, 0.10)", // Coral at 10%
+    accentMuted: "rgba(0, 168, 154, 0.12)", // Teal at 12%
     accentText: "#FFFFFF",     // Text on primary
     // Semantic colors
-    error: "#EF4444",          // Red for errors
+    error: "#DC2626",          // Red for errors
     success: "#6B8E6B",        // Sage green for success
-    warning: "#EAB308",        // Yellow for warnings
+    warning: "#D97706",        // Orange for warnings
+    // Additional semantic
+    intensity: "#E85A2C",      // Rest timer, urgency
+    gold: "#D4A800",           // PRs, achievements
   },
   dark: {
     // Text
-    text: "#F5F4F2",           // Off-white - primary text
+    text: "#F5F5F5",           // Primary text
     // Backgrounds
-    background: "#121110",     // Warm black
-    // Primary accent - Lighter coral for contrast
-    tint: "#FF8B70",           // Primary actions
+    background: "#0A0A0A",     // Near-black
+    // Primary accent - Teal (brighter for dark mode)
+    tint: "#00C9B7",           // Primary actions
     // Icons
-    icon: "#A09A94",           // Warm gray icons
+    icon: "#737373",           // Neutral gray icons
     // Cards & surfaces
-    card: "#1E1C1A",           // Warm dark card
-    surface: "#1C1A18",        // Secondary background
+    card: "#1C1C1C",           // Dark card
+    surface: "#141414",        // Secondary background
     // Borders
-    border: "#2E2A26",         // Warm dark border
+    border: "#2A2A2A",         // Dark border
     // Muted text
-    muted: "#A09A94",          // Secondary text
+    muted: "#A3A3A3",          // Secondary text
     // Accent variants
-    accentMuted: "rgba(255, 139, 112, 0.12)", // Coral at 12%
-    accentText: "#F5F4F2",     // Text on dark
+    accentMuted: "rgba(0, 201, 183, 0.15)", // Teal at 15%
+    accentText: "#0A0A0A",     // Dark text on teal
     // Semantic colors
     error: "#F87171",          // Lighter red for dark mode
     success: "#7FA07F",        // Lighter sage for dark mode
-    warning: "#FACC15",        // Brighter yellow for dark mode
+    warning: "#FBBF24",        // Brighter yellow for dark mode
+    // Additional semantic
+    intensity: "#FF6B35",      // Rest timer, urgency
+    gold: "#FFD700",           // PRs, achievements
   },
 };
 
@@ -78,13 +84,16 @@ export type AppColors = {
   success: string;
   warning: string;
   error: string;
-  // New extended colors for Warm Coral theme
+  // Extended colors
   primary: string;
   primaryMuted: string;
   bgSecondary: string;
   bgTertiary: string;
   selectedBg: string;
   pressedBg: string;
+  // Semantic accents
+  intensity: string;
+  gold: string;
 };
 
 export const createAppColors = (scheme: "light" | "dark"): AppColors => {
@@ -108,16 +117,19 @@ export const createAppColors = (scheme: "light" | "dark"): AppColors => {
     error: palette.error,
     // Extended colors
     primary: palette.tint,
-    primaryMuted: isLight ? "#FFEBE5" : "rgba(255, 139, 112, 0.15)",
+    primaryMuted: isLight ? "rgba(0, 168, 154, 0.12)" : "rgba(0, 201, 183, 0.15)",
     bgSecondary: palette.surface,
-    bgTertiary: isLight ? "#F0EDEA" : "#262320",
-    selectedBg: isLight ? "rgba(255, 122, 92, 0.10)" : "rgba(255, 139, 112, 0.12)",
-    pressedBg: isLight ? "rgba(255, 122, 92, 0.15)" : "rgba(255, 139, 112, 0.18)",
+    bgTertiary: isLight ? "#EFEFEF" : "#1C1C1C",
+    selectedBg: isLight ? "rgba(0, 168, 154, 0.10)" : "rgba(0, 201, 183, 0.12)",
+    pressedBg: isLight ? "rgba(0, 168, 154, 0.15)" : "rgba(0, 201, 183, 0.18)",
+    // Semantic accents
+    intensity: palette.intensity,
+    gold: palette.gold,
   };
 };
 
-// Default to light mode (approachable for beginners)
-export const colors = createAppColors("light");
+// Default to dark mode (gym-readable, professional)
+export const colors = createAppColors("dark");
 
 export const spacing = {
   xs: 4,
@@ -152,19 +164,19 @@ export const opacity = {
 };
 
 export const shadows = {
-  // Card shadow - warm tint
+  // Card shadow
   card: {
-    shadowColor: "#1C1917",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 3,
   },
   // Neumorphic dark shadow
   neuDark: {
-    shadowColor: "#1C1917",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 4,
   },
@@ -177,35 +189,66 @@ export const shadows = {
   },
   // FAB / floating button shadow
   fab: {
-    shadowColor: "#1C1917",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.20,
     shadowRadius: 20,
     elevation: 8,
   },
   // Subtle shadow for small elements
   subtle: {
-    shadowColor: "#1C1917",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 1,
   },
 };
 
 /**
- * Effort Scale - Emoji-based RIR input
- * Used in workout logging for user-friendly intensity tracking
+ * Effort Scale - 5 levels with filled circles (RIR-based)
+ * Used in workout logging for intensity tracking
  */
 export const effortScale = {
-  easy: { emoji: "😊", label: "Easy", rir: "4+", description: "Could do 4+ more" },
-  good: { emoji: "😐", label: "Good", rir: "2-3", description: "Could do 2-3 more" },
-  hard: { emoji: "😤", label: "Hard", rir: "1", description: "Could do 1 more" },
-  max: { emoji: "🔥", label: "Max", rir: "0", description: "Couldn't do more" },
+  easy: {
+    indicator: "○○○○○",
+    level: 1,
+    label: "Easy",
+    rir: "4+",
+    description: "Could do 4+ more",
+  },
+  moderate: {
+    indicator: "●○○○○",
+    level: 2,
+    label: "Moderate",
+    rir: "3",
+    description: "Could do 3 more",
+  },
+  hard: {
+    indicator: "●●○○○",
+    level: 3,
+    label: "Hard",
+    rir: "2",
+    description: "Could do 2 more",
+  },
+  veryHard: {
+    indicator: "●●●○○",
+    level: 4,
+    label: "Very Hard",
+    rir: "1",
+    description: "Could do 1 more",
+  },
+  failure: {
+    indicator: "●●●●●",
+    level: 5,
+    label: "Failure",
+    rir: "0",
+    description: "Couldn't do another",
+  },
 } as const;
 
 /**
- * Feeling Scale - Daily readiness check
+ * Feeling Scale - Daily readiness check (keep emojis)
  * Used on Today's Workout screen to adjust weights
  */
 export const feelingScale = {

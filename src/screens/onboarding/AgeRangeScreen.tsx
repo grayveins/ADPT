@@ -3,10 +3,11 @@
  * Age bracket selection
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -24,6 +25,8 @@ const ageRanges = [
 ] as const;
 
 export default function AgeRangeScreen({ onNext }: AgeRangeScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   const selected = form.ageRange;
 
@@ -85,56 +88,57 @@ export default function AgeRangeScreen({ onNext }: AgeRangeScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  options: {
-    gap: 10,
-  },
-  option: {
-    backgroundColor: darkColors.card,
-    borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  optionSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  optionPressed: {
-    opacity: 0.9,
-  },
-  optionLabel: {
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-    textAlign: "center",
-  },
-  optionLabelSelected: {
-    color: darkColors.primary,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    options: {
+      gap: 10,
+    },
+    option: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      paddingVertical: 18,
+      paddingHorizontal: 20,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    optionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    optionPressed: {
+      opacity: 0.9,
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 18,
+      fontFamily: theme.fonts.bodySemiBold,
+      textAlign: "center",
+    },
+    optionLabelSelected: {
+      color: colors.primary,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

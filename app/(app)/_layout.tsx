@@ -5,43 +5,50 @@ import {
   View,
   TouchableOpacity,
   Text,
-  Platform,
+  Alert,
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, router } from "expo-router";
+import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
-import { darkColors } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { spacing } from "@/src/theme";
+import Constants from "expo-constants";
 
-function CustomHeader() {
-  const navigation = useNavigation();
+// Menu item component
+type MenuItemProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  color?: string;
+};
 
+function MenuItem({ icon, label, onPress, color }: MenuItemProps) {
+  const { colors } = useTheme();
+  const textColor = color ?? colors.text;
+  
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.headerRow}>
-        {/* Menu Button */}
-        <TouchableOpacity
-          onPress={() => navigation.dispatch({ type: "OPEN_DRAWER" })}
-        >
-          <Ionicons name="menu" size={24} color={darkColors.text} />
-        </TouchableOpacity>
-
-        {/* Title */}
-        <Text style={styles.headerTitle}>ADPT</Text>
-
-        {/* Spacer to balance layout */}
-        <View style={styles.headerSpacer} />
-      </View>
-    </SafeAreaView>
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.menuItem}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={icon} size={22} color={textColor} />
+      <Text style={[styles.menuItemText, { color: textColor }]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 function CustomDrawerContent(props: any) {
+  const { colors } = useTheme();
   const [profileName, setProfileName] = useState<string>("User");
   const [email, setEmail] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  // Get app version
+  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -70,10 +77,33 @@ function CustomDrawerContent(props: any) {
     fetchUserData();
   }, []);
 
+  const closeDrawer = () => props.navigation.closeDrawer?.();
+
+  const onSettings = () => {
+    closeDrawer();
+    router.push("/settings");
+  };
+
+  const onHelp = () => {
+    Alert.alert(
+      "Help & Support",
+      "Need help? Email us at support@adpt.fit\n\nWe typically respond within 24 hours.",
+      [{ text: "OK" }]
+    );
+  };
+
+  const onTerms = () => {
+    Alert.alert(
+      "Terms & Privacy",
+      "By using ADPT, you agree to our Terms of Service and Privacy Policy.\n\nFor full details, visit adpt.fit/legal",
+      [{ text: "OK" }]
+    );
+  };
+
   const onSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      props.navigation.closeDrawer?.();
+      closeDrawer();
       router.replace("/sign-in");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -82,47 +112,64 @@ function CustomDrawerContent(props: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.drawerSafe}>
+      <SafeAreaView style={[styles.drawerSafe, { backgroundColor: colors.bg }]}>
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={darkColors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.drawerSafe}>
-      <View style={styles.profileCard}>
+    <SafeAreaView style={[styles.drawerSafe, { backgroundColor: colors.bg }]}>
+      {/* Profile Section */}
+      <View style={[styles.profileCard, { borderBottomColor: colors.border }]}>
         <View style={styles.avatarWrap}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
+          <View style={[styles.avatar, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+            <Text style={[styles.avatarText, { color: colors.primary }]}>
               {profileName.charAt(0).toUpperCase()}
             </Text>
           </View>
         </View>
-        <Text style={styles.profileName}>{profileName}</Text>
-        <Text style={styles.profileEmail}>{email}</Text>
+        <Text style={[styles.profileName, { color: colors.text }]}>{profileName}</Text>
+        <Text style={[styles.profileEmail, { color: colors.textMuted }]}>{email}</Text>
+      </View>
 
-        <TouchableOpacity onPress={onSignOut} style={styles.signOutButton}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+      {/* Menu Items */}
+      <View style={styles.menuSection}>
+        <MenuItem icon="settings-outline" label="Settings" onPress={onSettings} />
+        <MenuItem icon="help-circle-outline" label="Help & Support" onPress={onHelp} />
+        <MenuItem icon="document-text-outline" label="Terms & Privacy" onPress={onTerms} />
+      </View>
+
+      {/* Bottom Section */}
+      <View style={styles.bottomSection}>
+        <MenuItem icon="log-out-outline" label="Sign Out" onPress={onSignOut} color={colors.error} />
+        
+        {/* App Version */}
+        <Text style={[styles.versionText, { color: colors.textMuted }]}>
+          ADPT v{appVersion}
+        </Text>
       </View>
     </SafeAreaView>
   );
 }
 
 export default function AuthenticatedLayout() {
+  const { colors } = useTheme();
+
   return (
-    <View style={{ flex: 1, backgroundColor: darkColors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Drawer
         screenOptions={{
-          header: () => <CustomHeader />,
+          headerShown: false,
+          drawerPosition: "right",
           drawerStyle: {
-            backgroundColor: darkColors.bg,
+            backgroundColor: colors.bg,
             width: 280,
           },
-          drawerActiveTintColor: darkColors.primary,
-          drawerInactiveTintColor: darkColors.muted,
+          drawerActiveTintColor: colors.primary,
+          drawerInactiveTintColor: colors.textMuted,
         }}
         drawerContent={(props) => <CustomDrawerContent {...props} />}
       >
@@ -138,29 +185,8 @@ export default function AuthenticatedLayout() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    backgroundColor: darkColors.bg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: darkColors.bg,
-    paddingTop: Platform.OS === "ios" ? 0 : 12,
-  },
-  headerTitle: {
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
-  headerSpacer: {
-    width: 24,
-  },
   drawerSafe: {
     flex: 1,
-    backgroundColor: darkColors.bg,
   },
   loading: {
     flex: 1,
@@ -168,52 +194,62 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   profileCard: {
-    padding: 24,
+    padding: spacing.xl,
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: darkColors.border,
   },
   avatarWrap: {
-    marginBottom: 16,
+    marginBottom: spacing.base,
   },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: darkColors.card,
     borderWidth: 2,
-    borderColor: darkColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: darkColors.primary,
     fontSize: 24,
     fontFamily: "Inter_600SemiBold",
   },
   profileName: {
-    color: darkColors.text,
     fontSize: 18,
     fontFamily: "Inter_600SemiBold",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   profileEmail: {
-    color: darkColors.muted,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-    marginBottom: 20,
   },
-  signOutButton: {
-    borderWidth: 1,
-    borderColor: darkColors.border,
+  menuSection: {
+    flex: 1,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.base,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.md,
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: darkColors.card,
+    gap: spacing.md,
   },
-  signOutText: {
-    color: darkColors.text,
-    fontSize: 14,
+  menuItemText: {
+    fontSize: 16,
     fontFamily: "Inter_500Medium",
+  },
+  bottomSection: {
+    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#333",
+    paddingTop: spacing.base,
+  },
+  versionText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: spacing.lg,
   },
 });

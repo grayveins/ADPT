@@ -1,25 +1,26 @@
 /**
- * Dashboard
- * Cal AI style home screen - clean, focused, minimal
- * MTWTFS week row at top, hero rings, today's workout CTA
+ * Home Screen - "PT in Your Pocket"
+ * 
+ * Design Philosophy:
+ * - 80% focus on today's workout
+ * - Coach greeting (time-based, personalized)
+ * - Minimal metrics, maximum action
+ * - Pre-workout feeling check-in
  */
 
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { router } from "expo-router";
 import { useFonts } from "expo-font";
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
-import { SafeAreaView } from "react-native-safe-area-context";
+
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -31,7 +32,7 @@ import {
   startOfWeek,
 } from "date-fns";
 
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import {
   generateWeeklyPlan,
@@ -41,10 +42,12 @@ import {
 
 // Components
 import { CalWeekRow } from "@/src/components/dashboard/CalWeekRow";
-import { StreakBadge, HeroRings } from "@/src/components/dashboard";
-import { AnimatedButton } from "@/src/animations/components";
-import { ToastContainer, showToast } from "@/src/animations/celebrations";
+import { TabHeader } from "@/src/components/layout";
+import { ToastContainer } from "@/src/animations/celebrations";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { useStreak } from "@/src/hooks/useStreak";
+import { type ReadinessLevel, layout, spacing, shadows } from "@/src/theme";
+import { PreWorkoutCheckin, type CheckinData } from "@/src/components/workout";
 
 type SessionRow = {
   id: string;
@@ -53,16 +56,39 @@ type SessionRow = {
   ended_at: string | null;
 };
 
-const logTypeOptions = [
-  "Full Body",
-  "Upper Body",
-  "Lower Body",
-  "Push",
-  "Pull",
-  "Legs",
-];
+// Time-based greeting
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+};
 
-export default function DashboardScreen() {
+// Coach message based on context
+const getCoachMessage = (
+  workedOutToday: boolean,
+  lastSessionDaysAgo: number | null,
+  currentStreak: number,
+  isRestDay: boolean
+): string => {
+  if (workedOutToday) {
+    return "Great work today! Rest up and recover.";
+  }
+  if (isRestDay) {
+    return "Rest day. Light movement or stretching is perfect.";
+  }
+  if (lastSessionDaysAgo === null || lastSessionDaysAgo >= 3) {
+    return "Ready to get back at it? Your body is ready.";
+  }
+  if (currentStreak >= 3) {
+    return `${currentStreak} day streak! Let's keep the momentum.`;
+  }
+  return "Your workout is ready. Let's make it count.";
+};
+
+export default function HomeScreen() {
+  const { colors, radius } = useTheme();
+  
   const [loaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -73,12 +99,12 @@ export default function DashboardScreen() {
   const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [streak, setStreak] = useState(0);
+  
+  // Streak data
+  const { currentStreak, workedOutToday, refreshStreak } = useStreak(userId);
 
-  const [logOpen, setLogOpen] = useState(false);
-  const [logType, setLogType] = useState("");
-  const [logDuration, setLogDuration] = useState("");
-  const [logSaving, setLogSaving] = useState(false);
+  // Pre-workout check-in modal
+  const [checkinOpen, setCheckinOpen] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
 
@@ -87,9 +113,7 @@ export default function DashboardScreen() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
           router.replace("/sign-in");
@@ -126,7 +150,7 @@ export default function DashboardScreen() {
 
         const weekStartIso = weekStart.toISOString();
         const weekEndIso = addDays(weekStart, 7).toISOString();
-        const { data: sessionRows, error: sessionError } = await supabase
+        const { data: sessionRows } = await supabase
           .from("workout_sessions")
           .select("id, title, started_at, ended_at")
           .eq("user_id", user.id)
@@ -134,14 +158,8 @@ export default function DashboardScreen() {
           .lt("started_at", weekEndIso)
           .order("started_at", { ascending: false });
 
-        if (sessionError) {
-          console.error(sessionError);
-        }
-
         setSessions((sessionRows ?? []) as SessionRow[]);
-        
-        // Calculate streak
-        setStreak(Math.min(sessionRows?.length ?? 0, 12));
+        refreshStreak();
       } catch (error) {
         console.error(error);
       } finally {
@@ -191,7 +209,7 @@ export default function DashboardScreen() {
   const target = preferences?.workoutsPerWeek ?? 3;
   const completed = sessionsByDate.size;
 
-  // Calculate week view data for Cal AI style row
+  // Week view data
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }).map((_, index) => {
       const date = addDays(weekStart, index);
@@ -208,333 +226,253 @@ export default function DashboardScreen() {
     });
   }, [weekStart, sessionsByDate, todayKey, planByDate]);
 
-  const openLogModal = () => {
-    hapticPress();
-    const defaultType = todayWorkout?.type ?? "Full Body";
-    const defaultDuration = todayWorkout?.durationMinutes ?? 45;
-    setLogType(defaultType);
-    setLogDuration(String(defaultDuration));
-    setLogOpen(true);
-  };
-
-  const saveQuickLog = async () => {
-    if (!userId) return;
-    const duration = Number(logDuration);
-    if (!logType) {
-      Alert.alert("Select a workout type", "Pick a workout style to log.");
-      return;
-    }
-    if (Number.isNaN(duration) || duration < 10 || duration > 120) {
-      Alert.alert("Add a duration", "Enter a time between 10 and 120 minutes.");
-      return;
-    }
-
-    setLogSaving(true);
-    const now = new Date().toISOString();
-    const title = `${logType} - ${Math.min(120, duration)} min`;
-
-    const { data, error } = await supabase
-      .from("workout_sessions")
-      .insert({
-        user_id: userId,
-        started_at: now,
-        ended_at: now,
-        title,
-      })
-      .select("id, title, started_at, ended_at")
-      .single();
-
-    if (error) {
-      Alert.alert("Couldn't save", "Try again in a moment.");
-      setLogSaving(false);
-      return;
-    }
-
-    if (data) {
-      setSessions((prev) => [data as SessionRow, ...prev]);
-      showToast({ type: "setComplete" });
-    }
-
-    setLogSaving(false);
-    setLogOpen(false);
-  };
-
-  const startTodaysWorkout = () => {
+  const openCheckin = () => {
     hapticPress();
     if (todayWorkout && !todayWorkout.isRest) {
-      router.push({
-        pathname: "/(app)/workout/active",
-        params: { type: todayWorkout.type, name: todayWorkout.type }
-      });
+      setCheckinOpen(true);
     } else {
-      // Navigate to workout tab if no planned workout
       router.push("/(app)/(tabs)/workout");
     }
   };
+
+  const handleCheckinComplete = (data: CheckinData) => {
+    setCheckinOpen(false);
+    if (todayWorkout) {
+      router.push({
+        pathname: "/(app)/workout/active",
+        params: { 
+          type: todayWorkout.type, 
+          name: todayWorkout.type,
+          readiness: data.readiness,
+          adjustmentPercent: String(data.adjustmentPercent),
+          painAreas: data.painAreas.join(","),
+        }
+      });
+    }
+  };
+
+  const openLogWorkout = () => {
+    hapticPress();
+    router.push("/(app)/workout/log");
+  };
+
+
+
+
 
   if (!loaded) return null;
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={darkColors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
+  const isRestDay = todayWorkout?.isRest ?? false;
+  const greeting = getGreeting();
+  const coachMessage = getCoachMessage(workedOutToday, lastSessionDaysAgo, currentStreak, isRestDay);
+
+  // Compose greeting title
+  const greetingTitle = `${greeting}, ${profileName}`;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      {/* Header with greeting, streak, and avatar */}
+      <TabHeader
+        title={greetingTitle}
+        streakCount={currentStreak}
+        userName={profileName}
+      />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with logo and streak */}
+        {/* Coach Message */}
         <Animated.View 
           entering={FadeInDown.delay(0).duration(400)}
-          style={styles.header}
+          style={styles.coachMessageSection}
         >
-          <Text allowFontScaling={false} style={styles.logo}>
-            ADPT
+          <Text allowFontScaling={false} style={[styles.coachMessage, { color: colors.textSecondary }]}>
+            {coachMessage}
           </Text>
-          <StreakBadge count={streak} />
         </Animated.View>
 
-        {/* Cal AI style week row - MTWTFS at top */}
+        {/* Week Progress Bar */}
         <Animated.View 
           entering={FadeInDown.delay(50).duration(400)}
-          style={styles.weekRowSection}
+          style={styles.weekSection}
         >
           <CalWeekRow days={weekDays} />
+          <View style={styles.weekStats}>
+            <Text allowFontScaling={false} style={[styles.weekStatsText, { color: colors.textMuted }]}>
+              {completed} of {target} workouts this week
+            </Text>
+            <View style={[styles.weekProgressBar, { backgroundColor: colors.border }]}>
+              <View 
+                style={[
+                  styles.weekProgressFill, 
+                  { 
+                    width: `${Math.min(100, (completed / target) * 100)}%`, 
+                    backgroundColor: colors.primary 
+                  }
+                ]} 
+              />
+            </View>
+          </View>
         </Animated.View>
 
-        {/* Hero Rings */}
+        {/* TODAY'S WORKOUT - Hero Card (80% focus) */}
         <Animated.View 
           entering={FadeInDown.delay(100).duration(400)}
-          style={styles.section}
+          style={styles.heroSection}
         >
-          <HeroRings 
-            compliance={adherenceScore ?? 0} 
-            intensity={0.85}
-          />
-        </Animated.View>
-
-        {/* Today's Workout Card */}
-        <Animated.View 
-          entering={FadeInDown.delay(200).duration(400)}
-          style={styles.section}
-        >
-          <Pressable 
-            onPress={startTodaysWorkout}
-            style={({ pressed }) => [
-              styles.todayCard,
-              pressed && styles.todayCardPressed,
-            ]}
-          >
-            <View style={styles.todayCardContent}>
-              <View style={styles.todayIcon}>
-                <Ionicons name="barbell" size={24} color={darkColors.primary} />
+          {workedOutToday ? (
+            // Completed state
+            <View style={[styles.heroCard, styles.heroCardCompleted, { backgroundColor: colors.card }]}>
+              <View style={[styles.heroIconLarge, { backgroundColor: colors.success }]}>
+                <Ionicons name="checkmark" size={40} color={colors.textOnPrimary} />
               </View>
-              <View style={styles.todayInfo}>
-                <Text allowFontScaling={false} style={styles.todayLabel}>
-                  {todayWorkout?.isRest ? "Rest Day" : "Today's Workout"}
-                </Text>
-                <Text allowFontScaling={false} style={styles.todayTitle}>
-                  {todayWorkout?.isRest 
-                    ? "Recovery & Mobility" 
-                    : todayWorkout?.type || "Start Training"
-                  }
-                </Text>
-                {!todayWorkout?.isRest && todayWorkout && (
-                  <Text allowFontScaling={false} style={styles.todayMeta}>
-                    {todayWorkout.focus.split(" - ")[0]} · ~{todayWorkout.durationMinutes} min
-                  </Text>
-                )}
-              </View>
-              <View style={styles.todayAction}>
-                <Text allowFontScaling={false} style={styles.todayActionText}>
-                  {todayWorkout?.isRest ? "VIEW" : "START"}
-                </Text>
-                <Ionicons name="arrow-forward" size={16} color="#000" />
-              </View>
-            </View>
-          </Pressable>
-        </Animated.View>
-
-        {/* Weekly Progress Summary */}
-        <Animated.View 
-          entering={FadeInDown.delay(300).duration(400)}
-          style={styles.section}
-        >
-          <View style={styles.progressCard}>
-            <Text allowFontScaling={false} style={styles.progressTitle}>
-              This Week
-            </Text>
-            <View style={styles.progressStats}>
-              <View style={styles.progressStat}>
-                <Text allowFontScaling={false} style={styles.progressValue}>
-                  {completed}
-                </Text>
-                <Text allowFontScaling={false} style={styles.progressLabel}>
-                  / {target} workouts
-                </Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${Math.min(100, (completed / target) * 100)}%` }
-                  ]} 
-                />
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Quick Stats Grid */}
-        <Animated.View 
-          entering={FadeInDown.delay(400).duration(400)}
-          style={styles.section}
-        >
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text allowFontScaling={false} style={styles.statValue}>
-                {completed * 15}
+              <Text allowFontScaling={false} style={[styles.heroCompletedTitle, { color: colors.text }]}>
+                Workout Complete!
               </Text>
-              <Text allowFontScaling={false} style={styles.statLabel}>
-                Sets
+              <Text allowFontScaling={false} style={[styles.heroCompletedSubtitle, { color: colors.textMuted }]}>
+                Great work today. Rest and recover.
               </Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text allowFontScaling={false} style={styles.statValue}>
-                {completed * 5}
-              </Text>
-              <Text allowFontScaling={false} style={styles.statLabel}>
-                Exercises
-              </Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text allowFontScaling={false} style={styles.statValue}>
-                {completed * 45}
-              </Text>
-              <Text allowFontScaling={false} style={styles.statLabel}>
-                Minutes
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Coach Tip */}
-        {lastSessionDaysAgo !== null && lastSessionDaysAgo >= 2 && (
-          <Animated.View 
-            entering={FadeInDown.delay(500).duration(400)}
-            style={styles.section}
-          >
-            <View style={styles.coachCard}>
-              <View style={styles.coachIcon}>
-                <Ionicons name="fitness" size={20} color={darkColors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={styles.coachText}>
-                {lastSessionDaysAgo === 2 
-                  ? "Great recovery! Ready to hit it today?"
-                  : `It's been ${lastSessionDaysAgo} days. Let's get moving!`
-                }
-              </Text>
-            </View>
-          </Animated.View>
-        )}
-      </ScrollView>
-
-      {/* Floating action button */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-        onPress={openLogModal}
-      >
-        <Ionicons name="add" size={28} color="#000" />
-      </Pressable>
-
-      {/* Log workout modal */}
-      <Modal visible={logOpen} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setLogOpen(false)} />
-          <Animated.View 
-            entering={FadeInDown.springify()}
-            style={styles.modalCard}
-          >
-            <View style={styles.modalHeader}>
-              <Text allowFontScaling={false} style={styles.modalTitle}>
-                Quick Log
-              </Text>
-              <Pressable onPress={() => setLogOpen(false)}>
-                <Text allowFontScaling={false} style={styles.modalClose}>
-                  Done
+              <Pressable 
+                onPress={() => router.push("/(app)/workout/history")}
+                style={[styles.heroSecondaryButton, { borderColor: colors.border }]}
+              >
+                <Text allowFontScaling={false} style={[styles.heroSecondaryButtonText, { color: colors.text }]}>
+                  View Session
                 </Text>
               </Pressable>
             </View>
-            <View style={styles.modalBody}>
-              <Text allowFontScaling={false} style={styles.fieldLabel}>
-                Workout Type
+          ) : isRestDay ? (
+            // Rest day state
+            <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.heroIconLarge, { backgroundColor: colors.primaryMuted }]}>
+                <Ionicons name="leaf" size={40} color={colors.primary} />
+              </View>
+              <Text allowFontScaling={false} style={[styles.heroTitle, { color: colors.text }]}>
+                Rest Day
               </Text>
-              <View style={styles.chipRow}>
-                {logTypeOptions.map((option) => {
-                  const selected = logType === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      onPress={() => {
-                        hapticPress();
-                        setLogType(option);
-                      }}
-                      style={[styles.chip, selected && styles.chipSelected]}
-                    >
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.chipText, selected && styles.chipTextSelected]}
-                      >
-                        {option}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text allowFontScaling={false} style={[styles.heroSubtitle, { color: colors.textMuted }]}>
+                Recovery is where progress happens. Light stretching or a walk is perfect.
+              </Text>
+              <Pressable 
+                onPress={() => router.push("/(app)/(tabs)/workout")}
+                style={[styles.heroSecondaryButton, { borderColor: colors.border }]}
+              >
+                <Text allowFontScaling={false} style={[styles.heroSecondaryButtonText, { color: colors.text }]}>
+                  Browse Workouts
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            // Active workout state
+            <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
+              {/* Workout Type Badge */}
+              <View style={[styles.heroTypeBadge, { backgroundColor: colors.primaryMuted }]}>
+                <Text allowFontScaling={false} style={[styles.heroTypeBadgeText, { color: colors.primary }]}>
+                  {todayWorkout?.type ?? "Full Body"}
+                </Text>
               </View>
 
-              <Text allowFontScaling={false} style={styles.fieldLabel}>
-                Duration (min)
+              {/* Main Content */}
+              <Text allowFontScaling={false} style={[styles.heroTitle, { color: colors.text }]}>
+                Today's Workout
               </Text>
-              <TextInput
-                value={logDuration}
-                onChangeText={setLogDuration}
-                placeholder="45"
-                placeholderTextColor={darkColors.muted2}
-                keyboardType="number-pad"
-                keyboardAppearance="dark"
-                selectionColor={darkColors.primary}
-                style={styles.input}
-                allowFontScaling={false}
-              />
+              
+              {todayWorkout && (
+                <View style={styles.heroMeta}>
+                  <View style={styles.heroMetaItem}>
+                    <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+                    <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
+                      ~{todayWorkout.durationMinutes} min
+                    </Text>
+                  </View>
+                  <View style={styles.heroMetaItem}>
+                    <Ionicons name="fitness-outline" size={16} color={colors.textMuted} />
+                    <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
+                      {todayWorkout.focus.split(" - ")[0]}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-              <AnimatedButton
-                title={logSaving ? "Saving..." : "Log Workout"}
-                onPress={saveQuickLog}
-                disabled={logSaving}
-                glow={!logSaving}
-              />
+              {/* Start Button - Opens pre-workout check-in */}
+              <Pressable
+                onPress={openCheckin}
+                style={({ pressed }) => [
+                  styles.heroButton,
+                  { backgroundColor: colors.primary },
+                  pressed && styles.heroButtonPressed
+                ]}
+              >
+                <Text allowFontScaling={false} style={[styles.heroButtonText, { color: colors.textOnPrimary }]}>
+                  Start Workout
+                </Text>
+                <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
+              </Pressable>
             </View>
-          </Animated.View>
-        </View>
-      </Modal>
+          )}
+        </Animated.View>
 
-      {/* Toast Container */}
+        {/* Quick Actions */}
+        <Animated.View 
+          entering={FadeInDown.delay(150).duration(400)}
+          style={styles.quickActionsSection}
+        >
+          <Pressable
+            onPress={openLogWorkout}
+            style={[styles.quickAction, { backgroundColor: colors.card }]}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
+              <Ionicons name="add" size={20} color={colors.primary} />
+            </View>
+            <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
+              Log Past Workout
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/(app)/(tabs)/chat")}
+            style={[styles.quickAction, { backgroundColor: colors.card }]}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
+              <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
+            </View>
+            <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
+              Ask Coach
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Animated.View>
+      </ScrollView>
+
+      {/* Pre-workout check-in modal */}
+      <PreWorkoutCheckin
+        visible={checkinOpen}
+        onClose={() => setCheckinOpen(false)}
+        onStart={handleCheckinComplete}
+        workoutType={todayWorkout?.type ?? "Workout"}
+        estimatedDuration={todayWorkout?.durationMinutes ?? 45}
+      />
+
       <ToastContainer />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.bg,
   },
   loadingWrap: {
     flex: 1,
@@ -542,268 +480,169 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: layout.screenPaddingHorizontal,
+    paddingTop: spacing.sm,
     paddingBottom: 100,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
+
+  // Coach Message
+  coachMessageSection: {
+    marginBottom: spacing.lg,
   },
-  logo: {
-    color: darkColors.text,
-    fontSize: 24,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 2,
+  coachMessage: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
   },
-  weekRowSection: {
-    marginBottom: 24,
+
+  // Week Section
+  weekSection: {
+    marginBottom: layout.sectionGap,
   },
-  section: {
-    marginBottom: 16,
+  weekStats: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
-  // Today's Workout Card
-  todayCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: darkColors.primary,
-  },
-  todayCardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  todayCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  todayIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  todayInfo: {
-    flex: 1,
-  },
-  todayLabel: {
-    color: darkColors.muted,
-    fontSize: 12,
+  weekStatsText: {
+    fontSize: 13,
     fontFamily: "Inter_500Medium",
+    textAlign: "center",
   },
-  todayTitle: {
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
-  todayMeta: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  todayAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: darkColors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  todayActionText: {
-    color: "#000",
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  // Progress Card
-  progressCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-  },
-  progressTitle: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 12,
-  },
-  progressStats: {
-    gap: 8,
-  },
-  progressStat: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  progressValue: {
-    color: darkColors.primary,
-    fontSize: 32,
-    fontFamily: "Inter_600SemiBold",
-  },
-  progressLabel: {
-    color: darkColors.muted,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: darkColors.border,
-    borderRadius: 3,
+  weekProgressBar: {
+    height: 4,
+    borderRadius: 2,
     overflow: "hidden",
   },
-  progressFill: {
+  weekProgressFill: {
     height: "100%",
-    backgroundColor: darkColors.primary,
-    borderRadius: 3,
+    borderRadius: 2,
   },
-  // Stats Grid
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
+
+  // Hero Card (Today's Workout)
+  heroSection: {
+    marginBottom: layout.sectionGap,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    padding: 16,
+  heroCard: {
+    borderRadius: 20,
+    padding: spacing.xl,
     alignItems: "center",
+    ...shadows.card,
   },
-  statValue: {
-    color: darkColors.text,
-    fontSize: 24,
-    fontFamily: "Inter_600SemiBold",
+  heroCardCompleted: {
+    paddingVertical: spacing.xxl,
   },
-  statLabel: {
-    color: darkColors.muted,
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    marginTop: 4,
-  },
-  // Coach Card
-  coachCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  coachIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: darkColors.selectedBg,
+  heroIconLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: spacing.base,
   },
-  coachText: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
+  heroTypeBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: spacing.base,
   },
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: darkColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: darkColors.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  fabPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.96 }],
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalCard: {
-    backgroundColor: darkColors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: darkColors.text,
-    fontSize: 20,
-    fontFamily: "Inter_600SemiBold",
-  },
-  modalClose: {
-    color: darkColors.primary,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  modalBody: {
-    gap: 16,
-  },
-  fieldLabel: {
-    color: darkColors.muted,
+  heroTypeBadgeText: {
     fontSize: 13,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  chipRow: {
+  heroTitle: {
+    fontSize: 24,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  heroSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 280,
+    marginBottom: spacing.lg,
+  },
+  heroCompletedTitle: {
+    fontSize: 22,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  heroCompletedSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  heroMeta: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: darkColors.cardAlt,
-    borderWidth: 1,
-    borderColor: darkColors.border,
+  heroMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  chipSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  chipText: {
-    color: darkColors.text,
+  heroMetaText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
   },
-  chipTextSelected: {
-    color: darkColors.primary,
+
+  // Hero Button
+  heroButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "100%",
+    height: 56,
+    borderRadius: 28,
   },
-  input: {
-    backgroundColor: darkColors.cardAlt,
-    borderRadius: 12,
+  heroButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  heroButtonText: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+  },
+  heroSecondaryButton: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: darkColors.border,
-    padding: 16,
-    color: darkColors.text,
-    fontSize: 16,
+  },
+  heroSecondaryButtonText: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+
+  // Quick Actions
+  quickActionsSection: {
+    gap: layout.cardGap,
+  },
+  quickAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.base,
+    borderRadius: 14,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  quickActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickActionText: {
+    flex: 1,
+    fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
 });

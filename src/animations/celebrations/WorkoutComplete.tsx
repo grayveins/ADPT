@@ -3,7 +3,7 @@
  * Full-screen celebration for workout completion
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { StyleSheet, Text, View, Dimensions, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
@@ -19,9 +19,8 @@ import Animated, {
   FadeOut,
 } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { SPRING_CONFIG, Z_INDEX, TIMING } from "../constants";
-import { CelebrationConfetti } from "../components/Confetti";
 import { hapticCelebration } from "../feedback/haptics";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -63,7 +62,8 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
   stats,
   onContinue,
 }) => {
-  const [showConfetti, setShowConfetti] = useState(false);
+  const { colors, radius } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [showButton, setShowButton] = useState(false);
 
   // Animation values
@@ -111,11 +111,6 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
         withTiming(1, { duration: 200 })
       );
       
-      // 700ms: Confetti burst
-      setTimeout(() => {
-        setShowConfetti(true);
-      }, 700);
-      
       // 900ms: Stats slide in
       statsOpacity.value = withDelay(900, withTiming(1, { duration: 300 }));
       statsTranslateY.value = withDelay(
@@ -140,7 +135,6 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
       statsOpacity.value = 0;
       statsTranslateY.value = 30;
       messageOpacity.value = 0;
-      setShowConfetti(false);
       setShowButton(false);
     }
   }, [visible]);
@@ -175,9 +169,6 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
 
   return (
     <Animated.View style={[styles.overlay, overlayStyle]}>
-      {/* Confetti */}
-      <CelebrationConfetti active={showConfetti} />
-
       {/* Content */}
       <Pressable style={styles.content} onPress={onContinue}>
         {/* Checkmark */}
@@ -186,7 +177,7 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
             <Svg width={60} height={60} viewBox="0 0 60 60">
               <AnimatedPath
                 d="M15 30 L25 40 L45 20"
-                stroke="#000"
+                stroke={colors.textOnPrimary}
                 strokeWidth={5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -262,89 +253,90 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.95)",
-    zIndex: Z_INDEX.celebration,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  content: {
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-  checkmarkContainer: {
-    marginBottom: 24,
-  },
-  checkmarkCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: darkColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 32,
-    fontFamily: theme.fonts.heading,
-    marginBottom: 32,
-    textAlign: "center",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  statItem: {
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  statValue: {
-    color: darkColors.text,
-    fontSize: 24,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  statLabel: {
-    color: darkColors.muted,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: darkColors.border,
-  },
-  message: {
-    color: darkColors.muted,
-    fontSize: 16,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 32,
-    maxWidth: 280,
-  },
-  buttonContainer: {
-    width: "100%",
-  },
-  button: {
-    backgroundColor: darkColors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    borderRadius: 28,
-  },
-  buttonText: {
-    color: "#000",
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-    textAlign: "center",
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.95)",
+      zIndex: Z_INDEX.celebration,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    content: {
+      alignItems: "center",
+      paddingHorizontal: 32,
+    },
+    checkmarkContainer: {
+      marginBottom: 24,
+    },
+    checkmarkCircle: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      color: colors.text,
+      fontSize: 32,
+      fontWeight: "700",
+      marginBottom: 32,
+      textAlign: "center",
+    },
+    statsContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      paddingVertical: 20,
+      paddingHorizontal: 24,
+      marginBottom: 24,
+    },
+    statItem: {
+      alignItems: "center",
+      paddingHorizontal: 16,
+    },
+    statValue: {
+      color: colors.text,
+      fontSize: 24,
+      fontWeight: "600",
+    },
+    statLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: "400",
+      marginTop: 4,
+    },
+    statDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.border,
+    },
+    message: {
+      color: colors.muted,
+      fontSize: 16,
+      fontWeight: "400",
+      textAlign: "center",
+      lineHeight: 24,
+      marginBottom: 32,
+      maxWidth: 280,
+    },
+    buttonContainer: {
+      width: "100%",
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 16,
+      paddingHorizontal: 48,
+      borderRadius: 28,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: 18,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+  });
 
 export default WorkoutComplete;

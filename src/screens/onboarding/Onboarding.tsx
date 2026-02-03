@@ -4,58 +4,55 @@
  * 
  * Flow Structure:
  * 1. WELCOME & VALUE - Build excitement, show social proof
- * 2. QUALIFY - Goals, motivation, struggles, commitment
- * 3. PERSONALIZE - About you (demographics, body stats)
- * 4. CUSTOMIZE - Training preferences
+ * 2. ABOUT YOU - Demographics, body stats, activity level
+ * 3. GOALS & EXPERIENCE - What they want to achieve
+ * 4. TRAINING - Preferences, schedule, equipment
  * 5. ACTIVATE & PRIME - Build plan, social proof, connect services, paywall
+ * 
+ * Updated flow (17 screens):
+ * - Added: ActivityLevelScreen (extracted from BodyStatsScreen)
+ * - Removed: ScheduleScreen (merged into WorkoutsPerWeekScreen with day picker)
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { StyleSheet, View, Pressable, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, { 
-  FadeIn, 
-  FadeOut, 
   SlideInRight, 
   SlideOutLeft,
   Layout,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 // Phase 1: Welcome & Value
 import WelcomeScreen from "./WelcomeScreen";
 import ValuePropScreen from "./ValuePropScreen";
-import HowItWorksScreen from "./HowItWorksScreen";
 
-// Phase 2: Qualify (Goals & Motivation)
-import MainGoalScreen from "./MainGoalScreen";
-import MotivationScreen from "./MotivationScreen";
-import StruggleScreen from "./StruggleScreen";
-import CommitmentScreen from "./CommitmentScreen";
-
-// Phase 3: Personalize (About You)
-import SexScreen from "./SexScreen";
-import AgeRangeScreen from "./AgeRangeScreen";
+// Phase 2: About You
 import BodyStatsScreen from "./BodyStatsScreen";
-import ExperienceScreen from "./ExperienceScreen";
-
-// Phase 4: Customize (Training)
-import EquipmentScreen from "./EquipmentScreen";
 import ActivityLevelScreen from "./ActivityLevelScreen";
+import ExperienceScreen from "./ExperienceScreen";
+import GoalsScreen from "./GoalsScreen";
+
+// Phase 3: Training Preferences
 import WorkoutsPerWeekScreen from "./WorkoutsPerWeekScreen";
-import WorkoutDurationScreen from "./WorkoutDurationScreen";
-import LimitationsScreen from "./LimitationsScreen";
+import TrainingPreferenceScreen from "./TrainingPreferenceScreen";
+import BestLiftsScreen from "./BestLiftsScreen";
+import GymTypeScreen from "./GymTypeScreen";
+import EquipmentScreen from "./EquipmentScreen";
+
+// Phase 4: Social & Attribution
+import SocialProofScreen from "./SocialProofScreen";
+import AttributionScreen from "./AttributionScreen";
 
 // Phase 5: Activate & Prime
-import SocialProofScreen from "./SocialProofScreen";
-import BuildingPlanScreen from "./BuildingPlanScreen";
-import PlanReadyScreen from "./PlanReadyScreen";
-import HealthConnectScreen from "./HealthConnectScreen";
 import NotificationsScreen from "./NotificationsScreen";
+import BuildingPlanScreen from "./BuildingPlanScreen";
+import SummaryScreen from "./SummaryScreen";
 import PaywallScreen from "./PaywallScreen";
 import GetStartedScreen from "./GetStartedScreen";
 
@@ -68,51 +65,45 @@ type ScreenDef = {
 };
 
 // Screen definitions with sections for progress tracking
+// Updated flow - 17 screens
 const SCREENS: ScreenDef[] = [
-  // Phase 1: Welcome & Value (no progress bar)
+  // Phase 1: Welcome & Value (no progress bar) - 2 screens
   { id: "welcome", section: null, component: WelcomeScreen, hideBack: true },
-  { id: "value-prop", section: null, component: ValuePropScreen, hideBack: false },
-  { id: "how-it-works", section: null, component: HowItWorksScreen, hideBack: false },
+  { id: "value-prop", section: null, component: ValuePropScreen },
   
-  // Phase 2: Qualify - Goals & Motivation
-  { id: "main-goal", section: "goals", component: MainGoalScreen },
-  { id: "motivation", section: "goals", component: MotivationScreen },
-  { id: "struggle", section: "goals", component: StruggleScreen },
-  { id: "commitment", section: "goals", component: CommitmentScreen },
-  
-  // Phase 3: Personalize - About You
-  { id: "sex", section: "you", component: SexScreen },
-  { id: "age-range", section: "you", component: AgeRangeScreen },
+  // Phase 2: About You - 4 screens
   { id: "body-stats", section: "you", component: BodyStatsScreen },
+  { id: "activity-level", section: "you", component: ActivityLevelScreen },
   { id: "experience", section: "you", component: ExperienceScreen },
+  { id: "goals", section: "you", component: GoalsScreen },
   
-  // Phase 4: Customize - Training Preferences
-  { id: "equipment", section: "training", component: EquipmentScreen },
-  { id: "activity-level", section: "training", component: ActivityLevelScreen },
+  // Phase 3: Training Preferences - 5 screens
   { id: "workouts", section: "training", component: WorkoutsPerWeekScreen },
-  { id: "duration", section: "training", component: WorkoutDurationScreen },
-  { id: "limitations", section: "training", component: LimitationsScreen },
+  { id: "training-split", section: "training", component: TrainingPreferenceScreen },
+  { id: "best-lifts", section: "training", component: BestLiftsScreen },
+  { id: "gym-type", section: "training", component: GymTypeScreen },
+  { id: "equipment", section: "training", component: EquipmentScreen },
   
-  // Phase 5: Activate & Prime (no progress bar for some)
+  // Phase 4: Social & Finish - 6 screens
   { id: "social-proof", section: null, component: SocialProofScreen, hideBack: true },
-  { id: "building-plan", section: null, component: BuildingPlanScreen, hideBack: true },
-  { id: "plan-ready", section: "finish", component: PlanReadyScreen, hideBack: true },
-  { id: "health-connect", section: "finish", component: HealthConnectScreen },
+  { id: "attribution", section: "finish", component: AttributionScreen },
   { id: "notifications", section: "finish", component: NotificationsScreen },
+  { id: "building-plan", section: null, component: BuildingPlanScreen, hideBack: true },
+  { id: "summary", section: null, component: SummaryScreen, hideBack: true },
   { id: "paywall", section: "finish", component: PaywallScreen },
   { id: "get-started", section: null, component: GetStartedScreen, hideBack: true },
 ];
 
-const SECTIONS = ["goals", "you", "training", "finish"] as const;
+const SECTIONS = ["you", "training", "finish"] as const;
 const SECTION_LABELS = {
-  goals: "Goals",
   you: "About You",
   training: "Training",
   finish: "Finish",
 };
 
 // Progress bar component
-function ProgressBar({ currentIndex }: { currentIndex: number }) {
+function ProgressBar({ currentIndex, colors }: { currentIndex: number; colors: ReturnType<typeof useTheme>["colors"] }) {
+  const progressStyles = useMemo(() => createProgressStyles(colors), [colors]);
   const currentScreen = SCREENS[currentIndex];
   if (!currentScreen?.section) return null;
 
@@ -132,7 +123,7 @@ function ProgressBar({ currentIndex }: { currentIndex: number }) {
       <View style={progressStyles.track}>
         <Animated.View 
           style={[progressStyles.fill, { width: `${totalProgress * 100}%` }]}
-          layout={Layout.springify()}
+          layout={Layout.duration(250)}
         />
       </View>
       <View style={progressStyles.labels}>
@@ -161,6 +152,8 @@ function ProgressBar({ currentIndex }: { currentIndex: number }) {
 }
 
 export default function Onboarding() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const goNext = useCallback(() => {
@@ -191,10 +184,7 @@ export default function Onboarding() {
   }
 
   return (
-    <LinearGradient
-      colors={[darkColors.bgTop, darkColors.bg]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={["top"]}>
         {/* Header with back button and progress */}
         <View style={styles.header}>
@@ -204,7 +194,7 @@ export default function Onboarding() {
               style={styles.backButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="chevron-back" size={24} color={darkColors.text} />
+              <Ionicons name="chevron-back" size={24} color={colors.text} />
             </Pressable>
           ) : (
             <View style={styles.backPlaceholder} />
@@ -212,108 +202,111 @@ export default function Onboarding() {
           
           {showProgress && (
             <View style={styles.progressWrapper}>
-              <ProgressBar currentIndex={currentIndex} />
+              <ProgressBar currentIndex={currentIndex} colors={colors} />
             </View>
           )}
           
           <View style={styles.backPlaceholder} />
         </View>
 
-        {/* Screen content with animation */}
+        {/* Screen content with animation - clean linear transitions */}
         <Animated.View 
           key={currentScreen.id}
-          entering={SlideInRight.duration(300).springify()}
+          entering={SlideInRight.duration(250)}
           exiting={SlideOutLeft.duration(200)}
           style={styles.screenContainer}
         >
           <ScreenComponent {...screenProps} />
         </Animated.View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
-const progressStyles = StyleSheet.create({
-  container: {
-    width: "100%",
-    gap: 8,
-  },
-  track: {
-    height: 3,
-    backgroundColor: darkColors.border,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  fill: {
-    height: "100%",
-    backgroundColor: darkColors.primary,
-    borderRadius: 2,
-  },
-  labels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  labelContainer: {
-    alignItems: "center",
-    gap: 4,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: darkColors.border,
-  },
-  dotActive: {
-    backgroundColor: darkColors.primary,
-  },
-  dotCurrent: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  label: {
-    color: darkColors.muted2,
-    fontSize: 10,
-    fontFamily: theme.fonts.bodyMedium,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  labelActive: {
-    color: darkColors.muted,
-  },
-});
+const createProgressStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+      gap: 8,
+    },
+    track: {
+      height: 3,
+      backgroundColor: colors.border,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    fill: {
+      height: "100%",
+      backgroundColor: colors.primary,
+      borderRadius: 2,
+    },
+    labels: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    labelContainer: {
+      alignItems: "center",
+      gap: 4,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.border,
+    },
+    dotActive: {
+      backgroundColor: colors.primary,
+    },
+    dotCurrent: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    label: {
+      color: colors.inputPlaceholder,
+      fontSize: 10,
+      fontFamily: theme.fonts.bodyMedium,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    labelActive: {
+      color: colors.textMuted,
+    },
+  });
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: darkColors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backPlaceholder: {
-    width: 40,
-  },
-  progressWrapper: {
-    flex: 1,
-  },
-  screenContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    safe: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 16,
+      gap: 12,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    backPlaceholder: {
+      width: 40,
+    },
+    progressWrapper: {
+      flex: 1,
+    },
+    screenContainer: {
+      flex: 1,
+      paddingHorizontal: 24,
+    },
+  });

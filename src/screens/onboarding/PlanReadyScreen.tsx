@@ -4,7 +4,7 @@
  * Creates excitement before paywall
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
 import Animated, {
   useSharedValue,
@@ -17,8 +17,8 @@ import Animated, {
   ZoomIn,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import { hapticPress, hapticCelebration } from "@/src/animations/feedback/haptics";
 
@@ -51,7 +51,9 @@ const experienceLabels: Record<string, string> = {
 };
 
 export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
+  const { colors } = useTheme();
   const { form } = useOnboarding();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Animation values
   const checkScale = useSharedValue(0);
@@ -116,12 +118,9 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
       {/* Success animation */}
       <View style={styles.successContainer}>
         <Animated.View style={[styles.checkContainer, checkStyle]}>
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            style={styles.checkGradient}
-          >
-            <Ionicons name="checkmark" size={48} color="#000" />
-          </LinearGradient>
+          <View style={styles.checkGradient}>
+            <Ionicons name="checkmark" size={48} color={colors.textOnPrimary} />
+          </View>
         </Animated.View>
       </View>
 
@@ -145,7 +144,7 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
       >
         <View style={styles.planHeader}>
           <View style={styles.planIcon}>
-            <Ionicons name="fitness" size={24} color={darkColors.primary} />
+            <Ionicons name="fitness" size={24} color={colors.primary} />
           </View>
           <View>
             <Text allowFontScaling={false} style={styles.planTitle}>
@@ -167,7 +166,7 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
               style={styles.planFeature}
             >
               <View style={styles.featureIcon}>
-                <Ionicons name={feature.icon as any} size={20} color={darkColors.primary} />
+                <Ionicons name={feature.icon as any} size={20} color={colors.primary} />
               </View>
               <View style={styles.featureText}>
                 <Text allowFontScaling={false} style={styles.featureLabel}>
@@ -191,10 +190,10 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
           What&apos;s included
         </Text>
         <View style={styles.includesList}>
-          <IncludeItem text="Progressive overload built-in" />
-          <IncludeItem text="Rest day recommendations" />
-          <IncludeItem text="AI coach for any questions" />
-          <IncludeItem text="Automatic plan adjustments" />
+          <IncludeItem text="Progressive overload built-in" colors={colors} />
+          <IncludeItem text="Rest day recommendations" colors={colors} />
+          <IncludeItem text="AI coach for any questions" colors={colors} />
+          <IncludeItem text="Automatic plan adjustments" colors={colors} />
         </View>
       </Animated.View>
 
@@ -210,182 +209,170 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
             pressed && styles.ctaButtonPressed,
           ]}
         >
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
-          >
+          <View style={styles.ctaGradient}>
             <Text allowFontScaling={false} style={styles.ctaText}>
               Continue
             </Text>
-            <Ionicons name="arrow-forward" size={20} color="#000" />
-          </LinearGradient>
+            <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
+          </View>
         </Pressable>
       </Animated.View>
     </ScrollView>
   );
 }
 
-function IncludeItem({ text }: { text: string }) {
+function IncludeItem({ text, colors }: { text: string; colors: ReturnType<typeof useTheme>["colors"] }) {
   return (
-    <View style={styles.includeItem}>
-      <Ionicons name="checkmark-circle" size={20} color={darkColors.primary} />
-      <Text allowFontScaling={false} style={styles.includeText}>{text}</Text>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+      <Text allowFontScaling={false} style={{ color: colors.textMuted, fontSize: 15, fontFamily: theme.fonts.body }}>{text}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    paddingBottom: 24,
-  },
-  successContainer: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  checkContainer: {
-    borderRadius: 48,
-    overflow: "hidden",
-  },
-  checkGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  header: {
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 24,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 16,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  planCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-  },
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  planIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  planTitle: {
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  planSubtitle: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.body,
-  },
-  planDivider: {
-    height: 1,
-    backgroundColor: darkColors.border,
-    marginVertical: 16,
-  },
-  planFeatures: {
-    gap: 12,
-  },
-  planFeature: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: darkColors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureText: {
-    flex: 1,
-    gap: 2,
-  },
-  featureLabel: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  featureValue: {
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  includesSection: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  includesTitle: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  includesList: {
-    gap: 10,
-  },
-  includeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  includeText: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-  },
-  ctaContainer: {
-    marginTop: "auto",
-  },
-  ctaButton: {
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  ctaButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-  },
-  ctaText: {
-    color: "#000",
-    fontSize: 17,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    scroll: {
+      flex: 1,
+    },
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      paddingBottom: 24,
+    },
+    successContainer: {
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    checkContainer: {
+      borderRadius: 48,
+      overflow: "hidden",
+    },
+    checkGradient: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+    },
+    header: {
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 24,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      textAlign: "center",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 16,
+      fontFamily: theme.fonts.body,
+      textAlign: "center",
+      lineHeight: 24,
+    },
+    planCard: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 24,
+    },
+    planHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+    },
+    planIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    planTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    planSubtitle: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.body,
+    },
+    planDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 16,
+    },
+    planFeatures: {
+      gap: 12,
+    },
+    planFeature: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    featureIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    featureText: {
+      flex: 1,
+      gap: 2,
+    },
+    featureLabel: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    featureValue: {
+      color: colors.text,
+      fontSize: 15,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    includesSection: {
+      gap: 12,
+      marginBottom: 24,
+    },
+    includesTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    includesList: {
+      gap: 10,
+    },
+    ctaContainer: {
+      marginTop: "auto",
+    },
+    ctaButton: {
+      borderRadius: 28,
+      overflow: "hidden",
+    },
+    ctaButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    ctaGradient: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 18,
+      paddingHorizontal: 32,
+      backgroundColor: colors.primary,
+    },
+    ctaText: {
+      color: colors.textOnPrimary,
+      fontSize: 17,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+  });

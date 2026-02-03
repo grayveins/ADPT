@@ -3,8 +3,8 @@
  * Special celebration for personal records
  */
 
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, Dimensions } from "react-native";
+import React, { useEffect, useState, useMemo } from "react";
+import { StyleSheet, Text, View, Dimensions, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,7 +16,7 @@ import Animated, {
   FadeOut,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { SPRING_CONFIG, Z_INDEX, TIMING, PARTICLE_COLORS } from "../constants";
 import { Confetti } from "../components/Confetti";
 import { haptic } from "../feedback/haptics";
@@ -40,6 +40,8 @@ export const PRCelebration: React.FC<PRCelebrationProps> = ({
   unit = "lbs",
   onDismiss,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [showConfetti, setShowConfetti] = useState(false);
 
   const overlayOpacity = useSharedValue(0);
@@ -113,16 +115,17 @@ export const PRCelebration: React.FC<PRCelebrationProps> = ({
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.overlay, overlayStyle]}>
-      {/* Gold confetti */}
-      <Confetti
-        active={showConfetti}
-        colors={[...PARTICLE_COLORS.gold]}
-        count={25}
-        spread={70}
-      />
+    <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss}>
+      <Animated.View style={[styles.overlay, overlayStyle]}>
+        {/* Gold confetti */}
+        <Confetti
+          active={showConfetti}
+          colors={[...PARTICLE_COLORS.gold]}
+          count={25}
+          spread={70}
+        />
 
-      <View style={styles.content}>
+        <View style={styles.content}>
         {/* Crown icon */}
         <Animated.View style={[styles.crownContainer, crownStyle]}>
           <View style={styles.crownCircle}>
@@ -157,7 +160,7 @@ export const PRCelebration: React.FC<PRCelebrationProps> = ({
           </View>
           
           <View style={styles.arrowContainer}>
-            <Ionicons name="arrow-forward" size={24} color={darkColors.primary} />
+            <Ionicons name="arrow-forward" size={24} color={colors.primary} />
           </View>
           
           <View style={styles.prValue}>
@@ -179,90 +182,92 @@ export const PRCelebration: React.FC<PRCelebrationProps> = ({
         </Animated.Text>
       </View>
     </Animated.View>
+    </Pressable>
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    zIndex: Z_INDEX.celebration,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  content: {
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-  crownContainer: {
-    marginBottom: 16,
-  },
-  crownCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#FFD700", // Gold
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#FFD700",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-  },
-  title: {
-    color: "#FFD700",
-    fontSize: 36,
-    fontFamily: theme.fonts.heading,
-    marginBottom: 8,
-    textShadowColor: "rgba(255, 215, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  exerciseContainer: {
-    marginBottom: 24,
-  },
-  exerciseName: {
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  comparisonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
-  },
-  prValue: {
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  prLabel: {
-    color: darkColors.muted,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-    marginBottom: 4,
-  },
-  prOldValue: {
-    color: darkColors.muted,
-    fontSize: 20,
-    fontFamily: theme.fonts.bodyMedium,
-    textDecorationLine: "line-through",
-  },
-  prNewValue: {
-    color: "#FFD700",
-    fontSize: 24,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  arrowContainer: {
-    paddingHorizontal: 12,
-  },
-  hint: {
-    color: darkColors.muted2,
-    fontSize: 14,
-    fontFamily: theme.fonts.body,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.9)",
+      zIndex: Z_INDEX.celebration,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    content: {
+      alignItems: "center",
+      paddingHorizontal: 32,
+    },
+    crownContainer: {
+      marginBottom: 16,
+    },
+    crownCircle: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.gold,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.gold,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.6,
+      shadowRadius: 20,
+    },
+    title: {
+      color: colors.gold,
+      fontSize: 36,
+      fontWeight: "700",
+      marginBottom: 8,
+      textShadowColor: "rgba(255, 215, 0, 0.5)",
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 10,
+    },
+    exerciseContainer: {
+      marginBottom: 24,
+    },
+    exerciseName: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "500",
+    },
+    comparisonContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 32,
+    },
+    prValue: {
+      alignItems: "center",
+      paddingHorizontal: 16,
+    },
+    prLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: "400",
+      marginBottom: 4,
+    },
+    prOldValue: {
+      color: colors.textMuted,
+      fontSize: 20,
+      fontWeight: "500",
+      textDecorationLine: "line-through",
+    },
+    prNewValue: {
+      color: colors.gold,
+      fontSize: 24,
+      fontWeight: "600",
+    },
+    arrowContainer: {
+      paddingHorizontal: 12,
+    },
+    hint: {
+      color: colors.inputPlaceholder,
+      fontSize: 14,
+      fontWeight: "400",
+    },
+  });
 
 export default PRCelebration;

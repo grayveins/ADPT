@@ -5,7 +5,7 @@
 
 import React from "react";
 import { StyleSheet, View, Text } from "react-native";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { AnimatedProgressRing } from "@/src/animations/components";
 
 type HeroRingsProps = {
@@ -17,6 +17,8 @@ export const HeroRings: React.FC<HeroRingsProps> = ({
   compliance,
   intensity,
 }) => {
+  const { colors, typography } = useTheme();
+
   return (
     <View style={styles.container}>
       <View style={styles.ringContainer}>
@@ -24,12 +26,12 @@ export const HeroRings: React.FC<HeroRingsProps> = ({
           progress={compliance}
           size={130}
           strokeWidth={12}
-          color={darkColors.primary}
+          color={colors.primary}
           showPercentage={true}
           breathe={true}
           glow={compliance > 0.9}
         />
-        <Text allowFontScaling={false} style={styles.ringLabel}>
+        <Text allowFontScaling={false} style={[styles.ringLabel, { color: colors.textMuted }]}>
           Compliance
         </Text>
       </View>
@@ -39,13 +41,13 @@ export const HeroRings: React.FC<HeroRingsProps> = ({
           progress={intensity}
           size={130}
           strokeWidth={12}
-          color="#FF6B35"
-          backgroundColor={darkColors.border}
+          color={colors.intensity}
+          backgroundColor={colors.border}
           showPercentage={true}
           breathe={true}
           glow={intensity > 0.9}
         />
-        <Text allowFontScaling={false} style={styles.ringLabel}>
+        <Text allowFontScaling={false} style={[styles.ringLabel, { color: colors.textMuted }]}>
           Intensity
         </Text>
       </View>
@@ -58,16 +60,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 8,
   },
   ringContainer: {
     alignItems: "center",
     gap: 8,
   },
   ringLabel: {
-    color: darkColors.muted,
     fontSize: 13,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
   },
 });
 

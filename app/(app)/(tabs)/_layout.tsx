@@ -1,27 +1,75 @@
+/**
+ * Tab Layout
+ * 4-tab navigation: Home, Workout, Progress, Coach
+ * 
+ * Header strategy:
+ * - Home: Custom TabHeader with greeting + streak + avatar (manages own)
+ * - Workout/Progress: Simple centered title headers
+ * - Chat: Custom minimal header (manages own)
+ */
+
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
-import { lightColors } from "@/src/theme";
+import { Platform, StyleSheet, View, Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/src/context/ThemeContext";
+import { layout, spacing } from "@/src/theme";
+import { useCoachUnread } from "@/src/hooks/useCoachUnread";
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+// Simple centered header for Workout/Progress screens
+function SimpleHeader({ title }: { title: string }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View 
+      style={[
+        styles.simpleHeader, 
+        { 
+          backgroundColor: colors.bg,
+          paddingTop: insets.top + spacing.sm,
+        }
+      ]}
+    >
+      <Text 
+        allowFontScaling={false} 
+        style={[styles.simpleHeaderTitle, { color: colors.text }]}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+}
 
 export default function TabLayout() {
+  const { colors, typography } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { hasUnread } = useCoachUnread();
+  
+  // Tab bar configuration - use dynamic safe area
+  const tabBarHeight = Platform.OS === "ios" ? 49 + insets.bottom : 60;
+  const iconSize = 24;
+  
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: lightColors.bg,
-          borderTopColor: lightColors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 85 : 65,
-          paddingBottom: Platform.OS === "ios" ? 24 : 8,
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: tabBarHeight,
+          paddingBottom: Platform.OS === "ios" ? insets.bottom - 6 : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: lightColors.primary,
-        tabBarInactiveTintColor: lightColors.textMuted,
+        tabBarActiveTintColor: colors.tabBarActive,
+        tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: "Inter_500Medium",
+          fontSize: typography.sizes.caption2,
+          fontWeight: typography.weights.medium,
           marginTop: 2,
         },
       }}
@@ -30,8 +78,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -40,8 +92,14 @@ export default function TabLayout() {
         name="workout"
         options={{
           title: "Workout",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" size={22} color={color} />
+          headerShown: true,
+          header: () => <SimpleHeader title="Workout" />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "barbell" : "barbell-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -50,18 +108,14 @@ export default function TabLayout() {
         name="progress"
         options={{
           title: "Progress",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up" size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="social"
-        options={{
-          title: "Social",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={22} color={color} />
+          headerShown: true,
+          header: () => <SimpleHeader title="Progress" />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "stats-chart" : "stats-chart-outline"}
+              size={iconSize}
+              color={color}
+            />
           ),
         }}
       />
@@ -70,11 +124,47 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: "Coach",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View>
+              <Ionicons
+                name={focused ? "chatbubble" : "chatbubble-outline"}
+                size={iconSize}
+                color={color}
+              />
+              {hasUnread && (
+                <View style={[styles.unreadBadge, { backgroundColor: colors.error }]} />
+              )}
+            </View>
           ),
+        }}
+      />
+
+      {/* Hide social tab from navigation but keep file for now */}
+      <Tabs.Screen
+        name="social"
+        options={{
+          href: null, // This hides it from the tab bar
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  simpleHeader: {
+    paddingHorizontal: layout.screenPaddingHorizontal,
+    paddingBottom: spacing.sm,
+  },
+  simpleHeaderTitle: {
+    fontSize: 28,
+    fontFamily: "Inter_600SemiBold",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+});

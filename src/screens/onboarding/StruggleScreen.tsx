@@ -1,14 +1,15 @@
 /**
  * StruggleScreen
- * What&apos;s held you back? (Shows empathy, builds trust)
+ * What's held you back? (Shows empathy, builds trust)
  * Helps us address their specific challenges
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -57,13 +58,14 @@ const struggles = [
 ] as const;
 
 export default function StruggleScreen({ onNext }: StruggleScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
-  // Store in limitations for now, could add a separate field
-  const selected = form.attribution;
+  const selected = form.struggle;
 
   const handleSelect = (value: string) => {
     hapticPress();
-    updateForm({ attribution: value });
+    updateForm({ struggle: value });
   };
 
   return (
@@ -107,7 +109,7 @@ export default function StruggleScreen({ onNext }: StruggleScreenProps) {
                     <Ionicons 
                       name={struggle.icon as any} 
                       size={24} 
-                      color={isSelected ? "#000" : darkColors.muted} 
+                      color={isSelected ? colors.textOnPrimary : colors.textMuted} 
                     />
                   </View>
                   <View style={styles.optionText}>
@@ -123,7 +125,7 @@ export default function StruggleScreen({ onNext }: StruggleScreenProps) {
                   </View>
                 </View>
                 {isSelected && (
-                  <Ionicons name="checkmark-circle" size={24} color={darkColors.primary} />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                 )}
               </Pressable>
             </Animated.View>
@@ -136,7 +138,7 @@ export default function StruggleScreen({ onNext }: StruggleScreenProps) {
         entering={FadeInDown.delay(500).duration(400)} 
         style={styles.empathyCard}
       >
-        <Ionicons name="heart" size={20} color={darkColors.primary} />
+        <Ionicons name="heart" size={20} color={colors.primary} />
         <Text allowFontScaling={false} style={styles.empathyText}>
           ADPT adapts to your life, not the other way around. We&apos;ll help you overcome this.
         </Text>
@@ -156,107 +158,108 @@ export default function StruggleScreen({ onNext }: StruggleScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  eyebrow: {
-    color: darkColors.primary,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodySemiBold,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  optionSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  optionPressed: {
-    opacity: 0.9,
-  },
-  optionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: darkColors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconContainerSelected: {
-    backgroundColor: darkColors.primary,
-  },
-  optionText: {
-    flex: 1,
-    gap: 2,
-  },
-  optionLabel: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  optionLabelSelected: {
-    color: darkColors.primary,
-  },
-  optionDescription: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  empathyCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: darkColors.selectedBg,
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 3,
-    borderLeftColor: darkColors.primary,
-  },
-  empathyText: {
-    color: darkColors.text,
-    fontSize: 14,
-    fontFamily: theme.fonts.body,
-    lineHeight: 20,
-    flex: 1,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodySemiBold,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    options: {
+      gap: 12,
+    },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    optionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    optionPressed: {
+      opacity: 0.9,
+    },
+    optionLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      flex: 1,
+    },
+    iconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconContainerSelected: {
+      backgroundColor: colors.primary,
+    },
+    optionText: {
+      flex: 1,
+      gap: 2,
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    optionLabelSelected: {
+      color: colors.primary,
+    },
+    optionDescription: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    empathyCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor: colors.selected,
+      borderRadius: 12,
+      padding: 14,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    empathyText: {
+      color: colors.text,
+      fontSize: 14,
+      fontFamily: theme.fonts.body,
+      lineHeight: 20,
+      flex: 1,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

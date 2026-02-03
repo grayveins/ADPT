@@ -1,110 +1,141 @@
 /**
  * ActivityLevelScreen
- * Current daily activity level selection
+ * Daily activity level selection with auto-advance
+ * Separated from BodyStatsScreen for cleaner flow
  */
 
-import React from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import React, { useMemo } from "react";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
-import { useOnboarding } from "@/src/context/OnboardingContext";
-import Button from "@/src/components/Button";
-import { hapticPress } from "@/src/animations/feedback/haptics";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
+import { useOnboarding, type OnboardingForm } from "@/src/context/OnboardingContext";
+import { useAutoAdvance } from "@/src/hooks/useAutoAdvance";
 
 type ActivityLevelScreenProps = {
   onNext: () => void;
 };
 
-const levels = [
+type ActivityOption = {
+  value: NonNullable<OnboardingForm["activityLevel"]>;
+  label: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  example: string;
+};
+
+const activityLevels: ActivityOption[] = [
   {
     value: "sedentary",
     label: "Sedentary",
-    subtitle: "Desk job, little movement",
-    icon: "desktop",
+    description: "Little to no daily movement",
+    icon: "desktop-outline",
+    example: "Desk job, mostly sitting",
   },
   {
     value: "light",
     label: "Lightly Active",
-    subtitle: "Some walking, light tasks",
-    icon: "walk",
+    description: "Some walking or light activity",
+    icon: "walk-outline",
+    example: "Light errands, short walks",
   },
   {
     value: "moderate",
     label: "Moderately Active",
-    subtitle: "Regular movement, on your feet",
-    icon: "bicycle",
+    description: "Regular movement throughout day",
+    icon: "bicycle-outline",
+    example: "Active job, regular walking",
   },
   {
     value: "very_active",
     label: "Very Active",
-    subtitle: "Physical job or daily training",
-    icon: "flash",
+    description: "Constant movement or physical work",
+    icon: "flash-outline",
+    example: "Physical labor, always moving",
   },
-] as const;
+];
 
 export default function ActivityLevelScreen({ onNext }: ActivityLevelScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
-  const selected = form.activityLevel;
 
-  const handleSelect = (value: typeof levels[number]["value"]) => {
-    hapticPress();
-    updateForm({ activityLevel: value });
-  };
+  const { selectedValue, isAdvancing, select } = useAutoAdvance({
+    delay: 350,
+    onSelect: (value) => {
+      updateForm({ activityLevel: value as OnboardingForm["activityLevel"] });
+    },
+    onAdvance: onNext,
+  });
+
+  const displaySelected = selectedValue || form.activityLevel;
 
   return (
-    <ScrollView 
-      contentContainerStyle={styles.container} 
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.container}>
       <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
         <Text allowFontScaling={false} style={styles.title}>
           How active are you{"\n"}day-to-day?
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          Outside of planned workouts.
+          Outside of planned workouts
         </Text>
       </Animated.View>
 
       <View style={styles.options}>
-        {levels.map((level, index) => {
-          const isSelected = selected === level.value;
+        {activityLevels.map((level, index) => {
+          const isSelected = displaySelected === level.value;
+          const advancing = isAdvancing && selectedValue === level.value;
+
           return (
             <Animated.View
               key={level.value}
-              entering={FadeInDown.delay(index * 100).duration(400)}
+              entering={FadeInDown.delay(80 + index * 60).duration(400)}
             >
               <Pressable
-                onPress={() => handleSelect(level.value)}
+                onPress={() => select(level.value)}
+                disabled={isAdvancing}
                 style={({ pressed }) => [
                   styles.option,
                   isSelected && styles.optionSelected,
-                  pressed && styles.optionPressed,
+                  pressed && !isAdvancing && styles.optionPressed,
+                  advancing && styles.optionAdvancing,
                 ]}
               >
-                <View style={[
-                  styles.optionIcon,
-                  isSelected && styles.optionIconSelected,
-                ]}>
-                  <Ionicons 
-                    name={level.icon as any} 
-                    size={24} 
-                    color={isSelected ? "#000" : darkColors.primary} 
+                <View
+                  style={[
+                    styles.iconContainer,
+                    isSelected && styles.iconContainerSelected,
+                  ]}
+                >
+                  <Ionicons
+                    name={level.icon}
+                    size={24}
+                    color={isSelected ? colors.textOnPrimary : colors.primary}
                   />
                 </View>
-                <View style={styles.optionContent}>
-                  <Text allowFontScaling={false} style={[
-                    styles.optionLabel,
-                    isSelected && styles.optionLabelSelected,
-                  ]}>
+
+                <View style={styles.textContainer}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.label, isSelected && styles.labelSelected]}
+                  >
                     {level.label}
                   </Text>
-                  <Text allowFontScaling={false} style={styles.optionSubtitle}>
-                    {level.subtitle}
+                  <Text allowFontScaling={false} style={styles.description}>
+                    {level.description}
+                  </Text>
+                  <Text allowFontScaling={false} style={styles.example}>
+                    {level.example}
                   </Text>
                 </View>
+
                 {isSelected && (
-                  <Ionicons name="checkmark-circle" size={24} color={darkColors.primary} />
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={colors.primary}
+                  />
                 )}
               </Pressable>
             </Animated.View>
@@ -112,88 +143,110 @@ export default function ActivityLevelScreen({ onNext }: ActivityLevelScreenProps
         })}
       </View>
 
-      <View style={styles.footer}>
-        <Button 
-          title="Continue" 
-          onPress={onNext} 
-          disabled={!selected}
-        />
-      </View>
-    </ScrollView>
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(400)}
+        style={styles.infoCard}
+      >
+        <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
+        <Text allowFontScaling={false} style={styles.infoText}>
+          This helps us calculate your daily calorie needs and recovery capacity.
+        </Text>
+      </Animated.View>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  optionSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  optionPressed: {
-    opacity: 0.9,
-  },
-  optionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  optionIconSelected: {
-    backgroundColor: darkColors.primary,
-  },
-  optionContent: {
-    flex: 1,
-    gap: 2,
-  },
-  optionLabel: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  optionLabelSelected: {
-    color: darkColors.primary,
-  },
-  optionSubtitle: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingVertical: 16,
+    },
+    header: {
+      gap: 8,
+      marginBottom: 24,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    options: {
+      gap: 12,
+    },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      gap: 14,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    optionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    optionPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.99 }],
+    },
+    optionAdvancing: {
+      opacity: 0.8,
+    },
+    iconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconContainerSelected: {
+      backgroundColor: colors.primary,
+    },
+    textContainer: {
+      flex: 1,
+      gap: 2,
+    },
+    label: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    labelSelected: {
+      color: colors.primary,
+    },
+    description: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    example: {
+      color: colors.inputPlaceholder,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+      fontStyle: "italic",
+    },
+    infoCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+    infoText: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+  });

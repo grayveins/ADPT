@@ -4,16 +4,12 @@
  * Deeper motivation helps personalization and increases commitment
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import Animated, { 
-  FadeInDown,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -68,6 +64,8 @@ const motivations = [
 ] as const;
 
 export default function MotivationScreen({ onNext }: MotivationScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   const selected = form.goalWhy;
 
@@ -124,7 +122,7 @@ export default function MotivationScreen({ onNext }: MotivationScreenProps) {
                   </View>
                 </View>
                 {isSelected && (
-                  <Ionicons name="checkmark-circle" size={24} color={darkColors.primary} />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                 )}
               </Pressable>
             </Animated.View>
@@ -146,82 +144,83 @@ export default function MotivationScreen({ onNext }: MotivationScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  eyebrow: {
-    color: darkColors.primary,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodySemiBold,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  optionSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  optionPressed: {
-    opacity: 0.9,
-  },
-  optionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
-  },
-  emoji: {
-    fontSize: 28,
-  },
-  optionText: {
-    flex: 1,
-    gap: 2,
-  },
-  optionLabel: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  optionLabelSelected: {
-    color: darkColors.primary,
-  },
-  optionDescription: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodySemiBold,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    options: {
+      gap: 12,
+    },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    optionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    optionPressed: {
+      opacity: 0.9,
+    },
+    optionLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      flex: 1,
+    },
+    emoji: {
+      fontSize: 28,
+    },
+    optionText: {
+      flex: 1,
+      gap: 2,
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    optionLabelSelected: {
+      color: colors.primary,
+    },
+    optionDescription: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });
