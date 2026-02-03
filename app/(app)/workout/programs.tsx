@@ -165,13 +165,43 @@ export default function SavedProgramsScreen() {
     );
   }, []);
 
-  const startWorkoutFromProgram = useCallback((workout: SavedProgram["program_data"]["workouts"][0]) => {
+  const startWorkoutFromProgram = useCallback(async (
+    program: SavedProgram,
+    workout: SavedProgram["program_data"]["workouts"][0]
+  ) => {
     hapticPress();
+    
+    // Update times_used and last_used_at
+    try {
+      await supabase
+        .from("saved_programs")
+        .update({
+          times_used: program.times_used + 1,
+          last_used_at: new Date().toISOString(),
+        })
+        .eq("id", program.id);
+      
+      // Update local state optimistically
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.id === program.id
+            ? { ...p, times_used: p.times_used + 1, last_used_at: new Date().toISOString() }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error("Failed to update times_used:", e);
+      // Don't block navigation on this error
+    }
+    
+    // Navigate with full exercise data
     router.push({
       pathname: "/(app)/workout/active",
       params: { 
         type: workout.type, 
         name: workout.name,
+        programId: program.id,
+        exercises: JSON.stringify(workout.exercises),
       },
     });
   }, []);
@@ -348,7 +378,7 @@ export default function SavedProgramsScreen() {
                         {program.program_data.workouts.map((workout) => (
                           <Pressable
                             key={workout.day}
-                            onPress={() => startWorkoutFromProgram(workout)}
+                            onPress={() => startWorkoutFromProgram(program, workout)}
                             style={({ pressed }) => [
                               styles.workoutItem,
                               { backgroundColor: colors.cardAlt },

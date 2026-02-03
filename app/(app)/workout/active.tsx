@@ -49,9 +49,13 @@ import {
   ExerciseInfo, 
   PostWorkoutCheckin, 
   type PostWorkoutData,
+  PainFollowUpModal,
+  type PainFeedback,
   ExerciseCardNew,
   ExerciseSwapModal,
 } from "@/src/components/workout";
+import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
+import { type BodyRegion } from "@/src/theme";
 import { recordCoachEvent } from "@/lib/coachContext";
 import { markCoachAsUnreadGlobal } from "@/src/hooks/useCoachUnread";
 
@@ -130,6 +134,42 @@ const createSets = (count: number): SetData[] => {
   }));
 };
 
+// Type for program exercise data (from saved_programs)
+type ProgramExercise = {
+  name: string;
+  sets: number;
+  reps: string;
+  rir: number;
+  notes?: string;
+};
+
+// Transform program exercises to active workout format
+const transformProgramExercises = (programExercises: ProgramExercise[]): ExerciseData[] => {
+  return programExercises.map((ex, index) => ({
+    id: `ex-${index}`,
+    name: ex.name,
+    muscles: [], // Will be populated by exercise lookup if needed
+    sets: createSets(ex.sets),
+    targetReps: ex.reps,
+    targetRIR: ex.rir,
+    isExpanded: index === 0, // First exercise expanded by default
+  }));
+};
+
+// Create workout from program data
+const createWorkoutFromProgram = (
+  name: string,
+  type: string,
+  exercises: ProgramExercise[]
+): WorkoutData => {
+  return {
+    id: `workout-${Date.now()}`,
+    name,
+    type,
+    exercises: transformProgramExercises(exercises),
+  };
+};
+
 // Motivational messages for set completion
 const SET_MESSAGES = ["Nice!", "Strong!", "Solid!", "Keep it up!", "Crushed it!"];
 const EXERCISE_MESSAGES = ["Exercise done!", "Moving on!", "Great work!"];
@@ -160,16 +200,30 @@ export default function ActiveWorkoutScreen() {
     readiness?: ReadinessLevel;
     adjustmentPercent?: string;
     painAreas?: string;
+    programId?: string;
+    exercises?: string; // JSON stringified program exercises
   }>();
   const workoutType = params.type || "Full Body";
+  const workoutName = params.name || workoutType;
   
   // Pre-workout check-in data
   const readiness = (params.readiness as ReadinessLevel) || "moderate";
   const adjustmentPercent = params.adjustmentPercent ? parseFloat(params.adjustmentPercent) : 0;
   const painAreas = params.painAreas ? params.painAreas.split(",").filter(Boolean) : [];
   
-  // State
-  const [workout, setWorkout] = useState<WorkoutData>(() => getSampleWorkout(workoutType));
+  // State - use program exercises if provided, otherwise fall back to sample workout
+  const [workout, setWorkout] = useState<WorkoutData>(() => {
+    if (params.exercises) {
+      try {
+        const programExercises = JSON.parse(params.exercises) as ProgramExercise[];
+        return createWorkoutFromProgram(workoutName, workoutType, programExercises);
+      } catch (e) {
+        console.error("Failed to parse program exercises:", e);
+        return getSampleWorkout(workoutType);
+      }
+    }
+    return getSampleWorkout(workoutType);
+  });
   const [startTime] = useState(() => new Date());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showRestTimer, setShowRestTimer] = useState(false);
@@ -200,6 +254,12 @@ export default function ActiveWorkoutScreen() {
   
   // Post-workout checkin
   const [showPostWorkoutCheckin, setShowPostWorkoutCheckin] = useState(false);
+  
+  // Pain follow-up modal (shows after workout if pain areas were selected pre-workout)
+  const [showPainFollowUp, setShowPainFollowUp] = useState(false);
+  
+  // Active limitations hook
+  const { markCheckedToday, recordFeedback, limitations } = useActiveLimitations(userId);
   
   // Effort tracking per set
   const [setEfforts, setSetEfforts] = useState<Record<string, EffortLevel>>({});
@@ -439,11 +499,14 @@ export default function ActiveWorkoutScreen() {
     showToast({ message: `Swapped to ${newExercise.name}`, type: "motivation" });
   }, [swapExerciseId]);
 
-  // Handle workout finish - shows post-workout checkin first
+  // Handle workout finish - shows post-workout checkin first, then pain follow-up if needed
   const handleFinish = useCallback(async () => {
     setShowCelebration(false);
     setShowPostWorkoutCheckin(true);
   }, []);
+
+  // Session ID ref for pain feedback recording
+  const sessionIdRef = useRef<string | null>(null);
 
   // Handle post-workout checkin completion
   const handlePostWorkoutComplete = useCallback(async (checkinData: PostWorkoutData) => {
@@ -549,15 +612,52 @@ export default function ActiveWorkoutScreen() {
         }
 
         console.log("Workout saved successfully!");
+        
+        // Store session ID for pain feedback
+        sessionIdRef.current = sessionId;
+        
+        // Mark limitations as checked for this session
+        if (painAreas.length > 0) {
+          await markCheckedToday(painAreas as BodyRegion[]);
+        }
       } catch (e) {
         console.error("Error saving workout:", e);
         Alert.alert("Error", "Failed to save workout. Please try again.");
       }
     }
 
-    // Navigate to Home tab instead of back()
+    // Show pain follow-up if user had pain areas selected
+    if (painAreas.length > 0) {
+      setShowPainFollowUp(true);
+    } else {
+      // Navigate to Home tab
+      router.replace("/(app)/(tabs)" as any);
+    }
+  }, [userId, workout, startTime, checkPR, painAreas, markCheckedToday]);
+
+  // Handle pain follow-up completion
+  const handlePainFollowUpComplete = useCallback(async (feedback: Record<BodyRegion, PainFeedback>) => {
+    setShowPainFollowUp(false);
+    
+    // Record feedback for each pain area
+    if (sessionIdRef.current) {
+      for (const [area, feedbackValue] of Object.entries(feedback)) {
+        const limitation = limitations.find(l => l.area === area);
+        if (limitation) {
+          await recordFeedback(limitation.id, sessionIdRef.current, feedbackValue);
+        }
+      }
+    }
+    
+    // Navigate to Home tab
     router.replace("/(app)/(tabs)" as any);
-  }, [userId, workout, startTime, checkPR]);
+  }, [limitations, recordFeedback]);
+
+  // Handle skipping pain follow-up
+  const handlePainFollowUpSkip = useCallback(() => {
+    setShowPainFollowUp(false);
+    router.replace("/(app)/(tabs)" as any);
+  }, []);
 
   // Handle exit with confirmation
   const handleExit = useCallback(() => {
@@ -1070,6 +1170,14 @@ export default function ActiveWorkoutScreen() {
         }}
         workoutTitle={workout.name}
         duration={elapsedTime}
+      />
+
+      {/* Pain Follow-Up Modal (shown if pre-workout pain areas were selected) */}
+      <PainFollowUpModal
+        visible={showPainFollowUp}
+        painAreas={painAreas as BodyRegion[]}
+        onComplete={handlePainFollowUpComplete}
+        onSkip={handlePainFollowUpSkip}
       />
 
       {/* Exercise Swap Modal */}
