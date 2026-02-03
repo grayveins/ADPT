@@ -791,6 +791,23 @@ export default function ActiveWorkoutScreen() {
                       );
                     })()}
 
+                    {/* Column Headers */}
+                    <View style={styles.columnHeaderRow}>
+                      <Text allowFontScaling={false} style={[styles.columnHeader, styles.columnHeaderSet, { color: colors.textMuted }]}>
+                        Set
+                      </Text>
+                      <Text allowFontScaling={false} style={[styles.columnHeader, styles.columnHeaderPrev, { color: colors.textMuted }]}>
+                        Prev
+                      </Text>
+                      <Text allowFontScaling={false} style={[styles.columnHeader, styles.columnHeaderWeight, { color: colors.textMuted }]}>
+                        Weight
+                      </Text>
+                      <Text allowFontScaling={false} style={[styles.columnHeader, styles.columnHeaderReps, { color: colors.textMuted }]}>
+                        Reps
+                      </Text>
+                      <View style={styles.columnHeaderCheck} />
+                    </View>
+
                     {/* Set rows */}
                     {exercise.sets.map((set, setIndex) => {
                         // Get previous workout data for this set
@@ -805,73 +822,65 @@ export default function ActiveWorkoutScreen() {
                           ]}
                         >
                           {/* Set number */}
-                        <View style={[
-                          styles.setNumber,
-                          set.completed && styles.setNumberComplete,
-                        ]}>
-                          <Text allowFontScaling={false} style={[
-                            styles.setNumberText,
-                            set.completed && styles.setNumberTextComplete,
+                          <View style={[
+                            styles.setNumber,
+                            set.completed && styles.setNumberComplete,
                           ]}>
-                            {setIndex + 1}
-                          </Text>
-                        </View>
+                            <Text allowFontScaling={false} style={[
+                              styles.setNumberText,
+                              set.completed && styles.setNumberTextComplete,
+                            ]}>
+                              {setIndex + 1}
+                            </Text>
+                          </View>
 
-                        {/* PREV column - previous workout weight */}
-                        <View style={styles.prevColumn}>
-                          <Text 
-                            allowFontScaling={false} 
-                            style={[styles.prevText, { color: colors.textMuted }]}
-                          >
-                            {prevSet?.weight || "--"}
-                          </Text>
-                        </View>
+                          {/* PREV column - previous workout weight */}
+                          <View style={styles.prevColumn}>
+                            <Text 
+                              allowFontScaling={false} 
+                              style={[styles.prevText, { color: colors.textMuted }]}
+                            >
+                              {prevSet?.weight || "--"}
+                            </Text>
+                          </View>
 
-                        {/* Weight input */}
-                        <View style={styles.inputGroup}>
-                          <TextInput
-                            value={set.weight}
-                            onChangeText={(value) => handleSetChange(exercise.id, set.id, "weight", value)}
-                            placeholder={exercise.previousBest?.weight || "0"}
-                            placeholderTextColor={colors.inputPlaceholder}
-                            keyboardType="numeric"
-                            keyboardAppearance="light"
-                            style={[styles.input, set.completed && styles.inputComplete]}
-                            editable={!set.completed}
-                            selectTextOnFocus
+                          {/* Weight input */}
+                          <View style={styles.inputColumn}>
+                            <TextInput
+                              value={set.weight}
+                              onChangeText={(value) => handleSetChange(exercise.id, set.id, "weight", value)}
+                              placeholder={exercise.previousBest?.weight || "0"}
+                              placeholderTextColor={colors.inputPlaceholder}
+                              keyboardType="numeric"
+                              keyboardAppearance="light"
+                              style={[styles.input, set.completed && styles.inputComplete]}
+                              editable={!set.completed}
+                              selectTextOnFocus
+                            />
+                          </View>
+
+                          {/* Reps input */}
+                          <View style={styles.inputColumn}>
+                            <TextInput
+                              value={set.reps}
+                              onChangeText={(value) => handleSetChange(exercise.id, set.id, "reps", value)}
+                              placeholder={exercise.targetReps.split("-")[0]}
+                              placeholderTextColor={colors.inputPlaceholder}
+                              keyboardType="numeric"
+                              keyboardAppearance="light"
+                              style={[styles.input, set.completed && styles.inputComplete]}
+                              editable={!set.completed}
+                              selectTextOnFocus
+                            />
+                          </View>
+
+                          {/* Complete checkbox */}
+                          <AnimatedCheckbox
+                            checked={set.completed}
+                            onToggle={() => !set.completed && handleSetComplete(exercise.id, set.id)}
+                            size={32}
                           />
-                          <Text allowFontScaling={false} style={styles.inputLabel}>
-                            lbs
-                          </Text>
                         </View>
-
-                        <Text allowFontScaling={false} style={styles.times}>×</Text>
-
-                        {/* Reps input */}
-                        <View style={styles.inputGroup}>
-                          <TextInput
-                            value={set.reps}
-                            onChangeText={(value) => handleSetChange(exercise.id, set.id, "reps", value)}
-                            placeholder={exercise.targetReps.split("-")[0]}
-                            placeholderTextColor={colors.inputPlaceholder}
-                            keyboardType="numeric"
-                            keyboardAppearance="light"
-                            style={[styles.input, set.completed && styles.inputComplete]}
-                            editable={!set.completed}
-                            selectTextOnFocus
-                          />
-                          <Text allowFontScaling={false} style={styles.inputLabel}>
-                            reps
-                          </Text>
-                        </View>
-
-                        {/* Complete checkbox */}
-                        <AnimatedCheckbox
-                          checked={set.completed}
-                          onToggle={() => !set.completed && handleSetComplete(exercise.id, set.id)}
-                          size={32}
-                        />
-                      </View>
                       );
                     })}
                   </Animated.View>
@@ -1278,6 +1287,40 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       marginTop: 4,
       lineHeight: 18,
     },
+    // Column Headers
+    columnHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      paddingBottom: 8,
+      gap: 8,
+    },
+    columnHeader: {
+      fontSize: 11,
+      fontFamily: "Inter_500Medium",
+      textTransform: "uppercase" as const,
+      letterSpacing: 0.5,
+    },
+    columnHeaderSet: {
+      width: 28,
+      textAlign: "center",
+    },
+    columnHeaderPrev: {
+      width: 36,
+      textAlign: "center",
+    },
+    columnHeaderWeight: {
+      flex: 1,
+      textAlign: "center",
+    },
+    columnHeaderReps: {
+      flex: 1,
+      textAlign: "center",
+    },
+    columnHeaderCheck: {
+      width: 32,
+    },
+    // Set Rows
     setRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -1285,7 +1328,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       borderRadius: 12,
       padding: 12,
       marginBottom: 8,
-      gap: 12,
+      gap: 8,
     },
     setRowComplete: {
       opacity: 0.6,
@@ -1310,41 +1353,29 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       color: colors.textOnPrimary,
     },
     prevColumn: {
-      width: 40,
+      width: 36,
       alignItems: "center",
     },
     prevText: {
       fontSize: 13,
       fontFamily: "Inter_400Regular",
     },
-    inputGroup: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      gap: 4,
+    inputColumn: {
+      flex: 1,
     },
     input: {
       backgroundColor: colors.card,
       borderRadius: 8,
-      paddingHorizontal: 12,
+      paddingHorizontal: 8,
       paddingVertical: 8,
       color: colors.text,
       fontSize: 18,
       fontFamily: "Inter_600SemiBold",
-      minWidth: 56,
       textAlign: "center",
     },
     inputComplete: {
       backgroundColor: colors.border,
       color: colors.textMuted,
-    },
-    inputLabel: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontFamily: "Inter_400Regular",
-    },
-    times: {
-      color: colors.textMuted,
-      fontSize: 16,
     },
     // Rest Modal
     restModal: {

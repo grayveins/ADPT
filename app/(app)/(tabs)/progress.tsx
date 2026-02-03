@@ -23,13 +23,14 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { format, parseISO, subDays, subMonths, startOfWeek, addDays } from "date-fns";
+import { format, parseISO, subDays, subMonths, startOfWeek, addDays, differenceInDays } from "date-fns";
 import Svg, { Circle, G, Text as SvgText } from "react-native-svg";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { layout, spacing, shadows } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { useStreak } from "@/src/hooks/useStreak";
+import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
 import { WeeklyHeatmap, type LiftProgress } from "@/src/components/progress";
 import { defaultExercises } from "@/lib/exercises";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -70,6 +71,9 @@ export default function ProgressScreen() {
   
   // Streak
   const { currentStreak, longestStreak, loading: streakLoading, refreshStreak } = useStreak(userId);
+  
+  // Weekly Summary (for insights and recovery)
+  const { data: weeklySummary, loading: summaryLoading, refresh: refreshSummary } = useWeeklySummary(userId);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -174,6 +178,7 @@ export default function ProgressScreen() {
       setTotalVolume(total);
       
       refreshStreak();
+      refreshSummary();
       
     } catch (error) {
       console.error("Error fetching progress:", error);
@@ -181,7 +186,7 @@ export default function ProgressScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshStreak]);
+  }, [refreshStreak, refreshSummary]);
   
   useEffect(() => {
     fetchData();
@@ -199,7 +204,81 @@ export default function ProgressScreen() {
       .sort((a, b) => b.percent - a.percent);
   }, [muscleVolume, totalVolume, colors.primary]);
 
-  if (loading || streakLoading) {
+  // Generate coach insights from data
+  const coachInsights = useMemo(() => {
+    const insights: string[] = [];
+    
+    if (weeklySummary) {
+      // Volume trend insight
+      if (weeklySummary.volumeTrend > 15) {
+        insights.push(`Volume up ${weeklySummary.volumeTrend}% this week. Great progress - monitor recovery.`);
+      } else if (weeklySummary.volumeTrend < -15) {
+        insights.push(`Volume down ${Math.abs(weeklySummary.volumeTrend)}% this week. Consider if recovery was needed or time to push harder.`);
+      }
+      
+      // Workout frequency insight
+      if (weeklySummary.workoutsCompleted < weeklySummary.workoutsTarget && weeklySummary.workoutsTarget > 0) {
+        const remaining = weeklySummary.workoutsTarget - weeklySummary.workoutsCompleted;
+        insights.push(`${remaining} workout${remaining > 1 ? "s" : ""} remaining this week to hit your target.`);
+      } else if (weeklySummary.workoutsCompleted >= weeklySummary.workoutsTarget) {
+        insights.push("On track with your weekly workout goal.");
+      }
+      
+      // Muscle imbalance insight
+      const muscleVolumes = Object.entries(weeklySummary.muscleWeeklyVolume);
+      if (muscleVolumes.length > 0) {
+        const sorted = muscleVolumes.sort((a, b) => b[1] - a[1]);
+        const highest = sorted[0];
+        const lowest = sorted[sorted.length - 1];
+        
+        if (highest[1] > lowest[1] * 3 && sorted.length > 2) {
+          insights.push(`Consider adding more ${lowest[0].toLowerCase()} work for balanced development.`);
+        }
+      }
+    }
+    
+    // Streak insight
+    if (currentStreak >= 7) {
+      insights.push(`${currentStreak} day streak - consistency is key to progress.`);
+    }
+    
+    return insights.slice(0, 3); // Max 3 insights
+  }, [weeklySummary, currentStreak]);
+
+  // Calculate recovery status for each muscle group
+  const recoveryStatus = useMemo(() => {
+    if (!weeklySummary?.muscleLastTrained) return { ready: [], moderate: [], rest: [] };
+    
+    const now = new Date();
+    const ready: string[] = [];
+    const moderate: string[] = [];
+    const rest: string[] = [];
+    
+    Object.entries(weeklySummary.muscleLastTrained).forEach(([muscle, lastDate]) => {
+      if (!lastDate) {
+        ready.push(muscle);
+        return;
+      }
+      
+      const daysSince = differenceInDays(now, lastDate);
+      const weeklyVolume = weeklySummary.muscleWeeklyVolume[muscle] || 0;
+      
+      // High volume muscles need more recovery
+      const isHighVolume = weeklyVolume > 10000; // Arbitrary threshold
+      
+      if (daysSince >= 3 || (!isHighVolume && daysSince >= 2)) {
+        ready.push(muscle);
+      } else if (daysSince >= 1) {
+        moderate.push(muscle);
+      } else {
+        rest.push(muscle);
+      }
+    });
+    
+    return { ready, moderate, rest };
+  }, [weeklySummary]);
+
+  if (loading || streakLoading || summaryLoading) {
     return (
       <View style={[styles.safe, { backgroundColor: colors.bg }]}>
         <View style={styles.loadingContainer}>
@@ -251,9 +330,107 @@ export default function ProgressScreen() {
           )}
         </Animated.View>
 
+        {/* Coach Insights Card */}
+        {coachInsights.length > 0 && (
+          <Animated.View 
+            entering={FadeInDown.delay(50).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <View style={styles.insightsHeader}>
+              <View style={[styles.insightsIcon, { backgroundColor: colors.primaryMuted }]}>
+                <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+              </View>
+              <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
+                Insights
+              </Text>
+            </View>
+            <View style={styles.insightsList}>
+              {coachInsights.map((insight, index) => (
+                <View key={index} style={styles.insightRow}>
+                  <View style={[styles.insightDot, { backgroundColor: colors.primary }]} />
+                  <Text allowFontScaling={false} style={[styles.insightText, { color: colors.textSecondary }]}>
+                    {insight}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Recovery Status Card */}
+        {(recoveryStatus.ready.length > 0 || recoveryStatus.moderate.length > 0 || recoveryStatus.rest.length > 0) && (
+          <Animated.View 
+            entering={FadeInDown.delay(75).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
+              Recovery Status
+            </Text>
+            <View style={styles.recoveryList}>
+              {recoveryStatus.ready.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.success + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.success }]}>
+                      Ready
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.ready.join(", ")}
+                  </Text>
+                </View>
+              )}
+              {recoveryStatus.moderate.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.gold + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.gold }]}>
+                      Moderate
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.moderate.join(", ")}
+                  </Text>
+                </View>
+              )}
+              {recoveryStatus.rest.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.intensity + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.intensity }]}>
+                      Rest
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.rest.join(", ")}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Muscle Map Placeholder - Future: Body silhouette with teal muscle highlights */}
+        <Animated.View 
+          entering={FadeInDown.delay(100).duration(300)}
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
+          <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
+            Muscle Map
+          </Text>
+          <Text allowFontScaling={false} style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+            Tap muscles to see training status
+          </Text>
+          <View style={styles.muscleMapPlaceholder}>
+            <View style={[styles.muscleMapIcon, { backgroundColor: colors.primaryMuted }]}>
+              <Ionicons name="body-outline" size={48} color={colors.primary} />
+            </View>
+            <Text allowFontScaling={false} style={[styles.muscleMapComingSoon, { color: colors.textMuted }]}>
+              Coming soon
+            </Text>
+          </View>
+        </Animated.View>
+
         {/* Workout Heatmap */}
         <Animated.View 
-          entering={FadeInDown.delay(50).duration(300)}
+          entering={FadeInDown.delay(125).duration(300)}
           style={[styles.card, { backgroundColor: colors.card }]}
         >
           <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
@@ -512,6 +689,86 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginBottom: spacing.base,
+  },
+  
+  // Muscle Map Placeholder
+  muscleMapPlaceholder: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
+  },
+  muscleMapIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.md,
+  },
+  muscleMapComingSoon: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  
+  // Coach Insights
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  insightsIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  insightsList: {
+    gap: spacing.md,
+  },
+  insightRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  insightDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+  
+  // Recovery Status
+  recoveryList: {
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  recoveryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  recoveryBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 72,
+  },
+  recoveryLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+  recoveryMuscles: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
   },
   
   // Section
