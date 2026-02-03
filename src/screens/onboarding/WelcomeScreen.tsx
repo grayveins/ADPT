@@ -1,25 +1,33 @@
 /**
  * WelcomeScreen
- * Premium intro screen inspired by Fitbod/MacroFactor
- * Sophisticated animations and clean typography
+ * Minimalist, fitness-centric welcome with name input
+ * Inspired by premium fitness apps (Fitbod, Hevy, Strong)
  */
 
-import React, { useEffect } from "react";
-import { StyleSheet, Text, View, Pressable, Dimensions } from "react-native";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+} from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withDelay,
   withTiming,
-  withSequence,
-  withRepeat,
   Easing,
-  interpolate,
+  withRepeat,
+  withSequence,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
+import { useOnboarding } from "@/src/context/OnboardingContext";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -28,384 +36,340 @@ type WelcomeScreenProps = {
   onNext: () => void;
 };
 
-// Floating particle component
-function FloatingParticle({ delay, size, x, y }: { delay: number; size: number; x: number; y: number }) {
-  const translateY = useSharedValue(0);
-  const opacity = useSharedValue(0);
+// Abstract fitness-themed decorative element
+function FitnessGraphic({ colors }: { colors: ReturnType<typeof useTheme>["colors"] }) {
+  const barHeights = [0.4, 0.6, 0.8, 1.0, 0.7, 0.5, 0.3];
+  const animatedValues = barHeights.map(() => useSharedValue(0));
 
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(0.6, { duration: 1000 }));
-    translateY.value = withDelay(
-      delay,
-      withRepeat(
-        withSequence(
-          withTiming(-20, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      )
-    );
+    animatedValues.forEach((av, i) => {
+      av.value = withDelay(
+        100 + i * 80,
+        withTiming(1, { duration: 600, easing: Easing.out(Easing.back(1.2)) })
+      );
+    });
   }, []);
 
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
-
   return (
-    <Animated.View
-      style={[
-        {
-          position: "absolute",
-          left: x,
-          top: y,
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: darkColors.primary,
-        },
-        style,
-      ]}
-    />
-  );
-}
+    <View style={graphicStyles.container}>
+      {/* Abstract progress bars representing growth */}
+      <View style={graphicStyles.barsContainer}>
+        {barHeights.map((height, i) => {
+          const animatedStyle = useAnimatedStyle(() => ({
+            transform: [{ scaleY: animatedValues[i].value }],
+          }));
 
-// Animated ring component
-function PulsingRing({ delay }: { delay: number }) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.3);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(1.5, { duration: 2000, easing: Easing.out(Easing.ease) }),
-        -1,
-        false
-      )
-    );
-    opacity.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(0, { duration: 2000, easing: Easing.out(Easing.ease) }),
-        -1,
-        false
-      )
-    );
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.View style={[styles.pulsingRing, style]} />
-  );
-}
-
-export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
-  // Animation values
-  const logoScale = useSharedValue(0.5);
-  const logoOpacity = useSharedValue(0);
-  const logoRotation = useSharedValue(-10);
-  const titleOpacity = useSharedValue(0);
-  const titleTranslateY = useSharedValue(30);
-  const subtitleOpacity = useSharedValue(0);
-  const subtitleTranslateY = useSharedValue(20);
-  const featuresOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
-  const buttonScale = useSharedValue(0.9);
-
-  useEffect(() => {
-    // Orchestrated animation sequence
-    // 1. Logo animates in with bounce
-    logoOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
-    logoScale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 100 }));
-    logoRotation.value = withDelay(200, withSpring(0, { damping: 15, stiffness: 80 }));
-    
-    // 2. Title slides up and fades in
-    titleOpacity.value = withDelay(600, withTiming(1, { duration: 500 }));
-    titleTranslateY.value = withDelay(600, withSpring(0, { damping: 20 }));
-    
-    // 3. Subtitle follows
-    subtitleOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
-    subtitleTranslateY.value = withDelay(800, withSpring(0, { damping: 20 }));
-    
-    // 4. Features fade in
-    featuresOpacity.value = withDelay(1000, withTiming(1, { duration: 600 }));
-    
-    // 5. Button appears last
-    buttonOpacity.value = withDelay(1200, withTiming(1, { duration: 400 }));
-    buttonScale.value = withDelay(1200, withSpring(1, { damping: 15 }));
-  }, []);
-
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: logoScale.value },
-      { rotate: `${logoRotation.value}deg` },
-    ],
-    opacity: logoOpacity.value,
-  }));
-
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: titleOpacity.value,
-    transform: [{ translateY: titleTranslateY.value }],
-  }));
-
-  const subtitleStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-    transform: [{ translateY: subtitleTranslateY.value }],
-  }));
-
-  const featuresStyle = useAnimatedStyle(() => ({
-    opacity: featuresOpacity.value,
-  }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleNext = () => {
-    hapticPress();
-    onNext();
-  };
-
-  return (
-    <View style={styles.container}>
-      {/* Floating particles background */}
-      <View style={styles.particlesContainer}>
-        <FloatingParticle delay={0} size={4} x={SCREEN_WIDTH * 0.1} y={100} />
-        <FloatingParticle delay={500} size={6} x={SCREEN_WIDTH * 0.85} y={150} />
-        <FloatingParticle delay={1000} size={3} x={SCREEN_WIDTH * 0.2} y={250} />
-        <FloatingParticle delay={1500} size={5} x={SCREEN_WIDTH * 0.75} y={300} />
-        <FloatingParticle delay={800} size={4} x={SCREEN_WIDTH * 0.5} y={80} />
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                graphicStyles.bar,
+                { 
+                  height: height * 80,
+                  backgroundColor: i === 3 ? colors.primary : `${colors.primary}${Math.round((0.2 + i * 0.1) * 255).toString(16).padStart(2, '0')}`,
+                },
+                animatedStyle,
+              ]}
+            />
+          );
+        })}
       </View>
-
-      {/* Logo with pulsing rings */}
-      <View style={styles.logoSection}>
-        <Animated.View style={[styles.logoContainer, logoStyle]}>
-          {/* Pulsing rings */}
-          <PulsingRing delay={0} />
-          <PulsingRing delay={700} />
-          
-          {/* Logo circle */}
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            style={styles.logoGradient}
-          >
-            <Ionicons name="fitness" size={48} color="#000" />
-          </LinearGradient>
-        </Animated.View>
-        
-        {/* Brand name */}
-        <Animated.Text allowFontScaling={false} style={[styles.brandName, logoStyle]}>
-          ADPT
-        </Animated.Text>
-      </View>
-
-      {/* Title and subtitle */}
-      <View style={styles.textSection}>
-        <Animated.Text allowFontScaling={false} style={[styles.title, titleStyle]}>
-          Train Smarter
-        </Animated.Text>
-        <Animated.Text allowFontScaling={false} style={[styles.subtitle, subtitleStyle]}>
-          AI-powered workouts that adapt to your body,{"\n"}goals, and progress in real-time.
-        </Animated.Text>
-      </View>
-
-      {/* Feature highlights */}
-      <Animated.View style={[styles.features, featuresStyle]}>
-        <FeatureItem 
-          icon="sparkles" 
-          text="Personalized for you" 
-          delay={0}
-        />
-        <FeatureItem 
-          icon="analytics" 
-          text="Tracks your progress" 
-          delay={100}
-        />
-        <FeatureItem 
-          icon="sync" 
-          text="Adapts every workout" 
-          delay={200}
-        />
-      </Animated.View>
-
-      {/* CTA Button */}
-      <Animated.View style={[styles.ctaContainer, buttonStyle]}>
-        <Pressable
-          onPress={handleNext}
-          style={({ pressed }) => [
-            styles.ctaButton,
-            pressed && styles.ctaButtonPressed,
-          ]}
-        >
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
-          >
-            <Text allowFontScaling={false} style={styles.ctaText}>
-              Get Started
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="#000" />
-          </LinearGradient>
-        </Pressable>
-        
-        <Text allowFontScaling={false} style={styles.ctaHint}>
-          Setup takes about 2 minutes
-        </Text>
-      </Animated.View>
+      
+      {/* Subtle pulse ring */}
+      <View style={[graphicStyles.pulseRing, { borderColor: `${colors.primary}20` }]} />
+      <View style={[graphicStyles.pulseRingInner, { borderColor: `${colors.primary}10` }]} />
     </View>
   );
 }
 
-// Feature item component
-function FeatureItem({ icon, text, delay }: { icon: string; text: string; delay: number }) {
-  const opacity = useSharedValue(0);
-  const translateX = useSharedValue(-20);
+const graphicStyles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 140,
+    marginBottom: 8,
+  },
+  barsContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    height: 80,
+  },
+  bar: {
+    width: 12,
+    borderRadius: 6,
+    transformOrigin: "bottom",
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  pulseRingInner: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 1,
+  },
+});
+
+export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { form, updateForm } = useOnboarding();
+  const [name, setName] = useState(form.firstName || "");
+  const inputRef = useRef<TextInput>(null);
+
+  // Animation values
+  const graphicOpacity = useSharedValue(0);
+  const contentOpacity = useSharedValue(0);
+  const inputOpacity = useSharedValue(0);
+  const footerOpacity = useSharedValue(0);
 
   useEffect(() => {
-    opacity.value = withDelay(1000 + delay, withTiming(1, { duration: 400 }));
-    translateX.value = withDelay(1000 + delay, withSpring(0, { damping: 20 }));
+    graphicOpacity.value = withDelay(100, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    contentOpacity.value = withDelay(300, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    inputOpacity.value = withDelay(500, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    footerOpacity.value = withDelay(700, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
   }, []);
 
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateX: translateX.value }],
+  const graphicStyle = useAnimatedStyle(() => ({
+    opacity: graphicOpacity.value,
   }));
 
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const inputStyle = useAnimatedStyle(() => ({
+    opacity: inputOpacity.value,
+  }));
+
+  const footerStyle = useAnimatedStyle(() => ({
+    opacity: footerOpacity.value,
+  }));
+
+  const handleNext = () => {
+    hapticPress();
+    updateForm({ firstName: name.trim() || undefined });
+    onNext();
+  };
+
+  const canContinue = name.trim().length > 0;
+
   return (
-    <Animated.View style={[styles.featureItem, style]}>
-      <View style={styles.featureIcon}>
-        <Ionicons name={icon as any} size={18} color={darkColors.primary} />
-      </View>
-      <Text allowFontScaling={false} style={styles.featureText}>
-        {text}
-      </Text>
-    </Animated.View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      {/* Decorative graphic */}
+      <Animated.View style={[styles.graphicSection, graphicStyle]}>
+        <FitnessGraphic colors={colors} />
+      </Animated.View>
+
+      {/* Brand and Value Prop */}
+      <Animated.View style={[styles.contentSection, contentStyle]}>
+        <View style={styles.brandRow}>
+          <Text allowFontScaling={false} style={styles.brandName}>
+            ADPT
+          </Text>
+          <View style={styles.tagline}>
+            <Text allowFontScaling={false} style={styles.taglineText}>
+              AI-Powered Training
+            </Text>
+          </View>
+        </View>
+
+        <Text allowFontScaling={false} style={styles.headline}>
+          Workouts that adapt{"\n"}as you grow stronger
+        </Text>
+
+        {/* Value bullets */}
+        <View style={styles.bullets}>
+          <View style={styles.bullet}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            <Text allowFontScaling={false} style={styles.bulletText}>
+              Personalized to your goals
+            </Text>
+          </View>
+          <View style={styles.bullet}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            <Text allowFontScaling={false} style={styles.bulletText}>
+              Adjusts based on your progress
+            </Text>
+          </View>
+          <View style={styles.bullet}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            <Text allowFontScaling={false} style={styles.bulletText}>
+              AI coach available 24/7
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Name Input */}
+      <Animated.View style={[styles.inputSection, inputStyle]}>
+        <Text allowFontScaling={false} style={styles.inputLabel}>
+          What should we call you?
+        </Text>
+        <TextInput
+          ref={inputRef}
+          value={name}
+          onChangeText={setName}
+          placeholder="Your first name"
+          placeholderTextColor={colors.inputPlaceholder}
+          style={styles.input}
+          autoCapitalize="words"
+          autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={canContinue ? handleNext : undefined}
+        />
+      </Animated.View>
+
+      {/* Footer */}
+      <Animated.View style={[styles.footer, footerStyle]}>
+        <Pressable
+          onPress={handleNext}
+          disabled={!canContinue}
+          style={({ pressed }) => [
+            styles.ctaButton,
+            !canContinue && styles.ctaButtonDisabled,
+            pressed && canContinue && styles.ctaButtonPressed,
+          ]}
+        >
+          <Text allowFontScaling={false} style={[
+            styles.ctaText,
+            !canContinue && styles.ctaTextDisabled,
+          ]}>
+            Get Started
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={20}
+            color={canContinue ? colors.textOnPrimary : colors.textMuted}
+          />
+        </Pressable>
+
+        <Text allowFontScaling={false} style={styles.footerNote}>
+          Takes about 2 minutes to set up your plan
+        </Text>
+      </Animated.View>
+    </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingBottom: 40,
-  },
-  particlesContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  logoSection: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoContainer: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  pulsingRing: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: darkColors.primary,
-  },
-  logoGradient: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandName: {
-    color: darkColors.text,
-    fontSize: 32,
-    fontFamily: theme.fonts.bodySemiBold,
-    letterSpacing: 8,
-  },
-  textSection: {
-    alignItems: "center",
-    marginBottom: 40,
-    gap: 12,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 40,
-    fontFamily: theme.fonts.heading,
-    textAlign: "center",
-    lineHeight: 48,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 16,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-    lineHeight: 24,
-    paddingHorizontal: 20,
-  },
-  features: {
-    gap: 16,
-    marginBottom: 48,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureText: {
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  ctaContainer: {
-    width: "100%",
-    alignItems: "center",
-    gap: 16,
-  },
-  ctaButton: {
-    width: "100%",
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  ctaButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-  },
-  ctaText: {
-    color: "#000",
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  ctaHint: {
-    color: darkColors.muted2,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingBottom: 24,
+    },
+    graphicSection: {
+      marginTop: 16,
+    },
+    contentSection: {
+      gap: 20,
+      marginTop: 8,
+    },
+    brandRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    brandName: {
+      color: colors.text,
+      fontSize: 32,
+      fontFamily: theme.fonts.bodySemiBold,
+      letterSpacing: 4,
+    },
+    tagline: {
+      backgroundColor: colors.selected,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    taglineText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontFamily: theme.fonts.bodyMedium,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    headline: {
+      color: colors.text,
+      fontSize: 26,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 34,
+    },
+    bullets: {
+      gap: 10,
+    },
+    bullet: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    bulletText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.body,
+    },
+    inputSection: {
+      marginTop: 28,
+      gap: 10,
+    },
+    inputLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      fontSize: 17,
+      fontFamily: theme.fonts.body,
+      color: colors.text,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    footer: {
+      marginTop: "auto",
+      gap: 14,
+    },
+    ctaButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      paddingVertical: 18,
+      paddingHorizontal: 32,
+      borderRadius: 16,
+      backgroundColor: colors.primary,
+    },
+    ctaButtonDisabled: {
+      backgroundColor: colors.border,
+    },
+    ctaButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.99 }],
+    },
+    ctaText: {
+      color: colors.textOnPrimary,
+      fontSize: 17,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    ctaTextDisabled: {
+      color: colors.textMuted,
+    },
+    footerNote: {
+      color: colors.inputPlaceholder,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+      textAlign: "center",
+    },
+  });

@@ -1,13 +1,15 @@
 /**
  * BodyStatsScreen
  * Height and weight input with visual BMI indicator
+ * Activity level moved to separate ActivityLevelScreen
  */
 
 import React, { useState, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Slider from "@react-native-community/slider";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -34,16 +36,20 @@ const calculateBMI = (weightKg: number, heightCm: number) => {
   return weightKg / (heightM * heightM);
 };
 
-// Get BMI category
-const getBMICategory = (bmi: number | null) => {
-  if (!bmi) return { label: "", color: darkColors.muted };
-  if (bmi < 18.5) return { label: "Underweight", color: "#FFB800" };
-  if (bmi < 25) return { label: "Healthy", color: darkColors.primary };
-  if (bmi < 30) return { label: "Overweight", color: "#FF8C00" };
-  return { label: "Obese", color: "#FF4444" };
+// Get BMI category - returns function to allow color access
+const getBMICategory = (bmi: number | null, colors: ReturnType<typeof useTheme>["colors"]) => {
+  if (!bmi) return { label: "", color: colors.textMuted };
+  if (bmi < 18.5) return { label: "Underweight", color: colors.warning };
+  if (bmi < 25) return { label: "Healthy", color: colors.success };
+  if (bmi < 30) return { label: "Overweight", color: colors.intensity };
+  return { label: "Obese", color: colors.error };
 };
 
+
+
 export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   
   // Default values
@@ -52,10 +58,14 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
   const [useMetric, setUseMetric] = useState(false);
 
   const bmi = useMemo(() => calculateBMI(weight, height), [weight, height]);
-  const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
+  const bmiCategory = useMemo(() => getBMICategory(bmi, colors), [bmi, colors]);
 
   const handleNext = () => {
-    updateForm({ heightCm: height, weightKg: weight });
+    hapticPress();
+    updateForm({ 
+      heightCm: height, 
+      weightKg: weight,
+    });
     onNext();
   };
 
@@ -106,7 +116,7 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
       </Animated.View>
 
       {/* Height */}
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.statCard}>
+      <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.statCard}>
         <View style={styles.statHeader}>
           <Text allowFontScaling={false} style={styles.statLabel}>
             Height
@@ -122,9 +132,9 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
           step={1}
           value={height}
           onValueChange={setHeight}
-          minimumTrackTintColor={darkColors.primary}
-          maximumTrackTintColor={darkColors.border}
-          thumbTintColor={darkColors.primary}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
+          thumbTintColor={colors.primary}
         />
         <View style={styles.sliderLabels}>
           <Text allowFontScaling={false} style={styles.sliderLabel}>
@@ -137,7 +147,7 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
       </Animated.View>
 
       {/* Weight */}
-      <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.statCard}>
+      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.statCard}>
         <View style={styles.statHeader}>
           <Text allowFontScaling={false} style={styles.statLabel}>
             Weight
@@ -150,12 +160,12 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
           style={styles.slider}
           minimumValue={40}
           maximumValue={180}
-          step={0.5}
-          value={weight}
-          onValueChange={setWeight}
-          minimumTrackTintColor={darkColors.primary}
-          maximumTrackTintColor={darkColors.border}
-          thumbTintColor={darkColors.primary}
+          step={1}
+          value={Math.round(weight)}
+          onValueChange={(v) => setWeight(Math.round(v))}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
+          thumbTintColor={colors.primary}
         />
         <View style={styles.sliderLabels}>
           <Text allowFontScaling={false} style={styles.sliderLabel}>
@@ -168,7 +178,7 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
       </Animated.View>
 
       {/* BMI Indicator */}
-      <Animated.View entering={FadeInDown.delay(400).duration(400)} style={styles.bmiCard}>
+      <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.bmiCard}>
         <View style={styles.bmiRow}>
           <Text allowFontScaling={false} style={styles.bmiLabel}>
             BMI
@@ -192,111 +202,112 @@ export default function BodyStatsScreen({ onNext }: BodyStatsScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 20,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  unitToggle: {
-    flexDirection: "row",
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    padding: 4,
-  },
-  unitOption: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  unitOptionActive: {
-    backgroundColor: darkColors.primary,
-  },
-  unitText: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  unitTextActive: {
-    color: "#000",
-  },
-  statCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 20,
-    gap: 16,
-  },
-  statHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statLabel: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  statValue: {
-    color: darkColors.text,
-    fontSize: 24,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  slider: {
-    width: "100%",
-    height: 40,
-  },
-  sliderLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  sliderLabel: {
-    color: darkColors.muted2,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-  },
-  bmiCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-  },
-  bmiRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  bmiLabel: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  bmiValue: {
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  bmiNote: {
-    color: darkColors.muted2,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 16,
+    },
+    header: {
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    unitToggle: {
+      flexDirection: "row",
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 4,
+    },
+    unitOption: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    unitOptionActive: {
+      backgroundColor: colors.primary,
+    },
+    unitText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    unitTextActive: {
+      color: colors.textOnPrimary,
+    },
+    statCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      gap: 12,
+    },
+    statHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    statLabel: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    statValue: {
+      color: colors.text,
+      fontSize: 22,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    slider: {
+      width: "100%",
+      height: 40,
+    },
+    sliderLabels: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    sliderLabel: {
+      color: colors.inputPlaceholder,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+    },
+    bmiCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 14,
+      gap: 6,
+    },
+    bmiRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    bmiLabel: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    bmiValue: {
+      fontSize: 15,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    bmiNote: {
+      color: colors.inputPlaceholder,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

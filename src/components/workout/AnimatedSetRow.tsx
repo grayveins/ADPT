@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   withSequence,
 } from "react-native-reanimated";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { AnimatedCheckbox } from "@/src/animations/components";
 import { MicroConfetti } from "@/src/animations/components/Confetti";
 import { showToast } from "@/src/animations/celebrations";
@@ -44,9 +44,9 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
   onWeightChange,
   onRepsChange,
 }) => {
+  const { colors, radius } = useTheme();
   const [showConfetti, setShowConfetti] = useState(false);
   const glowOpacity = useSharedValue(0);
-  const backgroundColor = useSharedValue(darkColors.card);
 
   const handleComplete = () => {
     // Trigger glow animation
@@ -66,13 +66,17 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
   };
 
   const glowStyle = useAnimatedStyle(() => ({
-    backgroundColor: `rgba(0, 199, 190, ${glowOpacity.value})`,
+    backgroundColor: `rgba(0, 201, 183, ${glowOpacity.value})`,
   }));
 
   return (
-    <Animated.View style={[styles.container, completed && styles.containerCompleted]}>
+    <Animated.View style={[
+      styles.container, 
+      { backgroundColor: colors.card, borderRadius: radius.md },
+      completed && styles.containerCompleted
+    ]}>
       {/* Glow overlay */}
-      <Animated.View style={[styles.glowOverlay, glowStyle]} />
+      <Animated.View style={[styles.glowOverlay, { borderRadius: radius.md }, glowStyle]} />
 
       {/* Confetti */}
       <MicroConfetti
@@ -81,15 +85,15 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
       />
 
       {/* Set number */}
-      <View style={styles.setNumber}>
-        <Text allowFontScaling={false} style={styles.setNumberText}>
+      <View style={[styles.setNumber, { backgroundColor: colors.border }]}>
+        <Text allowFontScaling={false} style={[styles.setNumberText, { color: colors.muted }]}>
           {setNumber}
         </Text>
       </View>
 
       {/* Previous / Target hint */}
       {previousWeight && !completed && (
-        <Text allowFontScaling={false} style={styles.hint}>
+        <Text allowFontScaling={false} style={[styles.hint, { color: colors.muted2 }]}>
           prev: {previousWeight} × {previousReps}
         </Text>
       )}
@@ -101,19 +105,23 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
             value={weight}
             onChangeText={onWeightChange}
             placeholder="0"
-            placeholderTextColor={darkColors.muted2}
+            placeholderTextColor={colors.muted2}
             keyboardType="numeric"
             keyboardAppearance="dark"
-            style={[styles.input, completed && styles.inputCompleted]}
+            style={[
+              styles.input, 
+              { backgroundColor: colors.cardAlt, color: colors.text },
+              completed && { backgroundColor: colors.border, color: colors.muted }
+            ]}
             editable={!completed}
             allowFontScaling={false}
           />
-          <Text allowFontScaling={false} style={styles.inputLabel}>
+          <Text allowFontScaling={false} style={[styles.inputLabel, { color: colors.muted }]}>
             lbs
           </Text>
         </View>
 
-        <Text allowFontScaling={false} style={styles.times}>
+        <Text allowFontScaling={false} style={[styles.times, { color: colors.muted }]}>
           ×
         </Text>
 
@@ -122,14 +130,18 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
             value={reps}
             onChangeText={onRepsChange}
             placeholder="0"
-            placeholderTextColor={darkColors.muted2}
+            placeholderTextColor={colors.muted2}
             keyboardType="numeric"
             keyboardAppearance="dark"
-            style={[styles.input, completed && styles.inputCompleted]}
+            style={[
+              styles.input, 
+              { backgroundColor: colors.cardAlt, color: colors.text },
+              completed && { backgroundColor: colors.border, color: colors.muted }
+            ]}
             editable={!completed}
             allowFontScaling={false}
           />
-          <Text allowFontScaling={false} style={styles.inputLabel}>
+          <Text allowFontScaling={false} style={[styles.inputLabel, { color: colors.muted }]}>
             reps
           </Text>
         </View>
@@ -137,7 +149,7 @@ export const AnimatedSetRow: React.FC<AnimatedSetRowProps> = ({
 
       {/* PR Badge */}
       {isPR && (
-        <View style={styles.prBadge}>
+        <View style={[styles.prBadge, { backgroundColor: colors.gold }]}>
           <Text allowFontScaling={false} style={styles.prBadgeText}>
             PR?
           </Text>
@@ -158,8 +170,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     overflow: "hidden",
@@ -170,29 +180,25 @@ const styles = StyleSheet.create({
   },
   glowOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
   },
   setNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: darkColors.border,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
   setNumberText: {
-    color: darkColors.muted,
     fontSize: 14,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
   hint: {
     position: "absolute",
     top: 4,
     right: 60,
-    color: darkColors.muted2,
     fontSize: 10,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
   inputsContainer: {
     flex: 1,
@@ -206,32 +212,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   input: {
-    backgroundColor: darkColors.cardAlt,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: darkColors.text,
     fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
     minWidth: 60,
     textAlign: "center",
   },
-  inputCompleted: {
-    backgroundColor: darkColors.border,
-    color: darkColors.muted,
-  },
   inputLabel: {
-    color: darkColors.muted,
     fontSize: 12,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
   times: {
-    color: darkColors.muted,
     fontSize: 16,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
   prBadge: {
-    backgroundColor: "#FFD700",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -240,7 +237,7 @@ const styles = StyleSheet.create({
   prBadgeText: {
     color: "#000",
     fontSize: 10,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
 });
 

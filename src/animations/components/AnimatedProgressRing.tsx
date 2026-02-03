@@ -16,7 +16,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { SPRING_CONFIG, TIMING } from "../constants";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -27,6 +27,7 @@ type AnimatedProgressRingProps = {
   strokeWidth?: number;
   color?: string;
   backgroundColor?: string;
+  textColor?: string;
   showPercentage?: boolean;
   label?: string;
   sublabel?: string;
@@ -39,8 +40,9 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
   progress,
   size = 120,
   strokeWidth = 10,
-  color = darkColors.primary,
-  backgroundColor = darkColors.border,
+  color,
+  backgroundColor,
+  textColor,
   showPercentage = true,
   label,
   sublabel,
@@ -48,6 +50,14 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
   glow = false,
   animated = true,
 }) => {
+  const { colors } = useTheme();
+  
+  // Use provided colors or fall back to theme colors
+  const ringColor = color ?? colors.primary;
+  const ringBgColor = backgroundColor ?? colors.border;
+  const ringTextColor = textColor ?? colors.text;
+  const ringMutedColor = colors.textMuted;
+
   const animatedProgress = useSharedValue(0);
   const breatheScale = useSharedValue(1);
   const glowOpacity = useSharedValue(glow ? 0.3 : 0);
@@ -116,7 +126,12 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
         <Animated.View
           style={[
             styles.glowLayer,
-            { width: size + 20, height: size + 20, borderRadius: (size + 20) / 2 },
+            { 
+              width: size + 20, 
+              height: size + 20, 
+              borderRadius: (size + 20) / 2,
+              backgroundColor: ringColor,
+            },
             glowStyle,
           ]}
         />
@@ -125,8 +140,8 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
       <Svg width={size} height={size}>
         <Defs>
           <LinearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor={color} stopOpacity="1" />
-            <Stop offset="100%" stopColor={darkColors.primaryDark} stopOpacity="1" />
+            <Stop offset="0%" stopColor={ringColor} stopOpacity="1" />
+            <Stop offset="100%" stopColor={ringColor} stopOpacity="0.7" />
           </LinearGradient>
         </Defs>
 
@@ -135,7 +150,7 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
           cx={center}
           cy={center}
           r={radius}
-          stroke={backgroundColor}
+          stroke={ringBgColor}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -159,17 +174,17 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
       {/* Center content */}
       <View style={[styles.centerContent, { width: size, height: size }]}>
         {showPercentage && (
-          <Text allowFontScaling={false} style={styles.percentage}>
+          <Text allowFontScaling={false} style={[styles.percentage, { color: ringTextColor }]}>
             {percentage}%
           </Text>
         )}
         {label && (
-          <Text allowFontScaling={false} style={styles.label}>
+          <Text allowFontScaling={false} style={[styles.label, { color: ringTextColor }]}>
             {label}
           </Text>
         )}
         {sublabel && (
-          <Text allowFontScaling={false} style={styles.sublabel}>
+          <Text allowFontScaling={false} style={[styles.sublabel, { color: ringMutedColor }]}>
             {sublabel}
           </Text>
         )}
@@ -185,7 +200,6 @@ const styles = StyleSheet.create({
   },
   glowLayer: {
     position: "absolute",
-    backgroundColor: darkColors.primary,
   },
   centerContent: {
     position: "absolute",
@@ -193,20 +207,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   percentage: {
-    color: darkColors.text,
     fontSize: 28,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
   label: {
-    color: darkColors.text,
     fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
     marginTop: 2,
   },
   sublabel: {
-    color: darkColors.muted,
     fontSize: 12,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
 });
 

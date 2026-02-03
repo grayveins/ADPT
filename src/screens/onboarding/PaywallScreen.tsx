@@ -3,11 +3,12 @@
  * Subscription options with enhanced animations
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -27,8 +28,10 @@ const benefits = [
 type PlanType = "annual" | "monthly";
 
 export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
+  const { colors } = useTheme();
   const { updateForm } = useOnboarding();
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("annual");
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleSelectPlan = (plan: PlanType) => {
     hapticPress();
@@ -55,7 +58,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
       {/* Hero */}
       <Animated.View entering={FadeInDown.duration(400)} style={styles.hero}>
         <View style={styles.iconCircle}>
-          <Ionicons name="flash" size={32} color="#000" />
+          <Ionicons name="flash" size={32} color={colors.textOnPrimary} />
         </View>
         <Text allowFontScaling={false} style={styles.title}>
           Unlock your{"\n"}full potential
@@ -79,7 +82,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
               <Ionicons 
                 name={benefit.icon as any} 
                 size={18} 
-                color={darkColors.primary} 
+                color={colors.primary} 
               />
             </View>
             <Text allowFontScaling={false} style={styles.benefitText}>
@@ -115,7 +118,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
               </View>
             </View>
             {selectedPlan === "annual" && (
-              <Ionicons name="checkmark-circle" size={24} color={darkColors.primary} />
+              <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
             )}
           </View>
           <View style={styles.priceRow}>
@@ -126,7 +129,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
             $69.99/year after 7-day free trial
           </Text>
           <View style={styles.savingsTag}>
-            <Ionicons name="pricetag" size={12} color="#000" />
+            <Ionicons name="pricetag" size={12} color={colors.textOnPrimary} />
             <Text allowFontScaling={false} style={styles.savingsText}>
               Save $50 vs monthly
             </Text>
@@ -148,7 +151,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
               Monthly
             </Text>
             {selectedPlan === "monthly" && (
-              <Ionicons name="checkmark-circle" size={24} color={darkColors.primary} />
+              <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
             )}
           </View>
           <View style={styles.priceRow}>
@@ -171,7 +174,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
           onPress={handlePro}
         />
         <View style={styles.guarantee}>
-          <Ionicons name="shield-checkmark" size={16} color={darkColors.muted} />
+          <Ionicons name="shield-checkmark" size={16} color={colors.textMuted} />
           <Text allowFontScaling={false} style={styles.guaranteeText}>
             Cancel anytime during trial, no charge
           </Text>
@@ -193,194 +196,195 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 8,
-    gap: 20,
-  },
-  hero: {
-    alignItems: "center",
-    gap: 12,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: darkColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.heading,
-    fontSize: 28,
-    lineHeight: 34,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 15,
-    textAlign: "center",
-  },
-  benefits: {
-    gap: 12,
-    paddingHorizontal: 8,
-  },
-  benefitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  benefitIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  benefitIconHighlight: {
-    backgroundColor: darkColors.selectedBg,
-    borderWidth: 1,
-    borderColor: darkColors.primary,
-  },
-  benefitText: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 15,
-    flex: 1,
-  },
-  plans: {
-    gap: 12,
-  },
-  planCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  planCardSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  planCardSmall: {
-    paddingVertical: 14,
-  },
-  planCardPressed: {
-    opacity: 0.9,
-  },
-  planHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  planTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  planTitle: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 18,
-  },
-  planTitleAlt: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 16,
-  },
-  bestValueBadge: {
-    backgroundColor: darkColors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  bestValueText: {
-    color: "#000",
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  priceMain: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 32,
-  },
-  priceMainAlt: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 22,
-  },
-  pricePer: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 16,
-  },
-  pricePerAlt: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 14,
-  },
-  planHint: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 13,
-  },
-  planHintAlt: {
-    color: darkColors.muted2,
-    fontFamily: theme.fonts.body,
-    fontSize: 13,
-  },
-  savingsTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: darkColors.primary,
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  savingsText: {
-    color: "#000",
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 12,
-  },
-  ctaSection: {
-    gap: 12,
-  },
-  guarantee: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  guaranteeText: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 13,
-  },
-  freeSection: {
-    alignItems: "center",
-  },
-  freeButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  freeText: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 14,
-    textDecorationLine: "underline",
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 8,
+      gap: 20,
+    },
+    hero: {
+      alignItems: "center",
+      gap: 12,
+    },
+    iconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      color: colors.text,
+      fontFamily: theme.fonts.heading,
+      fontSize: 28,
+      lineHeight: 34,
+      textAlign: "center",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 15,
+      textAlign: "center",
+    },
+    benefits: {
+      gap: 12,
+      paddingHorizontal: 8,
+    },
+    benefitRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+    },
+    benefitIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    benefitIconHighlight: {
+      backgroundColor: colors.selected,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    benefitText: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 15,
+      flex: 1,
+    },
+    plans: {
+      gap: 12,
+    },
+    planCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      gap: 8,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    planCardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    planCardSmall: {
+      paddingVertical: 14,
+    },
+    planCardPressed: {
+      opacity: 0.9,
+    },
+    planHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    planTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    planTitle: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 18,
+    },
+    planTitleAlt: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 16,
+    },
+    bestValueBadge: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    bestValueText: {
+      color: colors.textOnPrimary,
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 10,
+      letterSpacing: 0.5,
+    },
+    priceRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 4,
+    },
+    priceMain: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 32,
+    },
+    priceMainAlt: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 22,
+    },
+    pricePer: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 16,
+    },
+    pricePerAlt: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 14,
+    },
+    planHint: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 13,
+    },
+    planHintAlt: {
+      color: colors.inputPlaceholder,
+      fontFamily: theme.fonts.body,
+      fontSize: 13,
+    },
+    savingsTag: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.primary,
+      alignSelf: "flex-start",
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
+      marginTop: 4,
+    },
+    savingsText: {
+      color: colors.textOnPrimary,
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 12,
+    },
+    ctaSection: {
+      gap: 12,
+    },
+    guarantee: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    guaranteeText: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 13,
+    },
+    freeSection: {
+      alignItems: "center",
+    },
+    freeButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+    },
+    freeText: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 14,
+      textDecorationLine: "underline",
+    },
+  });

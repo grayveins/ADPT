@@ -3,9 +3,9 @@
  * Three mini progress rings for muscles, sets, exercises
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View, Text } from "react-native";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { AnimatedProgressRing } from "@/src/animations/components";
 
 type TargetData = {
@@ -20,11 +20,17 @@ type WeeklyTargetsProps = {
   exercises: TargetData;
 };
 
-const MiniTarget: React.FC<TargetData & { color: string }> = ({
+type MiniTargetProps = TargetData & { 
+  color: string;
+  colors: ReturnType<typeof useTheme>["colors"];
+};
+
+const MiniTarget: React.FC<MiniTargetProps> = ({
   current,
   target,
   label,
   color,
+  colors,
 }) => {
   const progress = Math.min(current / target, 1);
   const remaining = Math.max(target - current, 0);
@@ -42,17 +48,17 @@ const MiniTarget: React.FC<TargetData & { color: string }> = ({
         glow={isComplete}
       />
       <View style={styles.targetContent}>
-        <Text allowFontScaling={false} style={styles.targetValue}>
+        <Text allowFontScaling={false} style={[styles.targetValue, { color: colors.text }]}>
           {current}
         </Text>
-        <Text allowFontScaling={false} style={styles.targetRemaining}>
+        <Text allowFontScaling={false} style={[styles.targetRemaining, { color: colors.muted }]}>
           {isComplete ? "done" : `${remaining} left`}
         </Text>
       </View>
-      <Text allowFontScaling={false} style={styles.targetLabel}>
+      <Text allowFontScaling={false} style={[styles.targetLabel, { color: colors.text }]}>
         {label}
       </Text>
-      <Text allowFontScaling={false} style={styles.targetTotal}>
+      <Text allowFontScaling={false} style={[styles.targetTotal, { color: colors.muted }]}>
         {target} target
       </Text>
     </View>
@@ -64,15 +70,17 @@ export const WeeklyTargets: React.FC<WeeklyTargetsProps> = ({
   sets,
   exercises,
 }) => {
+  const { colors, radius } = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text allowFontScaling={false} style={styles.sectionTitle}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderRadius: radius.lg }]}>
+      <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
         Weekly Targets
       </Text>
       <View style={styles.targetsRow}>
-        <MiniTarget {...muscles} color={darkColors.primary} />
-        <MiniTarget {...sets} color="#FF6B35" />
-        <MiniTarget {...exercises} color="#4ECDC4" />
+        <MiniTarget {...muscles} color={colors.primary} colors={colors} />
+        <MiniTarget {...sets} color={colors.intensity} colors={colors} />
+        <MiniTarget {...exercises} color={colors.info} colors={colors} />
       </View>
     </View>
   );
@@ -80,14 +88,11 @@ export const WeeklyTargets: React.FC<WeeklyTargetsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
     padding: 16,
   },
   sectionTitle: {
-    color: darkColors.text,
     fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
     marginBottom: 16,
   },
   targetsRow: {
@@ -109,25 +114,21 @@ const styles = StyleSheet.create({
     height: 70,
   },
   targetValue: {
-    color: darkColors.text,
     fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
   targetRemaining: {
-    color: darkColors.muted,
     fontSize: 9,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
   targetLabel: {
-    color: darkColors.text,
     fontSize: 13,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
     marginTop: 8,
   },
   targetTotal: {
-    color: darkColors.muted,
     fontSize: 11,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
 });
 

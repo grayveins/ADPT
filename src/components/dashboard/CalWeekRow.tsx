@@ -7,7 +7,7 @@
 import React from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -23,6 +23,8 @@ type CalWeekRowProps = {
 };
 
 export const CalWeekRow: React.FC<CalWeekRowProps> = ({ days, onDayPress }) => {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
       {days.map((day, index) => {
@@ -40,8 +42,9 @@ export const CalWeekRow: React.FC<CalWeekRowProps> = ({ days, onDayPress }) => {
               allowFontScaling={false}
               style={[
                 styles.dayLabel,
-                isToday && styles.dayLabelToday,
-                isCompleted && styles.dayLabelCompleted,
+                { color: colors.textMuted },
+                isToday && { color: colors.text },
+                isCompleted && { color: colors.primary },
               ]}
             >
               {DAYS[index]}
@@ -49,13 +52,23 @@ export const CalWeekRow: React.FC<CalWeekRowProps> = ({ days, onDayPress }) => {
             <View
               style={[
                 styles.dayCircle,
-                isToday && !isCompleted && styles.dayCircleToday,
-                isCompleted && styles.dayCircleCompleted,
-                isPlanned && styles.dayCirclePlanned,
+                { backgroundColor: colors.border },
+                isToday && !isCompleted && { 
+                  borderWidth: 2, 
+                  borderColor: colors.primary, 
+                  backgroundColor: "transparent" 
+                },
+                isCompleted && { backgroundColor: colors.primary },
+                isPlanned && { 
+                  backgroundColor: "transparent", 
+                  borderWidth: 1, 
+                  borderColor: colors.textMuted,
+                  borderStyle: "dashed" as const,
+                },
               ]}
             >
               {isCompleted && (
-                <Ionicons name="checkmark" size={12} color="#000" />
+                <Ionicons name="checkmark" size={12} color={colors.textOnPrimary} />
               )}
             </View>
           </Pressable>
@@ -77,38 +90,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayLabel: {
-    color: darkColors.muted2,
     fontSize: 12,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
     textTransform: "uppercase",
-  },
-  dayLabelToday: {
-    color: darkColors.text,
-  },
-  dayLabelCompleted: {
-    color: darkColors.primary,
   },
   dayCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: darkColors.border,
     alignItems: "center",
     justifyContent: "center",
-  },
-  dayCircleToday: {
-    borderWidth: 2,
-    borderColor: darkColors.primary,
-    backgroundColor: "transparent",
-  },
-  dayCircleCompleted: {
-    backgroundColor: darkColors.primary,
-  },
-  dayCirclePlanned: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: darkColors.muted2,
-    borderStyle: "dashed",
   },
 });
 

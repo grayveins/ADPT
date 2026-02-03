@@ -3,7 +3,7 @@
  * Button with spring press animation, haptic feedback, and optional glow
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, ViewStyle, TextStyle, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { SPRING_CONFIG, SCALE, OPACITY } from "../constants";
 import { hapticPress } from "../feedback/haptics";
 
@@ -43,8 +43,39 @@ export const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   textStyle,
   haptic = true,
 }) => {
+  const { colors, radius } = useTheme();
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
+
+  const dynamicStyles = useMemo(() => ({
+    primary: {
+      backgroundColor: colors.primary,
+    },
+    secondary: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    ghost: {
+      backgroundColor: "transparent",
+    },
+    glow: {
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    primaryText: {
+      color: colors.textOnPrimary,
+    },
+    secondaryText: {
+      color: colors.text,
+    },
+    ghostText: {
+      color: colors.muted,
+    },
+  }), [colors]);
 
   const handlePressIn = () => {
     "worklet";
@@ -74,9 +105,10 @@ export const AnimatedButton: React.FC<AnimatedButtonProps> = ({
 
   const buttonStyles = [
     styles.base,
+    { borderRadius: radius.pill },
     styles[size],
-    styles[variant],
-    glow && styles.glow,
+    dynamicStyles[variant],
+    glow && dynamicStyles.glow,
     animatedStyle,
     style,
   ];
@@ -84,7 +116,7 @@ export const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   const textStyles = [
     styles.text,
     styles[`${size}Text`],
-    styles[`${variant}Text`],
+    dynamicStyles[`${variant}Text`],
     textStyle,
   ];
 
@@ -107,7 +139,6 @@ const styles = StyleSheet.create({
   base: {
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.radius.pill,
   },
   
   // Sizes
@@ -125,31 +156,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   
-  // Variants
-  primary: {
-    backgroundColor: darkColors.primary,
-  },
-  secondary: {
-    backgroundColor: darkColors.card,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-  },
-  ghost: {
-    backgroundColor: "transparent",
-  },
-  
-  // Glow effect
-  glow: {
-    shadowColor: darkColors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  
-  // Text
+  // Text sizes
   text: {
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
   smallText: {
     fontSize: 14,
@@ -159,15 +168,6 @@ const styles = StyleSheet.create({
   },
   largeText: {
     fontSize: 18,
-  },
-  primaryText: {
-    color: "#000000",
-  },
-  secondaryText: {
-    color: darkColors.text,
-  },
-  ghostText: {
-    color: darkColors.muted,
   },
 });
 

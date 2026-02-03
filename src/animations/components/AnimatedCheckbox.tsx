@@ -16,7 +16,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { darkColors } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { SPRING_CONFIG, TIMING } from "../constants";
 import { hapticSuccess } from "../feedback/haptics";
 
@@ -38,6 +38,7 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
   disabled = false,
   onComplete,
 }) => {
+  const { colors } = useTheme();
   const progress = useSharedValue(checked ? 1 : 0);
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
@@ -101,8 +102,8 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
     };
   });
 
-  const borderColor = checked ? darkColors.primary : darkColors.border;
-  const backgroundColor = checked ? darkColors.primary : "transparent";
+  const borderColor = checked ? colors.primary : colors.border;
+  const backgroundColor = checked ? colors.primary : "transparent";
 
   return (
     <Pressable onPress={handlePress} disabled={disabled}>
@@ -111,7 +112,7 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
         <Animated.View
           style={[
             styles.glow,
-            { width: size * 1.5, height: size * 1.5 },
+            { width: size * 1.5, height: size * 1.5, backgroundColor: colors.primary },
             glowStyle,
           ]}
         />
@@ -132,7 +133,7 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
           <Svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24">
             <AnimatedPath
               d="M4 12L10 18L20 6"
-              stroke="#000"
+              stroke={colors.textOnPrimary}
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -159,7 +160,6 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: "absolute",
-    backgroundColor: darkColors.primary,
     borderRadius: 100,
   },
 });

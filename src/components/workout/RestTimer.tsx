@@ -17,7 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { haptic } from "@/src/animations/feedback/haptics";
 import { TIMING } from "@/src/animations/constants";
 
@@ -34,6 +34,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
   onComplete,
   onSkip,
 }) => {
+  const { colors, typography } = useTheme();
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isRunning, setIsRunning] = useState(true);
 
@@ -131,7 +132,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
     <View style={styles.container}>
       <Animated.View style={containerStyle}>
         {/* Pulse layer */}
-        <Animated.View style={[styles.pulseLayer, pulseStyle]} />
+        <Animated.View style={[styles.pulseLayer, { backgroundColor: colors.primary }, pulseStyle]} />
 
         <Svg width={size} height={size}>
           {/* Background circle */}
@@ -139,7 +140,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={darkColors.border}
+            stroke={colors.border}
             strokeWidth={strokeWidth}
             fill="none"
           />
@@ -148,7 +149,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={isUrgent ? "#FF6B35" : darkColors.primary}
+            stroke={isUrgent ? colors.intensity : colors.primary}
             strokeWidth={strokeWidth}
             fill="none"
             strokeLinecap="round"
@@ -163,22 +164,26 @@ export const RestTimer: React.FC<RestTimerProps> = ({
         <View style={styles.centerContent}>
           <Text
             allowFontScaling={false}
-            style={[styles.timeText, isUrgent && styles.timeTextUrgent]}
+            style={[
+              styles.timeText, 
+              { color: colors.text },
+              isUrgent && { color: colors.intensity }
+            ]}
           >
             {formatTime(timeLeft)}
           </Text>
-          <Text allowFontScaling={false} style={styles.label}>
+          <Text allowFontScaling={false} style={[styles.label, { color: colors.muted }]}>
             {timeLeft === 0 ? "Let's go!" : "Rest"}
           </Text>
         </View>
       </Animated.View>
 
       {/* Skip button */}
-      <Pressable style={styles.skipButton} onPress={handleSkip}>
-        <Text allowFontScaling={false} style={styles.skipText}>
+      <Pressable style={[styles.skipButton, { backgroundColor: colors.card }]} onPress={handleSkip}>
+        <Text allowFontScaling={false} style={[styles.skipText, { color: colors.muted }]}>
           Skip Rest
         </Text>
-        <Ionicons name="play-forward" size={16} color={darkColors.muted} />
+        <Ionicons name="play-forward" size={16} color={colors.muted} />
       </Pressable>
     </View>
   );
@@ -194,7 +199,6 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: darkColors.primary,
   },
   centerContent: {
     position: "absolute",
@@ -208,17 +212,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   timeText: {
-    color: darkColors.text,
     fontSize: 40,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  timeTextUrgent: {
-    color: "#FF6B35",
+    fontWeight: "600",
   },
   label: {
-    color: darkColors.muted,
     fontSize: 14,
-    fontFamily: theme.fonts.body,
+    fontWeight: "400",
   },
   skipButton: {
     flexDirection: "row",
@@ -226,13 +225,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: darkColors.card,
     borderRadius: 24,
   },
   skipText: {
-    color: darkColors.muted,
     fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
   },
 });
 

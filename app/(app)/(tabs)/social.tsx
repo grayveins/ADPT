@@ -2,84 +2,86 @@ import { StyleSheet, Text, View, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { darkColors } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 
 export default function SocialScreen() {
+  const { colors } = useTheme();
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={["top"]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text allowFontScaling={false} style={styles.title}>
+        <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
           Community
         </Text>
-        <Text allowFontScaling={false} style={styles.subtitle}>
+        <Text allowFontScaling={false} style={[styles.subtitle, { color: colors.textMuted }]}>
           Connect with others on the same journey
         </Text>
 
         {/* Community Feed Card */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="people-outline" size={20} color={darkColors.primary} />
-            <Text allowFontScaling={false} style={styles.cardTitle}>
+            <Ionicons name="people-outline" size={20} color={colors.primary} />
+            <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
               Community Feed
             </Text>
           </View>
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="chatbubbles-outline" size={32} color={darkColors.muted} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.border }]}>
+              <Ionicons name="chatbubbles-outline" size={32} color={colors.textMuted} />
             </View>
-            <Text allowFontScaling={false} style={styles.emptyTitle}>
+            <Text allowFontScaling={false} style={[styles.emptyTitle, { color: colors.text }]}>
               Coming Soon
             </Text>
-            <Text allowFontScaling={false} style={styles.emptyText}>
+            <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
               Your network will appear here. Share wins, routines, and motivation with others.
             </Text>
           </View>
         </View>
 
         {/* Public Routines Card */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="barbell-outline" size={20} color={darkColors.primary} />
-            <Text allowFontScaling={false} style={styles.cardTitle}>
+            <Ionicons name="barbell-outline" size={20} color={colors.primary} />
+            <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
               Public Routines
             </Text>
           </View>
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="list-outline" size={32} color={darkColors.muted} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.border }]}>
+              <Ionicons name="list-outline" size={32} color={colors.textMuted} />
             </View>
-            <Text allowFontScaling={false} style={styles.emptyTitle}>
+            <Text allowFontScaling={false} style={[styles.emptyTitle, { color: colors.text }]}>
               Browse & Save
             </Text>
-            <Text allowFontScaling={false} style={styles.emptyText}>
+            <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
               Discover training blocks from others and add them to your library.
             </Text>
           </View>
         </View>
 
         {/* Leaderboard Preview */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="podium-outline" size={20} color={darkColors.primary} />
-            <Text allowFontScaling={false} style={styles.cardTitle}>
+            <Ionicons name="podium-outline" size={20} color={colors.primary} />
+            <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
               Leaderboard
             </Text>
           </View>
-          <View style={styles.leaderRow}>
-            <View style={styles.leaderRank}>
-              <Text allowFontScaling={false} style={styles.rankText}>1</Text>
+          <View style={[styles.leaderRow, { backgroundColor: colors.selected }]}>
+            <View style={[styles.leaderRank, { backgroundColor: colors.primary }]}>
+              <Text allowFontScaling={false} style={[styles.rankText, { color: colors.textOnPrimary }]}>1</Text>
             </View>
             <View style={styles.leaderInfo}>
-              <Text allowFontScaling={false} style={styles.leaderName}>You</Text>
-              <Text allowFontScaling={false} style={styles.leaderStat}>12 day streak</Text>
+              <Text allowFontScaling={false} style={[styles.leaderName, { color: colors.text }]}>You</Text>
+              <Text allowFontScaling={false} style={[styles.leaderStat, { color: colors.textMuted }]}>12 day streak</Text>
             </View>
-            <Ionicons name="trophy" size={20} color={darkColors.primary} />
+            <Ionicons name="trophy" size={20} color={colors.primary} />
           </View>
-          <Text allowFontScaling={false} style={styles.cardHint}>
+          <Text allowFontScaling={false} style={[styles.cardHint, { color: colors.textMuted }]}>
             Invite friends to compete
           </Text>
         </View>
@@ -91,7 +93,6 @@ export default function SocialScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: darkColors.bg,
   },
   scroll: {
     flex: 1,
@@ -101,20 +102,17 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   title: {
-    color: darkColors.text,
     fontSize: 28,
     fontFamily: "Inter_600SemiBold",
     marginTop: 8,
   },
   subtitle: {
-    color: darkColors.muted,
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     marginTop: 4,
     marginBottom: 24,
   },
   card: {
-    backgroundColor: darkColors.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
@@ -126,12 +124,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardTitle: {
-    color: darkColors.text,
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
   },
   cardHint: {
-    color: darkColors.muted,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginTop: 12,
@@ -144,19 +140,16 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: darkColors.border,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
   },
   emptyTitle: {
-    color: darkColors.text,
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
     marginBottom: 6,
   },
   emptyText: {
-    color: darkColors.muted,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
@@ -166,7 +159,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: darkColors.selectedBg,
     padding: 12,
     borderRadius: 12,
   },
@@ -174,12 +166,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: darkColors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   rankText: {
-    color: "#000",
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
@@ -187,12 +177,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   leaderName: {
-    color: darkColors.text,
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
   leaderStat: {
-    color: darkColors.muted,
     fontSize: 13,
     fontFamily: "Inter_400Regular",
   },

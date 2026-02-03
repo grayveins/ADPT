@@ -5,7 +5,7 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { FlickeringIcon } from "@/src/animations/components";
 
 type StreakBadgeProps = {
@@ -13,15 +13,17 @@ type StreakBadgeProps = {
 };
 
 export const StreakBadge: React.FC<StreakBadgeProps> = ({ count }) => {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
       <FlickeringIcon
         name="flame"
         size={20}
-        color="#FF6B35"
+        color={colors.intensity}
         enabled={count > 0}
       />
-      <Text allowFontScaling={false} style={styles.count}>
+      <Text allowFontScaling={false} style={[styles.count, { color: colors.text }]}>
         {count}
       </Text>
     </View>
@@ -33,15 +35,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: darkColors.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
   },
   count: {
-    color: darkColors.text,
     fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
+    fontWeight: "600",
   },
 });
 

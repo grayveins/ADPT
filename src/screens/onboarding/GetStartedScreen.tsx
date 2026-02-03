@@ -4,7 +4,7 @@
  * Creates excitement and primes user for success
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View, Pressable, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -20,7 +20,8 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import { hapticPress, hapticCelebration } from "@/src/animations/feedback/haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -81,7 +82,9 @@ function CelebrationParticle({
 }
 
 export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
+  const { colors } = useTheme();
   const { form } = useOnboarding();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Animation values
   const trophyScale = useSharedValue(0);
@@ -144,13 +147,13 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
     const goal = form.goal;
     switch (goal) {
       case "build_muscle":
-        return "Time to build the physique you&apos;ve always wanted";
-      case "lose_weight":
+        return "Time to build the physique you've always wanted";
+      case "lose_fat":
         return "Your transformation journey starts now";
-      case "get_toned":
-        return "Let&apos;s sculpt a leaner, stronger you";
-      case "endurance":
-        return "Ready to push your limits further than ever";
+      case "get_stronger":
+        return "Let's build serious strength together";
+      case "general_fitness":
+        return "Ready to become the best version of yourself";
       default:
         return "Your fitness journey begins today";
     }
@@ -160,11 +163,11 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
     <View style={styles.container}>
       {/* Celebration particles */}
       <View style={styles.particlesContainer}>
-        <CelebrationParticle delay={0} x={SCREEN_WIDTH * 0.1} size={8} color={darkColors.primary} />
-        <CelebrationParticle delay={200} x={SCREEN_WIDTH * 0.8} size={6} color="#FFD700" />
-        <CelebrationParticle delay={400} x={SCREEN_WIDTH * 0.3} size={10} color="#FF6B6B" />
-        <CelebrationParticle delay={600} x={SCREEN_WIDTH * 0.65} size={7} color="#4ECDC4" />
-        <CelebrationParticle delay={300} x={SCREEN_WIDTH * 0.5} size={5} color="#45B7D1" />
+        <CelebrationParticle delay={0} x={SCREEN_WIDTH * 0.1} size={8} color={colors.primary} />
+        <CelebrationParticle delay={200} x={SCREEN_WIDTH * 0.8} size={6} color={colors.gold} />
+        <CelebrationParticle delay={400} x={SCREEN_WIDTH * 0.3} size={10} color={colors.error} />
+        <CelebrationParticle delay={600} x={SCREEN_WIDTH * 0.65} size={7} color={colors.primary} />
+        <CelebrationParticle delay={300} x={SCREEN_WIDTH * 0.5} size={5} color={colors.info} />
       </View>
 
       {/* Trophy/celebration icon */}
@@ -172,7 +175,7 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
         <Animated.View style={[styles.glow, glowStyle]} />
         <Animated.View style={[styles.trophyCircle, trophyStyle]}>
           <LinearGradient
-            colors={["#FFD700", "#FFA500"]}
+            colors={[colors.gold, "#E69500"]}
             style={styles.trophyGradient}
           >
             <Ionicons name="trophy" size={56} color="#fff" />
@@ -183,10 +186,10 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
       {/* Header */}
       <Animated.View style={[styles.header, headerStyle]}>
         <Text allowFontScaling={false} style={styles.title}>
-          You&apos;re all set!
+          You're all set!
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          {getMotivationalMessage().replace(/&apos;/g, "'")}
+          {getMotivationalMessage()}
         </Text>
       </Animated.View>
 
@@ -203,16 +206,19 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
             number="1" 
             text="Start with your first workout today" 
             delay={700}
+            colors={colors}
           />
           <TipItem 
             number="2" 
             text="Log every workout to track progress" 
             delay={800}
+            colors={colors}
           />
           <TipItem 
             number="3" 
             text="Ask the AI coach any questions" 
             delay={900}
+            colors={colors}
           />
         </View>
       </Animated.View>
@@ -229,17 +235,12 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
             pressed && styles.ctaButtonPressed,
           ]}
         >
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
-          >
+          <View style={styles.ctaGradient}>
             <Text allowFontScaling={false} style={styles.ctaText}>
               Start Training
             </Text>
-            <Ionicons name="barbell" size={22} color="#000" />
-          </LinearGradient>
+            <Ionicons name="barbell" size={22} color={colors.textOnPrimary} />
+          </View>
         </Pressable>
 
         <Text allowFontScaling={false} style={styles.ctaHint}>
@@ -250,141 +251,119 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
   );
 }
 
-function TipItem({ number, text, delay }: { number: string; text: string; delay: number }) {
+function TipItem({ number, text, delay, colors }: { number: string; text: string; delay: number; colors: ReturnType<typeof useTheme>["colors"] }) {
   return (
     <Animated.View
       entering={FadeInDown.delay(delay).duration(400)}
-      style={styles.tipItem}
+      style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
     >
-      <View style={styles.tipNumber}>
-        <Text allowFontScaling={false} style={styles.tipNumberText}>{number}</Text>
+      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+        <Text allowFontScaling={false} style={{ color: colors.textOnPrimary, fontSize: 14, fontFamily: theme.fonts.bodySemiBold }}>{number}</Text>
       </View>
-      <Text allowFontScaling={false} style={styles.tipText}>{text}</Text>
+      <Text allowFontScaling={false} style={{ color: colors.text, fontSize: 15, fontFamily: theme.fonts.body, flex: 1 }}>{text}</Text>
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingVertical: 16,
-  },
-  particlesContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  trophyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-    marginBottom: 32,
-  },
-  glow: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "#FFD700",
-  },
-  trophyCircle: {
-    borderRadius: 60,
-    overflow: "hidden",
-  },
-  trophyGradient: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  header: {
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 32,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 36,
-    fontFamily: theme.fonts.heading,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 18,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-    lineHeight: 26,
-    paddingHorizontal: 20,
-  },
-  tipsContainer: {
-    backgroundColor: darkColors.card,
-    borderRadius: 20,
-    padding: 20,
-    gap: 16,
-  },
-  tipsTitle: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  tipsList: {
-    gap: 12,
-  },
-  tipItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  tipNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: darkColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tipNumberText: {
-    color: "#000",
-    fontSize: 14,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  tipText: {
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    flex: 1,
-  },
-  ctaContainer: {
-    marginTop: "auto",
-    alignItems: "center",
-    gap: 12,
-    paddingTop: 24,
-  },
-  ctaButton: {
-    width: "100%",
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  ctaButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-  },
-  ctaText: {
-    color: "#000",
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  ctaHint: {
-    color: darkColors.muted2,
-    fontSize: 14,
-    fontFamily: theme.fonts.body,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingVertical: 16,
+    },
+    particlesContainer: {
+      ...StyleSheet.absoluteFillObject,
+      overflow: "hidden",
+    },
+    trophyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 20,
+      marginBottom: 32,
+    },
+    glow: {
+      position: "absolute",
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+      backgroundColor: colors.gold,
+    },
+    trophyCircle: {
+      borderRadius: 60,
+      overflow: "hidden",
+    },
+    trophyGradient: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    header: {
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 32,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 36,
+      fontFamily: theme.fonts.heading,
+      textAlign: "center",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 18,
+      fontFamily: theme.fonts.body,
+      textAlign: "center",
+      lineHeight: 26,
+      paddingHorizontal: 20,
+    },
+    tipsContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 20,
+      gap: 16,
+    },
+    tipsTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    tipsList: {
+      gap: 12,
+    },
+    ctaContainer: {
+      marginTop: "auto",
+      alignItems: "center",
+      gap: 12,
+      paddingTop: 24,
+    },
+    ctaButton: {
+      width: "100%",
+      borderRadius: 28,
+      overflow: "hidden",
+    },
+    ctaButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    ctaGradient: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      paddingVertical: 18,
+      paddingHorizontal: 32,
+      backgroundColor: colors.primary,
+    },
+    ctaText: {
+      color: colors.textOnPrimary,
+      fontSize: 18,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    ctaHint: {
+      color: colors.inputPlaceholder,
+      fontSize: 14,
+      fontFamily: theme.fonts.body,
+    },
+  });

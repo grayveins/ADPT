@@ -14,10 +14,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
-import { darkColors } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 
 export default function SignUp() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,6 +55,7 @@ export default function SignUp() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.select({ ios: "padding", android: "height" })}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -59,12 +63,12 @@ export default function SignUp() {
           showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={darkColors.text} />
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
-              <Ionicons name="fitness" size={32} color={darkColors.primary} />
+              <Ionicons name="fitness" size={32} color={colors.textOnPrimary} />
             </View>
             <Text allowFontScaling={false} style={styles.logoText}>
               ADPT
@@ -82,7 +86,7 @@ export default function SignUp() {
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={darkColors.muted} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 placeholder="Email"
                 value={email}
@@ -90,24 +94,24 @@ export default function SignUp() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
-                placeholderTextColor={darkColors.muted}
+                placeholderTextColor={colors.textMuted}
                 style={styles.input}
-                keyboardAppearance="dark"
+                keyboardAppearance="light"
               />
             </View>
 
             <View>
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color={darkColors.muted} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   placeholder="Password"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
                   textContentType="newPassword"
-                  placeholderTextColor={darkColors.muted}
+                  placeholderTextColor={colors.textMuted}
                   style={styles.input}
-                  keyboardAppearance="dark"
+                  keyboardAppearance="light"
                 />
               </View>
               <View style={styles.requirements}>
@@ -115,7 +119,7 @@ export default function SignUp() {
                   <Ionicons
                     name={hasMinLength ? "checkmark-circle" : "ellipse-outline"}
                     size={16}
-                    color={hasMinLength ? darkColors.primary : darkColors.muted}
+                    color={hasMinLength ? colors.success : colors.textMuted}
                   />
                   <Text
                     allowFontScaling={false}
@@ -128,7 +132,7 @@ export default function SignUp() {
                   <Ionicons
                     name={hasSpecialChar ? "checkmark-circle" : "ellipse-outline"}
                     size={16}
-                    color={hasSpecialChar ? darkColors.primary : darkColors.muted}
+                    color={hasSpecialChar ? colors.success : colors.textMuted}
                   />
                   <Text
                     allowFontScaling={false}
@@ -163,128 +167,129 @@ export default function SignUp() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: darkColors.bg,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: darkColors.card,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: darkColors.card,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  logoText: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 2,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: "Inter_600SemiBold",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    marginTop: 8,
-    textAlign: "center",
-  },
-  form: {
-    gap: 16,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-    paddingVertical: 16,
-  },
-  requirements: {
-    marginTop: 12,
-    gap: 8,
-  },
-  requirementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  requirementText: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  requirementMet: {
-    color: darkColors.primary,
-  },
-  button: {
-    backgroundColor: darkColors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: "#000",
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  footer: {
-    marginTop: 32,
-    alignItems: "center",
-  },
-  footerText: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  footerLink: {
-    color: darkColors.primary,
-    fontFamily: "Inter_600SemiBold",
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 20,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+    },
+    logoContainer: {
+      alignItems: "center",
+      marginBottom: 32,
+    },
+    logoCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    logoText: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: "Inter_600SemiBold",
+      letterSpacing: 2,
+    },
+    header: {
+      alignItems: "center",
+      marginBottom: 32,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: "Inter_600SemiBold",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      marginTop: 8,
+      textAlign: "center",
+    },
+    form: {
+      gap: 16,
+    },
+    inputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 16,
+    },
+    inputIcon: {
+      marginRight: 12,
+    },
+    input: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: "Inter_400Regular",
+      paddingVertical: 16,
+    },
+    requirements: {
+      marginTop: 12,
+      gap: 8,
+    },
+    requirementRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    requirementText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+    },
+    requirementMet: {
+      color: colors.success,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      paddingVertical: 16,
+      alignItems: "center",
+      marginTop: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: 16,
+      fontFamily: "Inter_600SemiBold",
+    },
+    footer: {
+      marginTop: 32,
+      alignItems: "center",
+    },
+    footerText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+    },
+    footerLink: {
+      color: colors.primary,
+      fontFamily: "Inter_600SemiBold",
+    },
+  });

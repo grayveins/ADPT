@@ -3,11 +3,12 @@
  * Apple Health / Google Fit integration option
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable, Platform } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -35,7 +36,9 @@ const benefits = [
 ];
 
 export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps) {
+  const { colors } = useTheme();
   const { form, updateForm } = useOnboarding();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {
     hapticPress();
@@ -65,7 +68,7 @@ export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps
             <Ionicons 
               name={Platform.OS === "ios" ? "heart" : "fitness"} 
               size={40} 
-              color={darkColors.primary} 
+              color={colors.primary} 
             />
           </View>
         </View>
@@ -87,7 +90,7 @@ export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps
             style={styles.benefit}
           >
             <View style={styles.benefitIcon}>
-              <Ionicons name={benefit.icon as any} size={22} color={darkColors.primary} />
+              <Ionicons name={benefit.icon as any} size={22} color={colors.primary} />
             </View>
             <View style={styles.benefitContent}>
               <Text allowFontScaling={false} style={styles.benefitTitle}>
@@ -103,7 +106,7 @@ export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps
 
       {/* Privacy note */}
       <Animated.View entering={FadeInDown.delay(500).duration(400)} style={styles.privacy}>
-        <Ionicons name="shield-checkmark" size={18} color={darkColors.primary} />
+        <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
         <Text allowFontScaling={false} style={styles.privacyText}>
           Your data stays private and secure. We never share it with third parties.
         </Text>
@@ -125,102 +128,103 @@ export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 28,
-  },
-  header: {
-    alignItems: "center",
-    gap: 12,
-  },
-  iconContainer: {
-    marginBottom: 8,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: darkColors.primary,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 26,
-    fontFamily: theme.fonts.heading,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 280,
-  },
-  benefits: {
-    gap: 16,
-  },
-  benefit: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 14,
-    backgroundColor: darkColors.card,
-    borderRadius: 14,
-    padding: 16,
-  },
-  benefitIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  benefitContent: {
-    flex: 1,
-    gap: 2,
-  },
-  benefitTitle: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  benefitDescription: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-    lineHeight: 18,
-  },
-  privacy: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    paddingHorizontal: 4,
-  },
-  privacyText: {
-    flex: 1,
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-    lineHeight: 18,
-  },
-  footer: {
-    marginTop: "auto",
-    gap: 12,
-    paddingTop: 16,
-  },
-  skipButton: {
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  skipText: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 28,
+    },
+    header: {
+      alignItems: "center",
+      gap: 12,
+    },
+    iconContainer: {
+      marginBottom: 8,
+    },
+    iconCircle: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 26,
+      fontFamily: theme.fonts.heading,
+      textAlign: "center",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      textAlign: "center",
+      lineHeight: 22,
+      maxWidth: 280,
+    },
+    benefits: {
+      gap: 16,
+    },
+    benefit: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 14,
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      padding: 16,
+    },
+    benefitIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    benefitContent: {
+      flex: 1,
+      gap: 2,
+    },
+    benefitTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    benefitDescription: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+      lineHeight: 18,
+    },
+    privacy: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      paddingHorizontal: 4,
+    },
+    privacyText: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+      lineHeight: 18,
+    },
+    footer: {
+      marginTop: "auto",
+      gap: 12,
+      paddingTop: 16,
+    },
+    skipButton: {
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    skipText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+  });

@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
-
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 
 type ButtonProps = {
   title: string;
@@ -17,10 +16,12 @@ export default function Button({
   style,
   disabled,
 }: ButtonProps) {
+  const { colors, radius, typography } = useTheme();
+
   if (variant === "link") {
     return (
       <Pressable onPress={disabled ? undefined : onPress} style={[style, disabled && styles.disabled]}>
-        <Text allowFontScaling={false} style={styles.link}>{title}</Text>
+        <Text allowFontScaling={false} style={[styles.link, { color: colors.muted }]}>{title}</Text>
       </Pressable>
     );
   }
@@ -30,7 +31,10 @@ export default function Button({
       onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.base,
-        variant === "primary" ? styles.primary : styles.outline,
+        { borderRadius: radius.pill },
+        variant === "primary" 
+          ? { backgroundColor: colors.primary } 
+          : { borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -38,7 +42,12 @@ export default function Button({
     >
       <Text
         allowFontScaling={false}
-        style={variant === "primary" ? styles.primaryText : styles.outlineText}
+        style={[
+          styles.text,
+          variant === "primary" 
+            ? { color: colors.textOnPrimary } 
+            : { color: colors.text }
+        ]}
       >
         {title}
       </Text>
@@ -49,32 +58,16 @@ export default function Button({
 const styles = StyleSheet.create({
   base: {
     height: 56,
-    borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
   },
-  primary: {
-    backgroundColor: darkColors.primary,
-  },
-  primaryText: {
-    color: "#000000",
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 18,
-  },
-  outline: {
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    backgroundColor: "transparent",
-  },
-  outlineText: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodySemiBold,
+  text: {
+    fontWeight: "600",
     fontSize: 18,
   },
   link: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
     fontSize: 14,
     textAlign: "center",
   },

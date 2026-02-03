@@ -1,7 +1,7 @@
 /**
  * Theme Context
  * Provides theme values throughout the app via useTheme() hook
- * Defaults to light mode for approachable, beginner-friendly feel
+ * Defaults to dark mode for gym-readable, professional feel
  */
 
 import React, { createContext, useContext, useMemo } from "react";
@@ -57,14 +57,13 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, forcedColorScheme }: ThemeProviderProps) {
-  // For now, we default to light mode regardless of system setting
-  // This matches our "approachable for beginners" design decision
-  // Later we can add a setting to respect system preference
+  // Default to dark mode for gym-readable, professional appearance
+  // Later we can add a settings toggle to switch to light mode
   const systemScheme = useColorScheme();
   
-  // Use forced scheme if provided, otherwise default to light
-  // Change this to `systemScheme ?? "light"` to respect system preference
-  const colorScheme: ColorScheme = forcedColorScheme ?? "light";
+  // Use forced scheme if provided, otherwise default to dark
+  // Change this to `systemScheme ?? "dark"` to respect system preference
+  const colorScheme: ColorScheme = forcedColorScheme ?? "dark";
   
   const value = useMemo<ThemeContextValue>(() => ({
     colorScheme,
@@ -94,10 +93,11 @@ export function useTheme(): ThemeContextValue {
   if (!context) {
     // Fallback for components used outside ThemeProvider
     // This allows gradual migration - components work even without provider
+    // Default to dark mode to match provider default
     return {
-      colorScheme: "light",
-      isDark: false,
-      colors: lightColors,
+      colorScheme: "dark",
+      isDark: true,
+      colors: darkColors,
       space,
       radius,
       typography,

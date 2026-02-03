@@ -177,7 +177,7 @@ export function Button({
             borderWidth: 0,
           },
           text: {
-            color: "#FFFFFF",
+            color: colors.text, // White text on error background
           },
         };
     }

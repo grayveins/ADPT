@@ -1,19 +1,10 @@
 /**
  * Workout Index
- * Redirects to active workout screen with params
+ * Redirects to workout tab (prevents navigation issues on swipe back)
  */
 
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Redirect } from "expo-router";
 
 export default function WorkoutIndex() {
-  const params = useLocalSearchParams();
-  
-  return (
-    <Redirect 
-      href={{
-        pathname: "/(app)/workout/active",
-        params,
-      }} 
-    />
-  );
+  return <Redirect href="/(app)/(tabs)/workout" />;
 }

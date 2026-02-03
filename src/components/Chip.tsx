@@ -1,15 +1,18 @@
 import { StyleSheet, Text, View } from "react-native";
-
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 
 type ChipProps = {
   label: string;
 };
 
 export default function Chip({ label }: ChipProps) {
+  const { colors, radius } = useTheme();
+  
   return (
-    <View style={styles.chip}>
-      <Text allowFontScaling={false} style={styles.text}>{label}</Text>
+    <View style={[styles.chip, { backgroundColor: colors.primary, borderRadius: radius.pill }]}>
+      <Text allowFontScaling={false} style={[styles.text, { color: colors.textOnPrimary }]}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -19,12 +22,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: theme.radius.pill,
-    backgroundColor: darkColors.primary,
   },
   text: {
-    color: "#000000",
-    fontFamily: theme.fonts.bodyMedium,
+    fontWeight: "500",
     fontSize: 12,
   },
 });

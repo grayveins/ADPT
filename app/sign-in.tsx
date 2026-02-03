@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -14,10 +14,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { darkColors } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 
 export default function SignIn() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +69,7 @@ export default function SignIn() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.select({ ios: "padding", android: "height" })}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -74,7 +78,7 @@ export default function SignIn() {
         >
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
-              <Ionicons name="fitness" size={32} color={darkColors.primary} />
+              <Ionicons name="fitness" size={32} color={colors.textOnPrimary} />
             </View>
             <Text allowFontScaling={false} style={styles.logoText}>
               ADPT
@@ -92,7 +96,7 @@ export default function SignIn() {
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={darkColors.muted} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 placeholder="Email"
                 value={email}
@@ -100,23 +104,23 @@ export default function SignIn() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
-                placeholderTextColor={darkColors.muted}
+                placeholderTextColor={colors.textMuted}
                 style={styles.input}
-                keyboardAppearance="dark"
+                keyboardAppearance="light"
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={darkColors.muted} style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 textContentType="password"
-                placeholderTextColor={darkColors.muted}
+                placeholderTextColor={colors.textMuted}
                 style={styles.input}
-                keyboardAppearance="dark"
+                keyboardAppearance="light"
               />
             </View>
 
@@ -143,102 +147,103 @@ export default function SignIn() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: darkColors.bg,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: darkColors.card,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  logoText: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 2,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: "Inter_600SemiBold",
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    marginTop: 8,
-  },
-  form: {
-    gap: 16,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-    paddingVertical: 16,
-  },
-  button: {
-    backgroundColor: darkColors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#000",
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  footer: {
-    marginTop: 32,
-    alignItems: "center",
-  },
-  footerText: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  footerLink: {
-    color: darkColors.primary,
-    fontFamily: "Inter_600SemiBold",
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: 24,
+      paddingVertical: 40,
+    },
+    logoContainer: {
+      alignItems: "center",
+      marginBottom: 40,
+    },
+    logoCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    logoText: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: "Inter_600SemiBold",
+      letterSpacing: 2,
+    },
+    header: {
+      alignItems: "center",
+      marginBottom: 32,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: "Inter_600SemiBold",
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      marginTop: 8,
+    },
+    form: {
+      gap: 16,
+    },
+    inputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 16,
+    },
+    inputIcon: {
+      marginRight: 12,
+    },
+    input: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: "Inter_400Regular",
+      paddingVertical: 16,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      paddingVertical: 16,
+      alignItems: "center",
+      marginTop: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: 16,
+      fontFamily: "Inter_600SemiBold",
+    },
+    footer: {
+      marginTop: 32,
+      alignItems: "center",
+    },
+    footerText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: "Inter_400Regular",
+    },
+    footerLink: {
+      color: colors.primary,
+      fontFamily: "Inter_600SemiBold",
+    },
+  });

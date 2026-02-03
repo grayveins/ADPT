@@ -3,11 +3,12 @@
  * Biological sex selection for training recommendations
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -23,6 +24,8 @@ const options = [
 ] as const;
 
 export default function SexScreen({ onNext }: SexScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   const selected = form.sex;
 
@@ -68,7 +71,7 @@ export default function SexScreen({ onNext }: SexScreenProps) {
                   <Ionicons 
                     name={option.icon as any} 
                     size={28} 
-                    color={isSelected ? "#000" : darkColors.primary} 
+                    color={isSelected ? colors.textOnPrimary : colors.primary} 
                   />
                 </View>
                 <Text allowFontScaling={false} style={[
@@ -79,7 +82,7 @@ export default function SexScreen({ onNext }: SexScreenProps) {
                 </Text>
                 {isSelected && (
                   <View style={styles.checkmark}>
-                    <Ionicons name="checkmark" size={16} color="#000" />
+                    <Ionicons name="checkmark" size={16} color={colors.textOnPrimary} />
                   </View>
                 )}
               </Pressable>
@@ -89,7 +92,7 @@ export default function SexScreen({ onNext }: SexScreenProps) {
       </View>
 
       <View style={styles.privacy}>
-        <Ionicons name="lock-closed" size={14} color={darkColors.muted} />
+        <Ionicons name="lock-closed" size={14} color={colors.textMuted} />
         <Text allowFontScaling={false} style={styles.privacyText}>
           Your data is private and never shared
         </Text>
@@ -106,88 +109,89 @@ export default function SexScreen({ onNext }: SexScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 20,
-    gap: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  optionSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  optionPressed: {
-    opacity: 0.9,
-  },
-  optionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  optionIconSelected: {
-    backgroundColor: darkColors.primary,
-  },
-  optionLabel: {
-    flex: 1,
-    color: darkColors.text,
-    fontSize: 18,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  optionLabelSelected: {
-    color: darkColors.primary,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: darkColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  privacy: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  privacyText: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    options: {
+      gap: 12,
+    },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      gap: 16,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    optionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    optionPressed: {
+      opacity: 0.9,
+    },
+    optionIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    optionIconSelected: {
+      backgroundColor: colors.primary,
+    },
+    optionLabel: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 18,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    optionLabelSelected: {
+      color: colors.primary,
+    },
+    checkmark: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    privacy: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    privacyText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

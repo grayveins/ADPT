@@ -90,66 +90,74 @@ These notes capture existing conventions so agentic tools can blend in.
 - Prefer `SafeAreaView` for full-screen layouts.
 - Keep visual tokens centralized; avoid hard-coded colors unless local.
 
-## Design System - Warm Coral Theme
+## Design System - Teal/Cyan Theme (v3)
 
-### Philosophy: "Premium but Approachable"
-- Warm, welcoming colors (not cold/sporty/intimidating)
-- Light mode default (less intimidating for beginners)
-- Generous spacing and rounded corners (16-24px radius)
-- Trust through transparency ("Why this workout?" explanations)
+### Philosophy: "PT in Your Pocket"
+- Dark mode default (gym-readable, professional)
+- Teal/Cyan primary (trust + energy, gender-neutral)
+- Scientific, minimal, approachable
+- HCI-compliant touch targets (56pt primary, 48pt secondary)
 
 ### Color Palette
 Primary theme files:
 - `src/theme.ts` - Full design system (preferred for new code)
 - `constants/Colors.ts` - Legacy API (backward compatible)
 
-**Light Mode (Default):**
-- Primary: `#FF7A5C` (Warm Coral) - CTAs, progress rings
-- Success: `#6B8E6B` (Sage Green) - completed states, PRs
-- Background: `#FDFCFB` (Warm White)
-- Text: `#1C1917` (Warm Black)
-- Card: `#FFFFFF`
-- Border: `#E8E4DF`
+**Dark Mode (DEFAULT):**
+- Primary: `#00C9B7` (Teal/Cyan) - CTAs, progress rings
+- Success: `#7FA07F` (Sage Green) - completed states
+- Intensity: `#FF6B35` (Orange) - rest timer, urgency
+- Gold: `#FFD700` (Gold) - PRs, achievements, streaks
+- Background: `#0A0A0A` (Near-black)
+- Card: `#1C1C1C`
+- Text: `#F5F5F5`
+- TextOnPrimary: `#0A0A0A` (dark text on teal buttons)
 
-**Dark Mode:**
-- Primary: `#FF8B70` (Lighter Coral for contrast)
-- Success: `#7FA07F` (Lighter Sage)
-- Background: `#121110` (Warm Black)
-- Text: `#F5F4F2` (Off-White)
+**Light Mode (toggle in settings):**
+- Primary: `#00A89A` (Slightly darker teal)
+- Background: `#FAFAFA`
+- Text: `#171717`
+- TextOnPrimary: `#FFFFFF`
 
-### Emoji-Based Input Scales
-**Effort Scale (RIR - Reps in Reserve):**
+### Input Scales
+**Effort Scale (5 levels, filled circles):**
 ```
-effortScale.easy  = 😊 "Could do 4+ more"
-effortScale.good  = 😐 "Could do 2-3 more"
-effortScale.hard  = 😤 "Could do 1 more"
-effortScale.max   = 🔥 "Couldn't do more"
+effortScale.easy     = ○○○○○  RIR 4+  "Could do 4+ more"
+effortScale.moderate = ●○○○○  RIR 3   "Could do 3 more"
+effortScale.hard     = ●●○○○  RIR 2   "Could do 2 more"
+effortScale.veryHard = ●●●○○  RIR 1   "Could do 1 more"
+effortScale.failure  = ●●●●●  RIR 0   "Couldn't do another"
 ```
 
-**Feeling Scale (Daily Readiness):**
+**Feeling Scale (keep emojis for pre-workout):**
 ```
 feelingScale.tired  = 😴 "-10% weights"
 feelingScale.normal = 😊 "As planned"
 feelingScale.strong = 💪 "+10% weights"
 ```
 
+### Touch Targets (HCI Standards)
+- Primary CTAs: 56pt (gym-friendly)
+- Secondary actions: 48pt
+- Minimum: 44pt
+
 ### Spacing (base 4px)
-- `xs: 4`, `sm: 8`, `md: 16`, `lg: 24`, `xl: 32`, `xxl: 40`
+- `xs: 4`, `sm: 8`, `md: 12`, `base: 16`, `lg: 20`, `xl: 24`, `xxl: 32`
 
 ### Border Radius
-- `sm: 8`, `md: 12`, `lg: 16`, `xl: 24`, `pill: 999`
+- `sm: 8`, `md: 12`, `lg: 16`, `xl: 20`, `xxl: 24`, `pill: 999`
 
 ### Typography
-- Font: Inter family (or System fallback)
-- Sizes: hero(48), h1(32), h2(24), h3(20), body(16), caption(12)
+- Font: System (iOS) / Roboto (Android)
+- Sizes: largeTitle(34), title1(28), title2(22), body(17), footnote(13)
 
 ### Design Guidelines
-- Avoid pure black (#000) - use warm blacks (#1C1917, #121110)
-- Avoid pure white for backgrounds - use warm whites (#FDFCFB)
-- Cards should have subtle warm shadows, not harsh
-- Use coral sparingly for emphasis, not everywhere
+- Dark mode is default - gym-readable
+- Use `colors.intensity` for rest timer, urgency (not hardcoded orange)
+- Use `colors.gold` for PRs, trophies, achievements (not hardcoded #FFD700)
 - Success/completion always uses sage green
-- Errors use standard red (#EF4444 light, #F87171 dark)
+- Always use `useTheme()` hook - never import `darkColors` directly
+- No confetti in onboarding (removed for cleaner experience)
 
 ## Assets & icons
 - App images live in `assets/images`.

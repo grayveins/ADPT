@@ -3,11 +3,12 @@
  * Injuries or physical limitations selection
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable, TextInput } from "react-native";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -27,6 +28,8 @@ const limitations = [
 ] as const;
 
 export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
   const selected = form.limitations ?? [];
   const hasOther = selected.includes("other");
@@ -70,7 +73,7 @@ export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
         entering={FadeInDown.delay(150).duration(400)} 
         style={styles.grid}
       >
-        {limitations.map((item, index) => {
+        {limitations.map((item) => {
           const active = isSelected(item.value);
           const isNone = item.value === "none";
           return (
@@ -87,7 +90,7 @@ export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
               <Ionicons 
                 name={item.icon as any} 
                 size={18} 
-                color={active ? (isNone ? "#000" : darkColors.primary) : darkColors.muted} 
+                color={active ? (isNone ? colors.textOnPrimary : colors.primary) : colors.textMuted} 
               />
               <Text allowFontScaling={false} style={[
                 styles.chipText,
@@ -110,12 +113,12 @@ export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
             value={form.limitationsOtherText ?? ""}
             onChangeText={(value) => updateForm({ limitationsOtherText: value })}
             placeholder="Describe any other limitations..."
-            placeholderTextColor={darkColors.muted}
+            placeholderTextColor={colors.textMuted}
             style={styles.otherInput}
             multiline
             numberOfLines={3}
             allowFontScaling={false}
-            keyboardAppearance="dark"
+            keyboardAppearance="light"
           />
         </Animated.View>
       )}
@@ -126,7 +129,7 @@ export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
         style={styles.reassurance}
       >
         <View style={styles.reassuranceIcon}>
-          <Ionicons name="shield-checkmark" size={20} color={darkColors.primary} />
+          <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
         </View>
         <View style={styles.reassuranceContent}>
           <Text allowFontScaling={false} style={styles.reassuranceTitle}>
@@ -151,120 +154,121 @@ export default function LimitationsScreen({ onNext }: LimitationsScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 28,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 36,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    lineHeight: 22,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: darkColors.card,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  chipSelected: {
-    borderColor: darkColors.primary,
-    backgroundColor: darkColors.selectedBg,
-  },
-  chipNone: {
-    backgroundColor: darkColors.primary,
-    borderColor: darkColors.primary,
-  },
-  chipPressed: {
-    opacity: 0.9,
-  },
-  chipText: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  chipTextSelected: {
-    color: darkColors.primary,
-  },
-  chipTextNone: {
-    color: "#000",
-  },
-  otherSection: {
-    gap: 8,
-  },
-  otherLabel: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  otherInput: {
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    padding: 16,
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.body,
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  reassurance: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-  },
-  reassuranceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: darkColors.selectedBg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reassuranceContent: {
-    flex: 1,
-    gap: 4,
-  },
-  reassuranceTitle: {
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  reassuranceText: {
-    color: darkColors.muted,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-    lineHeight: 18,
-  },
-  footer: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      gap: 24,
+    },
+    header: {
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 36,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      lineHeight: 22,
+    },
+    grid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: colors.card,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 24,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    chipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.selected,
+    },
+    chipNone: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipPressed: {
+      opacity: 0.9,
+    },
+    chipText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    chipTextSelected: {
+      color: colors.primary,
+    },
+    chipTextNone: {
+      color: colors.textOnPrimary,
+    },
+    otherSection: {
+      gap: 8,
+    },
+    otherLabel: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    otherInput: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      color: colors.text,
+      fontSize: 15,
+      fontFamily: theme.fonts.body,
+      minHeight: 100,
+      textAlignVertical: "top",
+    },
+    reassurance: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      gap: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    reassuranceIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.selected,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    reassuranceContent: {
+      flex: 1,
+      gap: 4,
+    },
+    reassuranceTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    reassuranceText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+      lineHeight: 18,
+    },
+    footer: {
+      marginTop: "auto",
+      paddingTop: 16,
+    },
+  });

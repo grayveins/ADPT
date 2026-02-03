@@ -4,17 +4,20 @@ import Slider from "@react-native-community/slider";
 
 import Button from "@/src/components/Button";
 import { useOnboarding } from "@/src/context/OnboardingContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import { kgToLbs, lbsToKg, roundTo } from "@/lib/units";
-import { darkColors, theme } from "@/src/theme";
+import { theme } from "@/src/theme";
 
 type WeightScreenProps = {
   onNext: () => void;
 };
 
 export default function WeightScreen({ onNext }: WeightScreenProps) {
+  const { colors } = useTheme();
   const { form, updateForm } = useOnboarding();
   const weightKg = form.weightKg ?? lbsToKg(165);
   const [manualWeight, setManualWeight] = useState("");
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const sliderValue = useMemo(() => roundTo(kgToLbs(weightKg), 1), [weightKg]);
   const display = useMemo(() => sliderValue.toFixed(1), [sliderValue]);
@@ -49,8 +52,8 @@ export default function WeightScreen({ onNext }: WeightScreenProps) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text allowFontScaling={false} style={styles.title}>What&apos;s your current weight?</Text>
-        <Text allowFontScaling={false} style={styles.subtitle}>Estimate if you&apos;re unsure.</Text>
+        <Text allowFontScaling={false} style={styles.title}>What's your current weight?</Text>
+        <Text allowFontScaling={false} style={styles.subtitle}>Estimate if you're unsure.</Text>
       </View>
 
       <View style={styles.valueRow}>
@@ -64,9 +67,9 @@ export default function WeightScreen({ onNext }: WeightScreenProps) {
         step={0.5}
         value={sliderValue}
         onValueChange={handleChange}
-        minimumTrackTintColor={darkColors.primary}
-        maximumTrackTintColor={darkColors.border}
-        thumbTintColor={darkColors.primary}
+        minimumTrackTintColor={colors.primary}
+        maximumTrackTintColor={colors.border}
+        thumbTintColor={colors.primary}
       />
 
       <TextInput
@@ -75,8 +78,8 @@ export default function WeightScreen({ onNext }: WeightScreenProps) {
         keyboardType="numeric"
         style={styles.input}
         allowFontScaling={false}
-        keyboardAppearance="dark"
-        placeholderTextColor={darkColors.muted}
+        keyboardAppearance="light"
+        placeholderTextColor={colors.textMuted}
       />
 
       <Button title="Continue" onPress={handleNext} style={styles.cta} />
@@ -84,55 +87,56 @@ export default function WeightScreen({ onNext }: WeightScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: "center",
-    transform: [{ translateY: -8 }],
-    gap: theme.space.l,
-  },
-  header: {
-    gap: theme.space.s,
-  },
-  title: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.heading,
-    fontSize: theme.type.h1,
-    lineHeight: 42,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: theme.type.body,
-    lineHeight: 22,
-  },
-  valueRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: theme.space.s,
-  },
-  value: {
-    color: darkColors.text,
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 44,
-  },
-  unit: {
-    color: darkColors.muted,
-    fontFamily: theme.fonts.body,
-    fontSize: 16,
-  },
-  input: {
-    backgroundColor: darkColors.card,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: darkColors.border,
-    paddingHorizontal: theme.space.l,
-    paddingVertical: theme.space.m,
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 16,
-    color: darkColors.text,
-  },
-  cta: {
-    marginTop: theme.space.s,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      justifyContent: "center",
+      transform: [{ translateY: -8 }],
+      gap: theme.space.l,
+    },
+    header: {
+      gap: theme.space.s,
+    },
+    title: {
+      color: colors.text,
+      fontFamily: theme.fonts.heading,
+      fontSize: theme.type.h1,
+      lineHeight: 42,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.type.body,
+      lineHeight: 22,
+    },
+    valueRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: theme.space.s,
+    },
+    value: {
+      color: colors.text,
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 44,
+    },
+    unit: {
+      color: colors.textMuted,
+      fontFamily: theme.fonts.body,
+      fontSize: 16,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: theme.space.l,
+      paddingVertical: theme.space.m,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 16,
+      color: colors.text,
+    },
+    cta: {
+      marginTop: theme.space.s,
+    },
+  });

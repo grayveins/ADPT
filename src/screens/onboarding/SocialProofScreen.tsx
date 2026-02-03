@@ -4,7 +4,7 @@
  * Builds trust before the paywall
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
 import Animated, {
   useSharedValue,
@@ -15,8 +15,8 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { darkColors, theme } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { theme } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 type SocialProofScreenProps = {
@@ -27,7 +27,7 @@ const testimonials = [
   {
     name: "Sarah M.",
     role: "Lost 30 lbs",
-    quote: "ADPT understood my busy schedule and created workouts I could actually stick to. Best fitness app I&apos;ve ever used.",
+    quote: "ADPT understood my busy schedule and created workouts I could actually stick to. Best fitness app I've ever used.",
     rating: 5,
     avatar: "SM",
     color: "#FF6B6B",
@@ -60,11 +60,13 @@ const stats = [
 function TestimonialCard({ 
   testimonial, 
   isActive,
-  index,
+  colors,
+  styles,
 }: { 
   testimonial: typeof testimonials[0]; 
   isActive: boolean;
-  index: number;
+  colors: ReturnType<typeof useTheme>["colors"];
+  styles: ReturnType<typeof createStyles>;
 }) {
   const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0.5);
@@ -83,7 +85,7 @@ function TestimonialCard({
     <Animated.View style={[styles.testimonialCard, cardStyle]}>
       {/* Quote */}
       <Text allowFontScaling={false} style={styles.quote}>
-        &quot;{testimonial.quote.replace(/&apos;/g, "'")}&quot;
+        &quot;{testimonial.quote}&quot;
       </Text>
 
       {/* Rating */}
@@ -93,7 +95,7 @@ function TestimonialCard({
             key={star}
             name={star <= testimonial.rating ? "star" : "star-outline"}
             size={18}
-            color="#FFD700"
+            color={colors.gold}
           />
         ))}
       </View>
@@ -119,6 +121,8 @@ function TestimonialCard({
 }
 
 export default function SocialProofScreen({ onNext }: SocialProofScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Auto-rotate testimonials
@@ -184,7 +188,8 @@ export default function SocialProofScreen({ onNext }: SocialProofScreenProps) {
             key={testimonial.name}
             testimonial={testimonial}
             isActive={index === activeIndex}
-            index={index}
+            colors={colors}
+            styles={styles}
           />
         ))}
         
@@ -208,12 +213,12 @@ export default function SocialProofScreen({ onNext }: SocialProofScreenProps) {
         entering={FadeInDown.delay(500).duration(400)}
         style={styles.statsContainer}
       >
-        {stats.map((stat, index) => (
+        {stats.map((stat) => (
           <View key={stat.label} style={styles.stat}>
             <View style={styles.statValueRow}>
               <Text allowFontScaling={false} style={styles.statValue}>{stat.value}</Text>
               {stat.icon && (
-                <Ionicons name={stat.icon as any} size={16} color="#FFD700" />
+                <Ionicons name={stat.icon as any} size={16} color={colors.gold} />
               )}
             </View>
             <Text allowFontScaling={false} style={styles.statLabel}>{stat.label}</Text>
@@ -247,188 +252,180 @@ export default function SocialProofScreen({ onNext }: SocialProofScreenProps) {
             pressed && styles.ctaButtonPressed,
           ]}
         >
-          <LinearGradient
-            colors={[darkColors.primary, darkColors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaGradient}
-          >
-            <Text allowFontScaling={false} style={styles.ctaText}>
-              See My Plan
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="#000" />
-          </LinearGradient>
+          <Text allowFontScaling={false} style={styles.ctaText}>
+            See My Plan
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
         </Pressable>
       </Animated.View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  container: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    paddingBottom: 24,
-  },
-  header: {
-    gap: 8,
-    marginBottom: 24,
-  },
-  title: {
-    color: darkColors.text,
-    fontSize: 32,
-    fontFamily: theme.fonts.heading,
-    lineHeight: 40,
-  },
-  subtitle: {
-    color: darkColors.muted,
-    fontSize: 16,
-    fontFamily: theme.fonts.body,
-    lineHeight: 24,
-  },
-  carouselContainer: {
-    marginBottom: 24,
-  },
-  testimonialCard: {
-    backgroundColor: darkColors.card,
-    borderRadius: 20,
-    padding: 24,
-    gap: 16,
-    marginBottom: 16,
-  },
-  quote: {
-    color: darkColors.text,
-    fontSize: 16,
-    fontFamily: theme.fonts.body,
-    lineHeight: 24,
-    fontStyle: "italic",
-  },
-  ratingRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  author: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  authorName: {
-    color: darkColors.text,
-    fontSize: 15,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  authorRole: {
-    color: darkColors.primary,
-    fontSize: 13,
-    fontFamily: theme.fonts.body,
-  },
-  dotsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: darkColors.border,
-  },
-  dotActive: {
-    backgroundColor: darkColors.primary,
-    width: 24,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: darkColors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  stat: {
-    alignItems: "center",
-  },
-  statValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: {
-    color: darkColors.text,
-    fontSize: 22,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  statLabel: {
-    color: darkColors.muted,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-    marginTop: 4,
-  },
-  featuredContainer: {
-    alignItems: "center",
-    gap: 8,
-  },
-  featuredTitle: {
-    color: darkColors.muted2,
-    fontSize: 12,
-    fontFamily: theme.fonts.body,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  featuredLogos: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  featuredLogo: {
-    color: darkColors.muted,
-    fontSize: 14,
-    fontFamily: theme.fonts.bodyMedium,
-  },
-  featuredDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: darkColors.muted2,
-  },
-  ctaContainer: {
-    marginTop: "auto",
-    paddingTop: 24,
-  },
-  ctaButton: {
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  ctaButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-  },
-  ctaText: {
-    color: "#000",
-    fontSize: 17,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-});
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
+  StyleSheet.create({
+    scroll: {
+      flex: 1,
+    },
+    container: {
+      flexGrow: 1,
+      paddingVertical: 16,
+      paddingBottom: 24,
+    },
+    header: {
+      gap: 8,
+      marginBottom: 24,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 32,
+      fontFamily: theme.fonts.heading,
+      lineHeight: 40,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 16,
+      fontFamily: theme.fonts.body,
+      lineHeight: 24,
+    },
+    carouselContainer: {
+      marginBottom: 24,
+    },
+    testimonialCard: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 24,
+      gap: 16,
+      marginBottom: 16,
+    },
+    quote: {
+      color: colors.text,
+      fontSize: 16,
+      fontFamily: theme.fonts.body,
+      lineHeight: 24,
+      fontStyle: "italic",
+    },
+    ratingRow: {
+      flexDirection: "row",
+      gap: 4,
+    },
+    author: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarText: {
+      color: "#fff",
+      fontSize: 16,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    authorName: {
+      color: colors.text,
+      fontSize: 15,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    authorRole: {
+      color: colors.primary,
+      fontSize: 13,
+      fontFamily: theme.fonts.body,
+    },
+    dotsContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.border,
+    },
+    dotActive: {
+      backgroundColor: colors.primary,
+      width: 24,
+    },
+    statsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 20,
+    },
+    stat: {
+      alignItems: "center",
+    },
+    statValueRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    statValue: {
+      color: colors.text,
+      fontSize: 22,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    statLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+      marginTop: 4,
+    },
+    featuredContainer: {
+      alignItems: "center",
+      gap: 8,
+    },
+    featuredTitle: {
+      color: colors.inputPlaceholder,
+      fontSize: 12,
+      fontFamily: theme.fonts.body,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    featuredLogos: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    featuredLogo: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontFamily: theme.fonts.bodyMedium,
+    },
+    featuredDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.inputPlaceholder,
+    },
+    ctaContainer: {
+      marginTop: "auto",
+      paddingTop: 24,
+    },
+    ctaButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 18,
+      paddingHorizontal: 32,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
+    },
+    ctaButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    ctaText: {
+      color: colors.textOnPrimary,
+      fontSize: 17,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+  });
