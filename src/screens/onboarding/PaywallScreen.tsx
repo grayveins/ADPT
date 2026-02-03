@@ -1,17 +1,18 @@
 /**
  * PaywallScreen
- * Subscription options with enhanced animations
+ * Subscription options with RevenueCat integration
  */
 
 import React, { useState, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
+import { useSubscription } from "@/src/hooks/useSubscription";
 import Button from "@/src/components/Button";
-import { hapticPress } from "@/src/animations/feedback/haptics";
+import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 
 type PaywallScreenProps = {
   onNext: () => void;
@@ -30,18 +31,71 @@ type PlanType = "annual" | "monthly";
 export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
   const { colors } = useTheme();
   const { updateForm } = useOnboarding();
+  const { 
+    isLoading: subscriptionLoading,
+    monthlyPackage,
+    annualPackage,
+    monthlyPrice,
+    annualPrice,
+    annualMonthlyEquivalent,
+    savingsPercent,
+    purchasePlan,
+    restorePurchases,
+    isPro,
+  } = useSubscription();
+  
   const [selectedPlan, setSelectedPlan] = useState<PlanType>("annual");
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Calculate savings amount (monthly x 12 - annual)
+  const savingsAmount = useMemo(() => {
+    if (!monthlyPackage?.product.price || !annualPackage?.product.price) {
+      return "$76"; // $12.99 * 12 - $79.99 = $75.89, round to $76
+    }
+    const yearlyIfMonthly = monthlyPackage.product.price * 12;
+    const savings = yearlyIfMonthly - annualPackage.product.price;
+    return `$${Math.round(savings)}`;
+  }, [monthlyPackage, annualPackage]);
 
   const handleSelectPlan = (plan: PlanType) => {
     hapticPress();
     setSelectedPlan(plan);
   };
 
-  const handlePro = () => {
+  const handlePurchase = async () => {
     hapticPress();
-    updateForm({ planChoice: "pro" });
-    onNext();
+    setIsPurchasing(true);
+    
+    try {
+      const success = await purchasePlan(selectedPlan);
+      
+      if (success) {
+        hapticSuccess();
+        updateForm({ planChoice: "pro" });
+        onNext();
+      }
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    hapticPress();
+    setIsRestoring(true);
+    
+    try {
+      const restored = await restorePurchases();
+      
+      if (restored) {
+        hapticSuccess();
+        updateForm({ planChoice: "pro" });
+        onNext();
+      }
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   const handleFree = () => {
@@ -49,6 +103,15 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
     updateForm({ planChoice: "free" });
     onFree();
   };
+
+  // If already pro (edge case), skip paywall
+  if (isPro) {
+    updateForm({ planChoice: "pro" });
+    onNext();
+    return null;
+  }
+
+  const isButtonDisabled = isPurchasing || isRestoring || subscriptionLoading;
 
   return (
     <ScrollView
@@ -64,7 +127,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
           Unlock your{"\n"}full potential
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          Join 50,000+ members transforming their fitness
+          Join thousands transforming their fitness
         </Text>
       </Animated.View>
 
@@ -100,6 +163,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
         {/* Annual Plan */}
         <Pressable
           onPress={() => handleSelectPlan("annual")}
+          disabled={isButtonDisabled}
           style={({ pressed }) => [
             styles.planCard,
             selectedPlan === "annual" && styles.planCardSelected,
@@ -122,16 +186,18 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
             )}
           </View>
           <View style={styles.priceRow}>
-            <Text allowFontScaling={false} style={styles.priceMain}>$5.83</Text>
+            <Text allowFontScaling={false} style={styles.priceMain}>
+              {annualMonthlyEquivalent}
+            </Text>
             <Text allowFontScaling={false} style={styles.pricePer}>/month</Text>
           </View>
           <Text allowFontScaling={false} style={styles.planHint}>
-            $69.99/year after 7-day free trial
+            {annualPrice}/year after 7-day free trial
           </Text>
           <View style={styles.savingsTag}>
             <Ionicons name="pricetag" size={12} color={colors.textOnPrimary} />
             <Text allowFontScaling={false} style={styles.savingsText}>
-              Save $50 vs monthly
+              Save {savingsAmount} vs monthly
             </Text>
           </View>
         </Pressable>
@@ -139,6 +205,7 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
         {/* Monthly Plan */}
         <Pressable
           onPress={() => handleSelectPlan("monthly")}
+          disabled={isButtonDisabled}
           style={({ pressed }) => [
             styles.planCard,
             styles.planCardSmall,
@@ -155,7 +222,9 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
             )}
           </View>
           <View style={styles.priceRow}>
-            <Text allowFontScaling={false} style={styles.priceMainAlt}>$9.99</Text>
+            <Text allowFontScaling={false} style={styles.priceMainAlt}>
+              {monthlyPrice}
+            </Text>
             <Text allowFontScaling={false} style={styles.pricePerAlt}>/month</Text>
           </View>
           <Text allowFontScaling={false} style={styles.planHintAlt}>
@@ -169,10 +238,23 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
         entering={FadeInDown.delay(350).duration(400)} 
         style={styles.ctaSection}
       >
-        <Button 
-          title="Start 7-Day Free Trial" 
-          onPress={handlePro}
-        />
+        <Pressable
+          onPress={handlePurchase}
+          disabled={isButtonDisabled}
+          style={[
+            styles.purchaseButton,
+            { backgroundColor: colors.primary },
+            isButtonDisabled && { opacity: 0.7 },
+          ]}
+        >
+          {isPurchasing ? (
+            <ActivityIndicator color={colors.textOnPrimary} />
+          ) : (
+            <Text allowFontScaling={false} style={[styles.purchaseButtonText, { color: colors.textOnPrimary }]}>
+              Start 7-Day Free Trial
+            </Text>
+          )}
+        </Pressable>
         <View style={styles.guarantee}>
           <Ionicons name="shield-checkmark" size={16} color={colors.textMuted} />
           <Text allowFontScaling={false} style={styles.guaranteeText}>
@@ -181,11 +263,25 @@ export default function PaywallScreen({ onNext, onFree }: PaywallScreenProps) {
         </View>
       </Animated.View>
 
-      {/* Free Option */}
+      {/* Restore & Free Options */}
       <Animated.View 
         entering={FadeInDown.delay(400).duration(400)} 
-        style={styles.freeSection}
+        style={styles.bottomSection}
       >
+        <Pressable 
+          onPress={handleRestore} 
+          disabled={isButtonDisabled}
+          style={styles.restoreButton}
+        >
+          {isRestoring ? (
+            <ActivityIndicator size="small" color={colors.textMuted} />
+          ) : (
+            <Text allowFontScaling={false} style={styles.restoreText}>
+              Restore Purchases
+            </Text>
+          )}
+        </Pressable>
+        
         <Pressable onPress={handleFree} style={styles.freeButton}>
           <Text allowFontScaling={false} style={styles.freeText}>
             Continue with limited features
@@ -363,6 +459,16 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     ctaSection: {
       gap: 12,
     },
+    purchaseButton: {
+      height: 56,
+      borderRadius: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    purchaseButtonText: {
+      fontFamily: theme.fonts.bodySemiBold,
+      fontSize: 17,
+    },
     guarantee: {
       flexDirection: "row",
       alignItems: "center",
@@ -374,8 +480,18 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontFamily: theme.fonts.body,
       fontSize: 13,
     },
-    freeSection: {
+    bottomSection: {
       alignItems: "center",
+      gap: 8,
+    },
+    restoreButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+    restoreText: {
+      color: colors.primary,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 14,
     },
     freeButton: {
       paddingVertical: 12,

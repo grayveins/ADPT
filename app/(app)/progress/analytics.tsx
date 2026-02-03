@@ -15,9 +15,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  TouchableOpacity,
 } from "react-native";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useTheme } from "@/src/context/ThemeContext";
@@ -251,7 +253,25 @@ export default function AnalyticsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
+      {/* Hide the default header, we're using our own */}
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color={colors.text} />
+        </TouchableOpacity>
+        <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
+          Analytics
+        </Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -414,13 +434,33 @@ export default function AnalyticsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+  },
+  headerSpacer: {
+    width: 44,
   },
   scrollContent: {
     paddingHorizontal: layout.screenPaddingHorizontal,

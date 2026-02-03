@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 
 import { useTheme } from "@/src/context/ThemeContext";
+import { useSubscription } from "@/src/hooks/useSubscription";
 import { supabase } from "@/lib/supabase";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 
@@ -156,9 +157,26 @@ export default function GenerateProgramScreen() {
   };
 
   const [saving, setSaving] = useState(false);
+  const { isPro } = useSubscription();
 
   const saveProgram = async () => {
     if (!program) return;
+    
+    // Check if user has Pro subscription
+    if (!isPro) {
+      Alert.alert(
+        "Pro Feature",
+        "Saving programs is a Pro feature. Upgrade to save unlimited programs and access all features.",
+        [
+          { text: "Maybe Later", style: "cancel" },
+          { 
+            text: "Upgrade to Pro", 
+            onPress: () => router.push("/onboarding/editorial"),
+          },
+        ]
+      );
+      return;
+    }
     
     hapticPress();
     setSaving(true);

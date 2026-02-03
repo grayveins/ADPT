@@ -43,6 +43,7 @@ import { haptic, hapticPress, hapticSuccess, hapticCelebration } from "@/src/ani
 import { SPRING_CONFIG } from "@/src/animations/constants";
 import { usePRs } from "@/src/hooks/usePRs";
 import { usePreviousWorkout } from "@/src/hooks/usePreviousWorkout";
+import { calculateTarget, type PreviousSetInfo } from "@/src/hooks/useTargetCalculation";
 import { readinessScale, effortScale, type ReadinessLevel, type EffortLevel, layout, spacing } from "@/src/theme";
 import { 
   ExerciseInfo, 
@@ -760,8 +761,42 @@ export default function ActiveWorkoutScreen() {
                       return null;
                     })()}
 
+                    {/* TARGET Row - Progressive Overload Suggestion */}
+                    {(() => {
+                      const prevSet = getPreviousSet(exercise.name, 1);
+                      if (!prevSet) return null;
+                      
+                      const target = calculateTarget({
+                        weight: prevSet.weight,
+                        reps: prevSet.reps,
+                        rir: null, // We could pass RIR from last session if available
+                      });
+                      
+                      if (!target) return null;
+                      
+                      return (
+                        <View style={[styles.targetRow, { backgroundColor: colors.cardAlt }]}>
+                          <Text allowFontScaling={false} style={[styles.targetLabel, { color: colors.textMuted }]}>
+                            TARGET
+                          </Text>
+                          <Text allowFontScaling={false} style={[styles.targetValue, { color: colors.text }]}>
+                            {target.weight} lbs × {target.reps} reps
+                          </Text>
+                          {target.insight && (
+                            <Text allowFontScaling={false} style={[styles.targetInsight, { color: colors.textSecondary }]}>
+                              {target.insight}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })()}
+
                     {/* Set rows */}
-                    {exercise.sets.map((set, setIndex) => (
+                    {exercise.sets.map((set, setIndex) => {
+                        // Get previous workout data for this set
+                        const prevSet = getPreviousSet(exercise.name, setIndex + 1);
+                        
+                        return (
                         <View 
                           key={set.id} 
                           style={[
@@ -779,6 +814,16 @@ export default function ActiveWorkoutScreen() {
                             set.completed && styles.setNumberTextComplete,
                           ]}>
                             {setIndex + 1}
+                          </Text>
+                        </View>
+
+                        {/* PREV column - previous workout weight */}
+                        <View style={styles.prevColumn}>
+                          <Text 
+                            allowFontScaling={false} 
+                            style={[styles.prevText, { color: colors.textMuted }]}
+                          >
+                            {prevSet?.weight || "--"}
                           </Text>
                         </View>
 
@@ -827,7 +872,8 @@ export default function ActiveWorkoutScreen() {
                           size={32}
                         />
                       </View>
-                    ))}
+                      );
+                    })}
                   </Animated.View>
                 )}
               </Animated.View>
@@ -1210,6 +1256,28 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       fontFamily: "Inter_600SemiBold",
       textAlign: "center",
     },
+    targetRow: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginBottom: 12,
+      borderRadius: 12,
+    },
+    targetLabel: {
+      fontSize: 11,
+      fontFamily: "Inter_600SemiBold",
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    targetValue: {
+      fontSize: 15,
+      fontFamily: "Inter_600SemiBold",
+    },
+    targetInsight: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
+      marginTop: 4,
+      lineHeight: 18,
+    },
     setRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -1240,6 +1308,14 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     setNumberTextComplete: {
       color: colors.textOnPrimary,
+    },
+    prevColumn: {
+      width: 40,
+      alignItems: "center",
+    },
+    prevText: {
+      fontSize: 13,
+      fontFamily: "Inter_400Regular",
     },
     inputGroup: {
       flexDirection: "row",

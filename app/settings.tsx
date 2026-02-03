@@ -6,12 +6,13 @@
  */
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Switch, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, Switch, Pressable, Alert, Linking, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { useTheme } from "@/src/context/ThemeContext";
+import { useSubscription } from "@/src/hooks/useSubscription";
 import { spacing, layout } from "@/src/theme";
 
 type SettingRowProps = {
@@ -55,9 +56,35 @@ function SettingRow({ icon, label, value, onPress, rightElement }: SettingRowPro
 export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { 
+    isPro, 
+    isTrialActive,
+    subscriptionStatus, 
+    formattedExpirationDate,
+    restorePurchases,
+    isLoading: subscriptionLoading,
+  } = useSubscription();
 
   // Placeholder state for settings (theme toggle not yet implemented in context)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  const handleManageSubscription = () => {
+    // Open App Store subscription management
+    if (Platform.OS === "ios") {
+      Linking.openURL("https://apps.apple.com/account/subscriptions");
+    } else {
+      Linking.openURL("https://play.google.com/store/account/subscriptions");
+    }
+  };
+
+  const handleUpgrade = () => {
+    // Navigate to paywall/upgrade screen
+    router.push("/onboarding/editorial");
+  };
+
+  const handleRestorePurchases = async () => {
+    await restorePurchases();
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -76,6 +103,69 @@ export default function SettingsScreen() {
 
       {/* Settings Sections */}
       <View style={styles.content}>
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+            Subscription
+          </Text>
+          <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+            {/* Current Plan */}
+            <View style={[styles.subscriptionHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.subscriptionInfo}>
+                <View style={styles.planBadgeRow}>
+                  <View style={[
+                    styles.planBadge, 
+                    { backgroundColor: isPro ? colors.primaryMuted : colors.border }
+                  ]}>
+                    <Ionicons 
+                      name={isPro ? "star" : "star-outline"} 
+                      size={14} 
+                      color={isPro ? colors.primary : colors.textMuted} 
+                    />
+                    <Text style={[
+                      styles.planBadgeText, 
+                      { color: isPro ? colors.primary : colors.textMuted }
+                    ]}>
+                      {subscriptionStatus}
+                    </Text>
+                  </View>
+                  {isTrialActive && (
+                    <View style={[styles.trialBadge, { backgroundColor: colors.gold + "20" }]}>
+                      <Text style={[styles.trialBadgeText, { color: colors.gold }]}>
+                        Trial
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {isPro && formattedExpirationDate && (
+                  <Text style={[styles.expirationText, { color: colors.textMuted }]}>
+                    {isTrialActive ? "Trial ends" : "Renews"}: {formattedExpirationDate}
+                  </Text>
+                )}
+              </View>
+            </View>
+            
+            {isPro ? (
+              <SettingRow
+                icon="card-outline"
+                label="Manage Subscription"
+                onPress={handleManageSubscription}
+              />
+            ) : (
+              <SettingRow
+                icon="flash-outline"
+                label="Upgrade to Pro"
+                onPress={handleUpgrade}
+              />
+            )}
+            <SettingRow
+              icon="refresh-outline"
+              label="Restore Purchases"
+              onPress={handleRestorePurchases}
+            />
+          </View>
+        </View>
+
         {/* Appearance Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
@@ -232,5 +322,44 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  // Subscription styles
+  subscriptionHeader: {
+    padding: spacing.base,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  subscriptionInfo: {
+    gap: spacing.xs,
+  },
+  planBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  planBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  planBadgeText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  trialBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  trialBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  expirationText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
   },
 });

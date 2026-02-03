@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -105,68 +106,79 @@ export default function HomeScreen() {
 
   // Pre-workout check-in modal
   const [checkinOpen, setCheckinOpen] = useState(false);
+  
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
 
+  // Fetch all data for home screen
+  const fetchData = async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/sign-in");
+        return;
+      }
+
+      setUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, onboarding_data, training_style, goal, updated_at")
+        .eq("id", user.id)
+        .single();
+
+      const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
+      const name = profile?.first_name ?? "there";
+      const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
+      const weekIndex = Math.max(
+        0,
+        differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
+      );
+
+      setProfileName(name);
+
+      setPreferences({
+        goal: onboarding.goal ?? profile?.goal ?? null,
+        workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
+        trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
+        splitPreference: onboarding.splitPreference ?? null,
+        limitations: onboarding.limitations ?? [],
+        activityLevel: onboarding.activityLevel ?? null,
+        weekIndex,
+      });
+
+      const weekStartIso = weekStart.toISOString();
+      const weekEndIso = addDays(weekStart, 7).toISOString();
+      const { data: sessionRows } = await supabase
+        .from("workout_sessions")
+        .select("id, title, started_at, ended_at")
+        .eq("user_id", user.id)
+        .gte("started_at", weekStartIso)
+        .lt("started_at", weekEndIso)
+        .order("started_at", { ascending: false });
+
+      setSessions((sessionRows ?? []) as SessionRow[]);
+      refreshStreak();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Pull-to-refresh handler
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchData(true);
+  };
+
   useEffect(() => {
     if (!loaded) return;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-          router.replace("/sign-in");
-          return;
-        }
-
-        setUserId(user.id);
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("first_name, onboarding_data, training_style, goal, updated_at")
-          .eq("id", user.id)
-          .single();
-
-        const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
-        const name = profile?.first_name ?? "there";
-        const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
-        const weekIndex = Math.max(
-          0,
-          differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
-        );
-
-        setProfileName(name);
-
-        setPreferences({
-          goal: onboarding.goal ?? profile?.goal ?? null,
-          workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
-          trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
-          splitPreference: onboarding.splitPreference ?? null,
-          limitations: onboarding.limitations ?? [],
-          activityLevel: onboarding.activityLevel ?? null,
-          weekIndex,
-        });
-
-        const weekStartIso = weekStart.toISOString();
-        const weekEndIso = addDays(weekStart, 7).toISOString();
-        const { data: sessionRows } = await supabase
-          .from("workout_sessions")
-          .select("id, title, started_at, ended_at")
-          .eq("user_id", user.id)
-          .gte("started_at", weekStartIso)
-          .lt("started_at", weekEndIso)
-          .order("started_at", { ascending: false });
-
-        setSessions((sessionRows ?? []) as SessionRow[]);
-        refreshStreak();
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [loaded, weekStart]);
 
@@ -291,6 +303,13 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Coach Message */}
         <Animated.View 

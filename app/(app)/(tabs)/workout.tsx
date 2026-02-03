@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -46,66 +47,75 @@ type SessionRow = {
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
   const todayKey = format(new Date(), "yyyy-MM-dd");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  // Fetch workout data
+  const fetchData = async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) {
-          router.replace("/sign-in");
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("onboarding_data, training_style, goal, updated_at")
-          .eq("id", user.id)
-          .single();
-
-        const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
-        const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
-        const weekIndex = Math.max(
-          0,
-          differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
-        );
-
-        setPreferences({
-          goal: onboarding.goal ?? profile?.goal ?? null,
-          workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
-          trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
-          splitPreference: onboarding.splitPreference ?? null,
-          limitations: onboarding.limitations ?? [],
-          activityLevel: onboarding.activityLevel ?? null,
-          weekIndex,
-        });
-
-        const weekStartIso = weekStart.toISOString();
-        const weekEndIso = addDays(weekStart, 7).toISOString();
-        const { data: sessionRows } = await supabase
-          .from("workout_sessions")
-          .select("id, title, started_at, ended_at")
-          .eq("user_id", user.id)
-          .gte("started_at", weekStartIso)
-          .lt("started_at", weekEndIso)
-          .order("started_at", { ascending: false });
-
-        setSessions((sessionRows ?? []) as SessionRow[]);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
+      if (!user) {
+        router.replace("/sign-in");
+        return;
       }
-    };
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_data, training_style, goal, updated_at")
+        .eq("id", user.id)
+        .single();
+
+      const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
+      const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
+      const weekIndex = Math.max(
+        0,
+        differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
+      );
+
+      setPreferences({
+        goal: onboarding.goal ?? profile?.goal ?? null,
+        workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
+        trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
+        splitPreference: onboarding.splitPreference ?? null,
+        limitations: onboarding.limitations ?? [],
+        activityLevel: onboarding.activityLevel ?? null,
+        weekIndex,
+      });
+
+      const weekStartIso = weekStart.toISOString();
+      const weekEndIso = addDays(weekStart, 7).toISOString();
+      const { data: sessionRows } = await supabase
+        .from("workout_sessions")
+        .select("id, title, started_at, ended_at")
+        .eq("user_id", user.id)
+        .gte("started_at", weekStartIso)
+        .lt("started_at", weekEndIso)
+        .order("started_at", { ascending: false });
+
+      setSessions((sessionRows ?? []) as SessionRow[]);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Pull-to-refresh handler
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchData(true);
+  };
+
+  useEffect(() => {
     fetchData();
   }, [weekStart]);
 
@@ -155,6 +165,13 @@ export default function WorkoutScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Program Card */}
         <Animated.View 

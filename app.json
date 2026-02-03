@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ADPT",
+    "name": "ADPT Fit",
     "slug": "adpt",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,14 +9,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adptfit.adpt"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0B0B0B"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.adptfit.adpt"
     },
     "web": {
       "bundler": "metro",

@@ -179,6 +179,18 @@ export default function AuthenticatedLayout() {
             title: "Home",
           }}
         />
+        <Drawer.Screen
+          name="progress"
+          options={{
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="workout"
+          options={{
+            drawerItemStyle: { display: "none" },
+          }}
+        />
       </Drawer>
     </View>
   );

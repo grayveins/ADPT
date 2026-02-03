@@ -4,12 +4,14 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { OnboardingProvider } from "@/src/context/OnboardingContext";
+import { SubscriptionProvider } from "@/src/context/SubscriptionContext";
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <OnboardingProvider>
-        <KeyboardProvider>
+      <SubscriptionProvider>
+        <OnboardingProvider>
+          <KeyboardProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
           {/* Auth screens - allow normal navigation */}
@@ -36,8 +38,9 @@ export default function RootLayout() {
             }} 
           />
         </Stack>
-        </KeyboardProvider>
-      </OnboardingProvider>
+          </KeyboardProvider>
+        </OnboardingProvider>
+      </SubscriptionProvider>
     </ThemeProvider>
   );
 }

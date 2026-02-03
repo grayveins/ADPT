@@ -30,15 +30,23 @@ export default function ProgressLayout() {
       }}
     >
       <Stack.Screen
+        name="index"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="analytics"
         options={{
           title: "Analytics",
+          headerBackVisible: true,
         }}
       />
       <Stack.Screen
         name="[exercise]"
         options={{
           title: "", // Will be set dynamically
+          headerBackVisible: true,
         }}
       />
     </Stack>
