@@ -262,6 +262,26 @@ export default function ProgressScreen() {
           <WeeklyHeatmap workoutDates={workoutDates} weeks={12} />
         </Animated.View>
 
+        {/* View Analytics Button - Always visible */}
+        <Animated.View 
+          entering={FadeInDown.delay(100).duration(300)}
+          style={styles.analyticsButtonContainer}
+        >
+          <Pressable
+            onPress={() => {
+              hapticPress();
+              router.push("/progress/analytics");
+            }}
+            style={[styles.analyticsButton, { backgroundColor: colors.card }]}
+          >
+            <Ionicons name="analytics-outline" size={20} color={colors.primary} />
+            <Text allowFontScaling={false} style={[styles.analyticsButtonText, { color: colors.text }]}>
+              View Detailed Analytics
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Animated.View>
+
         {/* Personal Records */}
         {liftPRs.length > 0 && (
           <Animated.View entering={FadeInDown.delay(100).duration(300)}>
@@ -513,6 +533,23 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  
+  // Analytics Button
+  analyticsButtonContainer: {
+    marginBottom: spacing.base,
+  },
+  analyticsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.base,
+    borderRadius: 16,
+    gap: spacing.md,
+  },
+  analyticsButtonText: {
+    flex: 1,
+    fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
   
