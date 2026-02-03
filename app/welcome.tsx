@@ -14,130 +14,216 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-goog
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
   withSpring,
   withDelay,
   withTiming,
   withRepeat,
   withSequence,
   Easing,
-  interpolate,
 } from "react-native-reanimated";
-import Svg, { Defs, RadialGradient, Stop, Path, Circle } from "react-native-svg";
+import Svg, { Defs, RadialGradient, LinearGradient, Stop, Path, Circle, Ellipse } from "react-native-svg";
 
 import { useTheme } from "@/src/context/ThemeContext";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BLOB_SIZE = SCREEN_WIDTH * 0.85;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const MESH_SIZE = SCREEN_WIDTH * 0.95;
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+// Premium organic blob shapes - smoother, more fluid
+const BLOB_SHAPES = {
+  // Main large blob
+  primary: "M45.3,-51.2C58.3,-40.9,68.1,-25.3,71.2,-8.1C74.3,9.2,70.6,28.1,60.3,42.3C50,56.5,33.1,66,14.8,70.7C-3.5,75.4,-23.2,75.3,-39.5,67.5C-55.8,59.7,-68.7,44.2,-74.1,26.5C-79.5,8.8,-77.4,-11.1,-69.2,-27.8C-61,-44.5,-46.7,-58,-31.1,-67.5C-15.5,-77,-0.8,-82.5,11.8,-78.3C24.4,-74.1,32.3,-61.5,45.3,-51.2Z",
+  // Secondary floating blob
+  secondary: "M38.9,-47.1C49.5,-36.8,56.6,-23.3,59.8,-8.4C63,6.5,62.3,22.8,54.5,35.5C46.7,48.2,31.8,57.3,15.4,62.1C-1,66.9,-18.9,67.4,-33.5,60.5C-48.1,53.6,-59.4,39.3,-65.1,22.8C-70.8,6.3,-70.9,-12.4,-63.7,-27.3C-56.5,-42.2,-42,-53.3,-27.2,-62.3C-12.4,-71.3,2.7,-78.2,16.3,-75.3C29.9,-72.4,28.3,-57.4,38.9,-47.1Z",
+  // Accent blob (smaller)
+  accent: "M42.7,-52.8C53.9,-43.5,60.5,-28.8,64.2,-13.1C67.9,2.6,68.7,19.3,62.1,33.1C55.5,46.9,41.5,57.8,25.8,63.6C10.1,69.4,-7.3,70.1,-23.3,65C-39.3,59.9,-53.9,49,-62.8,34.4C-71.7,19.8,-74.9,1.5,-71.3,-15.2C-67.7,-31.9,-57.3,-47,-43.8,-55.8C-30.3,-64.6,-13.7,-67.1,1.2,-68.6C16.1,-70.1,31.5,-62.1,42.7,-52.8Z",
+};
 
-// Blob path shapes for morphing animation
-const BLOB_PATHS = [
-  "M44.5,-76.3C56.9,-69.1,65.5,-55.3,72.8,-40.8C80.1,-26.3,86.1,-11.1,85.6,3.8C85.1,18.7,78.1,33.3,68.3,45.2C58.5,57.1,45.9,66.3,32,72.1C18.1,77.9,2.9,80.3,-12.8,79.5C-28.5,78.7,-44.7,74.7,-57.3,65.6C-69.9,56.5,-79,42.3,-83.2,26.7C-87.4,11.1,-86.7,-5.9,-81.8,-21.1C-76.9,-36.3,-67.8,-49.7,-55.5,-57C-43.2,-64.3,-27.7,-65.5,-13.1,-69.2C1.5,-72.9,32.1,-83.5,44.5,-76.3Z",
-  "M39.5,-68.2C51.1,-60.6,60.6,-49.5,67.8,-36.8C75,-24.1,79.9,-9.8,79.3,4.4C78.7,18.6,72.6,32.7,63.4,44.1C54.2,55.5,41.9,64.2,28.3,69.8C14.7,75.4,-0.2,77.9,-15.3,76.1C-30.4,74.3,-45.7,68.2,-57.1,57.8C-68.5,47.4,-76,32.7,-79.5,16.8C-83,-0.9,-82.5,-19.8,-76.1,-36C-69.7,-52.2,-57.4,-65.7,-43.1,-72.1C-28.8,-78.5,-12.5,-77.8,1.1,-79.6C14.7,-81.4,27.9,-75.8,39.5,-68.2Z",
-  "M47.7,-80.6C60.8,-72.9,69.8,-58.2,76.2,-42.8C82.6,-27.4,86.4,-11.3,84.9,4.1C83.4,19.5,76.6,34.2,66.8,46.1C57,58,44.2,67.1,30.1,73.1C16,79.1,0.6,82,-15.5,80.5C-31.6,79,-48.4,73.1,-60.6,62.1C-72.8,51.1,-80.4,35,-82.8,18.3C-85.2,1.6,-82.4,-15.7,-75.4,-30.5C-68.4,-45.3,-57.2,-57.6,-44,-66.1C-30.8,-74.6,-15.4,-79.3,1,-80.9C17.4,-82.5,34.6,-88.3,47.7,-80.6Z",
-];
+// Premium color palette
+const PREMIUM_COLORS = {
+  tealBright: "#00E5CC",
+  tealMain: "#00C9B7", 
+  tealDeep: "#00A99D",
+  tealDark: "#007A70",
+  cyan: "#00D4FF",
+  purple: "#8B5CF6",
+  purpleLight: "#A78BFA",
+};
 
-function GradientMesh({ colors }: { colors: ReturnType<typeof useTheme>["colors"] }) {
-  const morphProgress = useSharedValue(0);
-  const glowOpacity = useSharedValue(0.4);
-  const rotation = useSharedValue(0);
+function PremiumGradientMesh({ colors }: { colors: ReturnType<typeof useTheme>["colors"] }) {
+  // Animation values for each blob layer
+  const blob1Rotation = useSharedValue(0);
+  const blob1Scale = useSharedValue(1);
+  const blob2Rotation = useSharedValue(0);
+  const blob2Scale = useSharedValue(1);
+  const blob3Rotation = useSharedValue(0);
+  const blob3Scale = useSharedValue(1);
+  const ambientPulse = useSharedValue(0.6);
 
   useEffect(() => {
-    // Morphing animation - cycles through blob shapes
-    morphProgress.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(2, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) })
-      ),
+    // Primary blob - slow rotation and breathing
+    blob1Rotation.value = withRepeat(
+      withTiming(360, { duration: 60000, easing: Easing.linear }),
       -1,
       false
     );
-
-    // Subtle glow pulsing
-    glowOpacity.value = withRepeat(
+    blob1Scale.value = withRepeat(
       withSequence(
-        withTiming(0.6, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        withTiming(1.02, { duration: 8000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.98, { duration: 8000, easing: Easing.inOut(Easing.sin) })
       ),
       -1,
       true
     );
 
-    // Slow rotation
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 30000, easing: Easing.linear }),
+    // Secondary blob - counter rotation, different rhythm
+    blob2Rotation.value = withRepeat(
+      withTiming(-360, { duration: 45000, easing: Easing.linear }),
       -1,
       false
     );
+    blob2Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 6000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.95, { duration: 6000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+
+    // Accent blob - fastest, creates visual interest
+    blob3Rotation.value = withRepeat(
+      withTiming(360, { duration: 35000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    blob3Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 5000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.92, { duration: 5000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+
+    // Ambient glow pulse
+    ambientPulse.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.5, { duration: 4000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  const animatedProps = useAnimatedProps(() => {
-    // Interpolate between blob paths based on morphProgress
-    // For simplicity, we'll use the first path and animate transform
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
+  const blob1Style = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${blob1Rotation.value}deg` },
+      { scale: blob1Scale.value },
+    ],
   }));
 
-  const containerStyle = useAnimatedStyle(() => ({
+  const blob2Style = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(morphProgress.value, [0, 1, 2], [1, 1.05, 0.98]) },
+      { rotate: `${blob2Rotation.value}deg` },
+      { scale: blob2Scale.value },
     ],
+  }));
+
+  const blob3Style = useAnimatedStyle(() => ({
+    transform: [
+      { rotate: `${blob3Rotation.value}deg` },
+      { scale: blob3Scale.value },
+    ],
+  }));
+
+  const ambientStyle = useAnimatedStyle(() => ({
+    opacity: ambientPulse.value,
   }));
 
   return (
     <View style={meshStyles.container}>
-      {/* Outer glow layer */}
-      <Animated.View style={[meshStyles.glowOuter, glowStyle]}>
-        <Svg width={BLOB_SIZE + 60} height={BLOB_SIZE + 60} viewBox="-150 -150 300 300">
+      {/* Deep ambient glow - outermost layer */}
+      <Animated.View style={[meshStyles.ambientGlow, ambientStyle]}>
+        <Svg width={MESH_SIZE * 1.4} height={MESH_SIZE * 1.4} viewBox="0 0 400 400">
           <Defs>
-            <RadialGradient id="outerGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.3" />
-              <Stop offset="70%" stopColor={colors.primary} stopOpacity="0.1" />
-              <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            <RadialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={PREMIUM_COLORS.tealMain} stopOpacity="0.4" />
+              <Stop offset="40%" stopColor={PREMIUM_COLORS.tealDeep} stopOpacity="0.2" />
+              <Stop offset="70%" stopColor={PREMIUM_COLORS.cyan} stopOpacity="0.1" />
+              <Stop offset="100%" stopColor="transparent" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Circle cx="0" cy="0" r="140" fill="url(#outerGlow)" />
+          <Circle cx="200" cy="200" r="200" fill="url(#ambientGlow)" />
         </Svg>
       </Animated.View>
 
-      {/* Main blob */}
-      <Animated.View style={[meshStyles.blobContainer, containerStyle]}>
-        <Svg width={BLOB_SIZE} height={BLOB_SIZE} viewBox="-100 -100 200 200">
+      {/* Blob Layer 3 - Accent (back, cyan tint) */}
+      <Animated.View style={[meshStyles.blobLayer, meshStyles.blob3, blob3Style]}>
+        <Svg width={MESH_SIZE * 0.7} height={MESH_SIZE * 0.7} viewBox="-100 -100 200 200">
           <Defs>
-            <RadialGradient id="meshGradient" cx="30%" cy="30%" r="70%">
-              <Stop offset="0%" stopColor={colors.primary} stopOpacity="1" />
-              <Stop offset="40%" stopColor="#008F85" stopOpacity="0.9" />
-              <Stop offset="80%" stopColor="#005C54" stopOpacity="0.7" />
-              <Stop offset="100%" stopColor={colors.bg} stopOpacity="0.5" />
+            <RadialGradient id="gradient3" cx="30%" cy="30%" r="70%">
+              <Stop offset="0%" stopColor={PREMIUM_COLORS.cyan} stopOpacity="0.6" />
+              <Stop offset="50%" stopColor={PREMIUM_COLORS.tealBright} stopOpacity="0.4" />
+              <Stop offset="100%" stopColor={PREMIUM_COLORS.tealDeep} stopOpacity="0.1" />
             </RadialGradient>
           </Defs>
-          <AnimatedPath
-            d={BLOB_PATHS[0]}
-            fill="url(#meshGradient)"
-            animatedProps={animatedProps}
-          />
+          <Path d={BLOB_SHAPES.accent} fill="url(#gradient3)" />
         </Svg>
       </Animated.View>
 
-      {/* Inner highlight */}
-      <View style={meshStyles.innerHighlight}>
-        <Svg width={BLOB_SIZE * 0.5} height={BLOB_SIZE * 0.5} viewBox="-100 -100 200 200">
+      {/* Blob Layer 2 - Secondary (middle, purple accent) */}
+      <Animated.View style={[meshStyles.blobLayer, meshStyles.blob2, blob2Style]}>
+        <Svg width={MESH_SIZE * 0.8} height={MESH_SIZE * 0.8} viewBox="-100 -100 200 200">
           <Defs>
-            <RadialGradient id="innerGlow" cx="40%" cy="40%" r="50%">
-              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.15" />
+            <LinearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={PREMIUM_COLORS.purpleLight} stopOpacity="0.3" />
+              <Stop offset="50%" stopColor={PREMIUM_COLORS.tealMain} stopOpacity="0.5" />
+              <Stop offset="100%" stopColor={PREMIUM_COLORS.tealDark} stopOpacity="0.2" />
+            </LinearGradient>
+          </Defs>
+          <Path d={BLOB_SHAPES.secondary} fill="url(#gradient2)" />
+        </Svg>
+      </Animated.View>
+
+      {/* Blob Layer 1 - Primary (front, main teal) */}
+      <Animated.View style={[meshStyles.blobLayer, meshStyles.blob1, blob1Style]}>
+        <Svg width={MESH_SIZE * 0.85} height={MESH_SIZE * 0.85} viewBox="-100 -100 200 200">
+          <Defs>
+            <RadialGradient id="gradient1" cx="35%" cy="35%" r="65%">
+              <Stop offset="0%" stopColor={PREMIUM_COLORS.tealBright} stopOpacity="0.9" />
+              <Stop offset="30%" stopColor={PREMIUM_COLORS.tealMain} stopOpacity="0.7" />
+              <Stop offset="60%" stopColor={PREMIUM_COLORS.tealDeep} stopOpacity="0.5" />
+              <Stop offset="100%" stopColor={PREMIUM_COLORS.tealDark} stopOpacity="0.2" />
+            </RadialGradient>
+          </Defs>
+          <Path d={BLOB_SHAPES.primary} fill="url(#gradient1)" />
+        </Svg>
+      </Animated.View>
+
+      {/* Glass highlight - top layer for premium feel */}
+      <View style={meshStyles.glassHighlight}>
+        <Svg width={MESH_SIZE * 0.5} height={MESH_SIZE * 0.35} viewBox="0 0 200 140">
+          <Defs>
+            <LinearGradient id="glassGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25" />
               <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Ellipse cx="100" cy="70" rx="90" ry="60" fill="url(#glassGradient)" />
+        </Svg>
+      </View>
+
+      {/* Subtle inner glow for depth */}
+      <View style={meshStyles.innerGlow}>
+        <Svg width={MESH_SIZE * 0.4} height={MESH_SIZE * 0.4} viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="innerGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={PREMIUM_COLORS.tealBright} stopOpacity="0.5" />
+              <Stop offset="100%" stopColor="transparent" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Circle cx="-20" cy="-20" r="60" fill="url(#innerGlow)" />
+          <Circle cx="50" cy="50" r="50" fill="url(#innerGlow)" />
         </Svg>
       </View>
     </View>
@@ -146,21 +232,36 @@ function GradientMesh({ colors }: { colors: ReturnType<typeof useTheme>["colors"
 
 const meshStyles = StyleSheet.create({
   container: {
-    width: BLOB_SIZE + 60,
-    height: BLOB_SIZE + 60,
+    width: MESH_SIZE * 1.2,
+    height: MESH_SIZE * 1.0,
     alignItems: "center",
     justifyContent: "center",
   },
-  glowOuter: {
+  ambientGlow: {
     position: "absolute",
   },
-  blobContainer: {
+  blobLayer: {
     position: "absolute",
   },
-  innerHighlight: {
+  blob1: {
+    zIndex: 3,
+  },
+  blob2: {
+    zIndex: 2,
+    transform: [{ translateX: 15 }, { translateY: -10 }],
+  },
+  blob3: {
+    zIndex: 1,
+    transform: [{ translateX: -20 }, { translateY: 20 }],
+  },
+  glassHighlight: {
     position: "absolute",
-    top: BLOB_SIZE * 0.15,
-    left: BLOB_SIZE * 0.2,
+    top: MESH_SIZE * 0.08,
+    zIndex: 4,
+  },
+  innerGlow: {
+    position: "absolute",
+    zIndex: 5,
   },
 });
 
@@ -246,7 +347,7 @@ export default function Welcome() {
       <View style={styles.container}>
         {/* Gradient Mesh Hero */}
         <Animated.View style={[styles.meshSection, meshStyle]}>
-          <GradientMesh colors={colors} />
+          <PremiumGradientMesh colors={colors} />
         </Animated.View>
 
         {/* Brand */}
