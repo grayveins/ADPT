@@ -174,6 +174,19 @@ const createWorkoutFromProgram = (
 const SET_MESSAGES = ["Nice!", "Strong!", "Solid!", "Keep it up!", "Crushed it!"];
 const EXERCISE_MESSAGES = ["Exercise done!", "Moving on!", "Great work!"];
 
+// Convert EffortLevel to RIR number for database storage
+const effortToRIR = (effort: EffortLevel | undefined): number | null => {
+  if (!effort) return null;
+  const mapping: Record<EffortLevel, number> = {
+    easy: 4,
+    moderate: 3,
+    hard: 2,
+    veryHard: 1,
+    failure: 0,
+  };
+  return mapping[effort] ?? null;
+};
+
 // Calculate adjusted weight based on readiness
 const getAdjustedWeight = (baseWeight: number, adjustmentPercent: number): number => {
   if (!baseWeight || baseWeight === 0) return 0;
@@ -576,18 +589,22 @@ export default function ActiveWorkoutScreen() {
             continue;
           }
 
-          // Insert sets for this exercise with PR detection
+          // Insert sets for this exercise with PR detection and actual RIR
           const setsToInsert = completedSets.map((set, setIndex) => {
             const weight = set.weight ? parseFloat(set.weight) : 0;
             const reps = set.reps ? parseInt(set.reps, 10) : 0;
             const { isPR } = checkPR(exercise.name, weight, reps);
+            
+            // Use actual effort/RIR if recorded, otherwise fall back to target RIR
+            const setKey = `${exercise.id}-${set.id}`;
+            const actualRIR = effortToRIR(setEfforts[setKey]) ?? exercise.targetRIR;
             
             return {
               workout_exercise_id: exerciseData.id,
               set_number: setIndex + 1,
               weight_lbs: weight || null,
               reps: reps || null,
-              rir: exercise.targetRIR,
+              rir: actualRIR,
               is_warmup: false,
               is_pr: isPR && weight > 0 && reps > 0,
             };
@@ -633,7 +650,7 @@ export default function ActiveWorkoutScreen() {
       // Navigate to Home tab
       router.replace("/(app)/(tabs)" as any);
     }
-  }, [userId, workout, startTime, checkPR, painAreas, markCheckedToday]);
+  }, [userId, workout, startTime, checkPR, painAreas, markCheckedToday, setEfforts]);
 
   // Handle pain follow-up completion
   const handlePainFollowUpComplete = useCallback(async (feedback: Record<BodyRegion, PainFeedback>) => {
