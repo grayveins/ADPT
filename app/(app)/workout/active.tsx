@@ -615,33 +615,52 @@ export default function ActiveWorkoutScreen() {
           });
         }
 
-        // 4. Save exercises and sets
-        for (let i = 0; i < workout.exercises.length; i++) {
-          const exercise = workout.exercises[i];
-          const completedSets = exercise.sets.filter((s) => s.completed);
-          
-          // Skip exercises with no completed sets
-          if (completedSets.length === 0) continue;
+        // 4. Save exercises and sets with transaction-like behavior
+        // Collect all exercise data first, then batch insert
+        const exercisesToSave = workout.exercises
+          .map((exercise, i) => ({
+            exercise,
+            index: i,
+            completedSets: exercise.sets.filter((s) => s.completed),
+          }))
+          .filter(({ completedSets }) => completedSets.length > 0);
 
-          // Insert exercise
-          const { data: exerciseData, error: exerciseError } = await supabase
-            .from("workout_exercises")
-            .insert({
-              session_id: sessionId,
-              exercise_name: exercise.name,
-              muscle_group: exercise.muscles[0] || null,
-              order_index: i,
-            })
-            .select("id")
-            .single();
+        // Insert all exercises at once
+        const exerciseInserts = exercisesToSave.map(({ exercise, index }) => ({
+          session_id: sessionId,
+          exercise_name: exercise.name,
+          muscle_group: exercise.muscles[0] || null,
+          order_index: index,
+        }));
 
-          if (exerciseError) {
-            console.error("Error saving exercise:", exerciseError);
-            continue;
-          }
+        const { data: exerciseRows, error: exerciseError } = await supabase
+          .from("workout_exercises")
+          .insert(exerciseInserts)
+          .select("id");
 
-          // Insert sets for this exercise with PR detection and actual RIR
-          const setsToInsert = completedSets.map((set, setIndex) => {
+        if (exerciseError || !exerciseRows) {
+          console.error("Error saving exercises:", exerciseError);
+          // Rollback: delete the session
+          await supabase.from("workout_sessions").delete().eq("id", sessionId);
+          throw new Error("Failed to save exercises");
+        }
+
+        // Now collect all sets with their exercise IDs
+        const allSetsToInsert: {
+          workout_exercise_id: string;
+          set_number: number;
+          weight_lbs: number | null;
+          reps: number | null;
+          rir: number | null;
+          is_warmup: boolean;
+          is_pr: boolean;
+        }[] = [];
+
+        exercisesToSave.forEach(({ exercise, completedSets }, idx) => {
+          const exerciseId = exerciseRows[idx]?.id;
+          if (!exerciseId) return;
+
+          completedSets.forEach((set, setIndex) => {
             const weight = set.weight ? parseFloat(set.weight) : 0;
             const reps = set.reps ? parseInt(set.reps, 10) : 0;
             const { isPR } = checkPR(exercise.name, weight, reps);
@@ -650,23 +669,29 @@ export default function ActiveWorkoutScreen() {
             const setKey = `${exercise.id}-${set.id}`;
             const actualRIR = effortToRIR(setEfforts[setKey]) ?? exercise.targetRIR;
             
-            return {
-              workout_exercise_id: exerciseData.id,
+            allSetsToInsert.push({
+              workout_exercise_id: exerciseId,
               set_number: setIndex + 1,
               weight_lbs: weight || null,
               reps: reps || null,
               rir: actualRIR,
               is_warmup: false,
               is_pr: isPR && weight > 0 && reps > 0,
-            };
+            });
           });
+        });
 
+        // Insert all sets at once
+        if (allSetsToInsert.length > 0) {
           const { error: setsError } = await supabase
             .from("workout_sets")
-            .insert(setsToInsert);
+            .insert(allSetsToInsert);
 
           if (setsError) {
             console.error("Error saving sets:", setsError);
+            // Rollback: delete the session (cascade will delete exercises and sets)
+            await supabase.from("workout_sessions").delete().eq("id", sessionId);
+            throw new Error("Failed to save sets");
           }
         }
 
