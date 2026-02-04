@@ -7,7 +7,7 @@
  * - Save to history
  */
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import { supabase } from "@/lib/supabase";
 import { defaultExercises, muscleGroups } from "@/lib/exercises";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 import { showToast, ToastContainer } from "@/src/animations/celebrations";
+import { usePRs } from "@/src/hooks/usePRs";
 
 type SetData = {
   id: string;
@@ -61,6 +62,19 @@ export default function LogWorkoutScreen() {
   const [workoutName, setWorkoutName] = useState("");
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // PR detection hook
+  const { checkPR } = usePRs(userId);
+  
+  // Get user ID on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
+  }, []);
   
   // Exercise picker modal
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -217,16 +231,22 @@ export default function LogWorkoutScreen() {
           continue;
         }
 
-        // Insert sets
-        const setsToInsert = completedSets.map((set, setIndex) => ({
-          workout_exercise_id: exerciseData.id,
-          set_number: setIndex + 1,
-          weight_lbs: parseFloat(set.weight) || 0,
-          reps: parseInt(set.reps, 10) || 0,
-          rir: null,
-          is_warmup: false,
-          is_pr: false,
-        }));
+        // Insert sets with PR detection
+        const setsToInsert = completedSets.map((set, setIndex) => {
+          const weight = parseFloat(set.weight) || 0;
+          const reps = parseInt(set.reps, 10) || 0;
+          const { isPR } = checkPR(exercise.name, weight, reps);
+          
+          return {
+            workout_exercise_id: exerciseData.id,
+            set_number: setIndex + 1,
+            weight_lbs: weight,
+            reps: reps,
+            rir: null,
+            is_warmup: false,
+            is_pr: isPR && weight > 0 && reps > 0,
+          };
+        });
 
         const { error: setsError } = await supabase
           .from("workout_sets")
