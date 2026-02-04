@@ -22,6 +22,7 @@ import { format, parseISO, differenceInMinutes, isToday, isYesterday, isThisWeek
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { ErrorState } from "@/src/components/ErrorState";
 
 // Types
 type WorkoutSet = {
@@ -59,6 +60,7 @@ export default function WorkoutHistoryScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [expandedWorkout, setExpandedWorkout] = useState<string | null>(null);
@@ -67,6 +69,7 @@ export default function WorkoutHistoryScreen() {
   const fetchWorkouts = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
+    setError(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -142,8 +145,9 @@ export default function WorkoutHistoryScreen() {
       }));
 
       setWorkouts(fullWorkouts);
-    } catch (error) {
-      console.error("Error fetching workout history:", error);
+    } catch (err) {
+      console.error("Error fetching workout history:", err);
+      setError("Failed to load workout history");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -337,6 +341,12 @@ export default function WorkoutHistoryScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : error ? (
+        <ErrorState 
+          message={error}
+          detail="Please check your connection and try again."
+          onRetry={() => fetchWorkouts()}
+        />
       ) : workouts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="barbell-outline" size={64} color={colors.textMuted} />

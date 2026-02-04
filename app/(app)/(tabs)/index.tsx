@@ -50,6 +50,7 @@ import { useStreak } from "@/src/hooks/useStreak";
 import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
 import { type ReadinessLevel, layout, spacing, shadows, bodyRegions } from "@/src/theme";
 import { PreWorkoutCheckin, type CheckinData } from "@/src/components/workout";
+import { ErrorState } from "@/src/components/ErrorState";
 
 type SessionRow = {
   id: string;
@@ -97,6 +98,7 @@ export default function HomeScreen() {
     Inter_600SemiBold,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("there");
   const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -120,6 +122,7 @@ export default function HomeScreen() {
   // Fetch all data for home screen
   const fetchData = async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
+    setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -168,8 +171,9 @@ export default function HomeScreen() {
 
       setSessions((sessionRows ?? []) as SessionRow[]);
       refreshStreak();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Error fetching home data:", err);
+      setError("Failed to load your data");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -285,6 +289,18 @@ export default function HomeScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.bg }]}>
+        <ErrorState 
+          message={error}
+          detail="Please check your connection and try again."
+          onRetry={() => fetchData()}
+        />
       </View>
     );
   }

@@ -23,6 +23,7 @@ import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
+import { ErrorState } from "@/src/components/ErrorState";
 
 // Types
 type SavedProgram = {
@@ -60,11 +61,13 @@ export default function SavedProgramsScreen() {
   const { colors } = useTheme();
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [programs, setPrograms] = useState<SavedProgram[]>([]);
   const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
 
   const fetchPrograms = useCallback(async () => {
+    setError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -80,12 +83,14 @@ export default function SavedProgramsScreen() {
 
       if (error) {
         console.error("Fetch programs error:", error);
+        setError("Failed to load programs");
         return;
       }
 
       setPrograms(data || []);
     } catch (e) {
       console.error("Unexpected error:", e);
+      setError("Failed to load programs");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -240,6 +245,27 @@ export default function SavedProgramsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.headerButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
+            My Programs
+          </Text>
+          <View style={styles.headerButton} />
+        </View>
+        <ErrorState 
+          message={error}
+          detail="Please check your connection and try again."
+          onRetry={fetchPrograms}
+        />
       </SafeAreaView>
     );
   }
