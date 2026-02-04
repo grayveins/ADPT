@@ -176,6 +176,32 @@ const createWorkoutFromProgram = (
 const SET_MESSAGES = ["Nice!", "Strong!", "Solid!", "Keep it up!", "Crushed it!"];
 const EXERCISE_MESSAGES = ["Exercise done!", "Moving on!", "Great work!"];
 
+// Pain area to muscle group mapping for exercise filtering
+const PAIN_AREA_EXERCISES: Record<string, string[]> = {
+  knees: ["Squats", "Leg Press", "Lunges", "Leg Extensions", "Jump Squats", "Box Jumps"],
+  back: ["Deadlift", "Romanian Deadlift", "Barbell Rows", "Bent Over Rows", "Good Mornings", "Back Extensions"],
+  shoulder: ["Overhead Press", "Shoulder Press", "Lateral Raises", "Front Raises", "Arnold Press", "Upright Rows"],
+  hips: ["Squats", "Lunges", "Hip Thrusts", "Leg Press", "Step Ups", "Bulgarian Split Squats"],
+  wrists: ["Barbell Curls", "Wrist Curls", "Front Squats", "Clean and Press", "Push-ups"],
+};
+
+// Filter exercises based on pain areas - removes exercises that stress painful areas
+const filterExercisesForPain = (exercises: ExerciseData[], painAreas: string[]): ExerciseData[] => {
+  if (painAreas.length === 0) return exercises;
+  
+  const exercisesToAvoid = new Set(
+    painAreas.flatMap(area => PAIN_AREA_EXERCISES[area.toLowerCase()] || [])
+  );
+  
+  return exercises.filter(ex => {
+    const exerciseName = ex.name.toLowerCase();
+    // Check if any exercise to avoid matches (partial match for variations)
+    return !Array.from(exercisesToAvoid).some(avoid => 
+      exerciseName.includes(avoid.toLowerCase())
+    );
+  });
+};
+
 // Convert EffortLevel to RIR number for database storage
 const effortToRIR = (effort: EffortLevel | undefined): number | null => {
   if (!effort) return null;
@@ -227,17 +253,36 @@ export default function ActiveWorkoutScreen() {
   const painAreas = params.painAreas ? params.painAreas.split(",").filter(Boolean) : [];
   
   // State - use program exercises if provided, otherwise fall back to sample workout
+  // Also apply pain area filtering if user reported pain areas in pre-workout check-in
   const [workout, setWorkout] = useState<WorkoutData>(() => {
+    let baseWorkout: WorkoutData;
+    
     if (params.exercises) {
       try {
         const programExercises = JSON.parse(params.exercises) as ProgramExercise[];
-        return createWorkoutFromProgram(workoutName, workoutType, programExercises);
+        baseWorkout = createWorkoutFromProgram(workoutName, workoutType, programExercises);
       } catch (e) {
         console.error("Failed to parse program exercises:", e);
-        return getSampleWorkout(workoutType);
+        baseWorkout = getSampleWorkout(workoutType);
+      }
+    } else {
+      baseWorkout = getSampleWorkout(workoutType);
+    }
+    
+    // Filter out exercises that stress painful areas
+    if (painAreas.length > 0) {
+      const filteredExercises = filterExercisesForPain(baseWorkout.exercises, painAreas);
+      // Only use filtered if we still have exercises left
+      if (filteredExercises.length > 0) {
+        baseWorkout.exercises = filteredExercises;
+        // Re-expand first exercise
+        if (baseWorkout.exercises.length > 0) {
+          baseWorkout.exercises[0].isExpanded = true;
+        }
       }
     }
-    return getSampleWorkout(workoutType);
+    
+    return baseWorkout;
   });
   const [startTime] = useState(() => new Date());
   const [elapsedTime, setElapsedTime] = useState(0);
