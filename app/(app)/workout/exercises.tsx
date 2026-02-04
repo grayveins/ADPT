@@ -309,8 +309,26 @@ export default function ExercisesScreen() {
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: selectedForWorkout.length > 0 ? 100 : 40 }} />
       </ScrollView>
+
+      {/* Start Workout Button - fixed at bottom */}
+      {selectedForWorkout.length > 0 && (
+        <Animated.View 
+          entering={FadeInUp.duration(300)}
+          style={[styles.floatingButton, { backgroundColor: colors.bg }]}
+        >
+          <Pressable
+            onPress={startWorkout}
+            style={[styles.startButton, { backgroundColor: colors.primary }]}
+          >
+            <Ionicons name="play" size={20} color={colors.textOnPrimary} />
+            <Text allowFontScaling={false} style={[styles.startButtonText, { color: colors.textOnPrimary }]}>
+              Start Workout ({selectedForWorkout.length} exercises)
+            </Text>
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Exercise Info Modal */}
       <Modal
@@ -465,6 +483,30 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     marginBottom: 2,
   },
+  exerciseHint: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  selectionIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  selectedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedBadgeText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
   empty: {
     alignItems: "center",
     paddingVertical: 60,
@@ -473,6 +515,27 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
+  },
+  floatingButton: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+  },
+  startButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 14,
+    gap: 8,
+  },
+  startButtonText: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
   },
   modalContent: {
     flex: 1,
