@@ -414,12 +414,13 @@ export default function WorkoutScreen() {
                       <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
                         <Ionicons name="checkmark" size={14} color={colors.textOnPrimary} />
                       </View>
-                    ) : isToday && !workout.isRest ? (
-                      <Ionicons name="arrow-forward" size={18} color={colors.primary} />
-                    ) : isPast && !workout.isRest ? (
-                      <View style={[styles.missedCircle, { backgroundColor: colors.border }]}>
-                        <Ionicons name="close" size={12} color={colors.textMuted} />
-                      </View>
+                    ) : !workout.isRest ? (
+                      // Show chevron on all workout days to indicate they're tappable
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={18} 
+                        color={isToday ? colors.primary : colors.textMuted} 
+                      />
                     ) : null}
                   </View>
                 </Pressable>
@@ -801,13 +802,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  missedCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,

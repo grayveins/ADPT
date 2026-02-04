@@ -272,10 +272,7 @@ export default function HomeScreen() {
     }
   };
 
-  const openLogWorkout = () => {
-    hapticPress();
-    router.push("/(app)/workout/log");
-  };
+
 
 
 
@@ -494,19 +491,6 @@ export default function HomeScreen() {
           entering={FadeInDown.delay(150).duration(400)}
           style={styles.quickActionsSection}
         >
-          <Pressable
-            onPress={openLogWorkout}
-            style={[styles.quickAction, { backgroundColor: colors.card }]}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-              <Ionicons name="add" size={20} color={colors.primary} />
-            </View>
-            <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-              Log Past Workout
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-
           <Pressable
             onPress={() => router.push("/(app)/(tabs)/chat")}
             style={[styles.quickAction, { backgroundColor: colors.card }]}

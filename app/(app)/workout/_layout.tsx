@@ -22,7 +22,6 @@ export default function WorkoutLayout() {
       <Stack.Screen name="exercises" />
       <Stack.Screen name="programs" />
       <Stack.Screen name="generate" />
-      <Stack.Screen name="log" />
     </Stack>
   );
 }

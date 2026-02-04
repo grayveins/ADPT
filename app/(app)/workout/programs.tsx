@@ -82,8 +82,13 @@ export default function SavedProgramsScreen() {
         .order("updated_at", { ascending: false });
 
       if (error) {
-        console.error("Fetch programs error:", error);
-        setError("Failed to load programs");
+        console.error("Fetch programs error:", error.message, error.code, error.details);
+        // Show specific error if table doesn't exist (not yet migrated)
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          setError("Programs feature is being set up. Please try again later.");
+        } else {
+          setError("Failed to load programs. Please try again.");
+        }
         return;
       }
 
@@ -230,11 +235,19 @@ export default function SavedProgramsScreen() {
     return goal ? labels[goal] || goal : "Custom";
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(tabs)/workout");
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.headerButton}>
+          <Pressable onPress={handleBack} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
@@ -253,7 +266,7 @@ export default function SavedProgramsScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.headerButton}>
+          <Pressable onPress={handleBack} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
@@ -274,7 +287,7 @@ export default function SavedProgramsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.headerButton}>
+        <Pressable onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>

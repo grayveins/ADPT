@@ -3,9 +3,10 @@
  * 
  * Browse all exercises by muscle group with search.
  * Redesigned with 2-column muscle group grid.
+ * Supports multi-select to build custom workouts.
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,14 +17,23 @@ import {
   Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { defaultExercises, muscleGroups } from "@/lib/exercises";
-import { hapticPress } from "@/src/animations/feedback/haptics";
+import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 import { ExerciseInfo } from "@/src/components/workout";
+
+// Type for selected exercise with workout data
+type SelectedExercise = {
+  name: string;
+  sets: number;
+  reps: string;
+  rir: number;
+  category: string;
+};
 
 // Muscle group icons and colors
 const muscleGroupConfig: Record<string, { icon: string; color: string }> = {
@@ -39,9 +49,51 @@ const muscleGroupConfig: Record<string, { icon: string; color: string }> = {
 
 export default function ExercisesScreen() {
   const { colors } = useTheme();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isSelectMode = params.mode === "select";
+  
   const [search, setSearch] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [selectedForWorkout, setSelectedForWorkout] = useState<SelectedExercise[]>([]);
+
+  // Toggle exercise selection for workout building
+  const toggleExerciseSelection = useCallback((exercise: typeof defaultExercises[0]) => {
+    hapticPress();
+    setSelectedForWorkout((prev) => {
+      const exists = prev.find((e) => e.name === exercise.name);
+      if (exists) {
+        return prev.filter((e) => e.name !== exercise.name);
+      }
+      return [...prev, {
+        name: exercise.name,
+        sets: 3,
+        reps: "8-12",
+        rir: 2,
+        category: exercise.category,
+      }];
+    });
+  }, []);
+
+  // Check if exercise is selected
+  const isExerciseSelected = useCallback((name: string) => {
+    return selectedForWorkout.some((e) => e.name === name);
+  }, [selectedForWorkout]);
+
+  // Start workout with selected exercises
+  const startWorkout = useCallback(() => {
+    if (selectedForWorkout.length === 0) return;
+    
+    hapticSuccess();
+    router.push({
+      pathname: "/(app)/workout/active",
+      params: {
+        type: "Custom",
+        name: "Custom Workout",
+        exercises: JSON.stringify(selectedForWorkout),
+      },
+    });
+  }, [selectedForWorkout]);
 
   // Filter exercises
   const filteredExercises = useMemo(() => {
@@ -78,13 +130,26 @@ export default function ExercisesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)/workout")} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
-          Exercise Library
+          {selectedForWorkout.length > 0 
+            ? `${selectedForWorkout.length} Selected` 
+            : "Build Workout"}
         </Text>
-        <View style={styles.backButton} />
+        {selectedForWorkout.length > 0 ? (
+          <Pressable 
+            onPress={() => setSelectedForWorkout([])} 
+            style={styles.backButton}
+          >
+            <Text allowFontScaling={false} style={{ color: colors.intensity, fontFamily: "Inter_500Medium" }}>
+              Clear
+            </Text>
+          </Pressable>
+        ) : (
+          <View style={styles.backButton} />
+        )}
       </View>
 
       {/* Search */}
@@ -186,26 +251,49 @@ export default function ExercisesScreen() {
                   </Text>
                 )}
                 <View style={[styles.groupCard, { backgroundColor: colors.card }]}>
-                  {exercises.map((exercise, i) => (
-                    <Pressable
-                      key={exercise.id}
-                      onPress={() => {
-                        hapticPress();
-                        setSelectedExercise(exercise.name);
-                      }}
-                      style={[
-                        styles.exerciseRow,
-                        i < exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                      ]}
-                    >
-                      <View style={styles.exerciseInfo}>
-                        <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
-                          {exercise.name}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color={colors.border} />
-                    </Pressable>
-                  ))}
+                  {exercises.map((exercise, i) => {
+                    const isSelected = isExerciseSelected(exercise.name);
+                    return (
+                      <Pressable
+                        key={exercise.id}
+                        onPress={() => toggleExerciseSelection(exercise)}
+                        onLongPress={() => {
+                          hapticPress();
+                          setSelectedExercise(exercise.name);
+                        }}
+                        style={[
+                          styles.exerciseRow,
+                          i < exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                          isSelected && { backgroundColor: colors.primaryMuted },
+                        ]}
+                      >
+                        <View style={[
+                          styles.selectionIndicator,
+                          { borderColor: isSelected ? colors.primary : colors.border },
+                          isSelected && { backgroundColor: colors.primary },
+                        ]}>
+                          {isSelected && (
+                            <Ionicons name="checkmark" size={14} color={colors.textOnPrimary} />
+                          )}
+                        </View>
+                        <View style={styles.exerciseInfo}>
+                          <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
+                            {exercise.name}
+                          </Text>
+                          <Text allowFontScaling={false} style={[styles.exerciseHint, { color: colors.textMuted }]}>
+                            Long press for details
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
+                            <Text allowFontScaling={false} style={[styles.selectedBadgeText, { color: colors.textOnPrimary }]}>
+                              {selectedForWorkout.findIndex((e) => e.name === exercise.name) + 1}
+                            </Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </Animated.View>
             ))}

@@ -185,12 +185,12 @@ export default function GenerateProgramScreen() {
     if (!isPro) {
       Alert.alert(
         "Pro Feature",
-        "Saving programs is a Pro feature. Upgrade to save unlimited programs and access all features.",
+        "Saving programs is a Pro feature. Upgrade to Pro in Settings to save unlimited programs and access all features.",
         [
           { text: "Maybe Later", style: "cancel" },
           { 
-            text: "Upgrade to Pro", 
-            onPress: () => router.push("/onboarding/editorial"),
+            text: "Go to Settings", 
+            onPress: () => router.push("/settings"),
           },
         ]
       );
@@ -257,7 +257,7 @@ export default function GenerateProgramScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.headerButton}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(app)/(tabs)/workout")} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>

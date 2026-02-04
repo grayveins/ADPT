@@ -41,8 +41,7 @@ const KEY_LIFTS = ["Bench Press", "Squat", "Deadlift", "Overhead Press"];
 type RecentPR = {
   name: string;
   weight: number;
-  improvement: number;
-  improvedAt: Date;
+  improvement: number | null; // null = no badge shown (no old data to compare)
 };
 
 export default function ProgressScreen() {
@@ -140,23 +139,24 @@ export default function ProgressScreen() {
         }
       });
       
-      // Build recent PRs list (only those with improvements)
-      const prsWithImprovement: RecentPR[] = [];
+      // Build PRs list - show all PRs, with optional improvement badge
+      const allPRs: RecentPR[] = [];
       
       liftData.forEach((data, name) => {
-        if (data.currentMax > 0 && data.oldMax > 0 && data.currentMax > data.oldMax) {
-          prsWithImprovement.push({
+        if (data.currentMax > 0) {
+          // Only show improvement if we have old data AND there's actual improvement
+          const hasImprovement = data.oldMax > 0 && data.currentMax > data.oldMax;
+          allPRs.push({
             name,
             weight: data.currentMax,
-            improvement: data.currentMax - data.oldMax,
-            improvedAt: data.lastImprovedAt || new Date(),
+            improvement: hasImprovement ? data.currentMax - data.oldMax : null,
           });
         }
       });
       
-      // Sort by most recently improved and take top 2
-      prsWithImprovement.sort((a, b) => b.improvedAt.getTime() - a.improvedAt.getTime());
-      setRecentPRs(prsWithImprovement.slice(0, 2));
+      // Sort by highest weight and take top 2
+      allPRs.sort((a, b) => b.weight - a.weight);
+      setRecentPRs(allPRs.slice(0, 2));
       
       refreshStreak();
       refreshSummary();
@@ -323,7 +323,7 @@ export default function ProgressScreen() {
                     <Ionicons name="trophy" size={18} color={colors.gold} />
                   </View>
                   <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
-                    Recent PRs
+                    Personal Records
                   </Text>
                 </View>
                 <View style={styles.viewAllLink}>
@@ -357,12 +357,14 @@ export default function ProgressScreen() {
                       {pr.weight}
                       <Text style={[styles.prTeaserUnit, { color: colors.textMuted }]}> lbs</Text>
                     </Text>
-                    <View style={[styles.prTeaserTrend, { backgroundColor: colors.success + "15" }]}>
-                      <Ionicons name="trending-up" size={12} color={colors.success} />
-                      <Text allowFontScaling={false} style={[styles.prTeaserImprovement, { color: colors.success }]}>
-                        +{pr.improvement}
-                      </Text>
-                    </View>
+                    {pr.improvement !== null && (
+                      <View style={[styles.prTeaserTrend, { backgroundColor: colors.success + "15" }]}>
+                        <Ionicons name="trending-up" size={12} color={colors.success} />
+                        <Text allowFontScaling={false} style={[styles.prTeaserImprovement, { color: colors.success }]}>
+                          +{pr.improvement}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </Pressable>
               ))}
