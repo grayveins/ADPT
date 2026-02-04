@@ -13,6 +13,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -22,6 +23,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useTheme } from "@/src/context/ThemeContext";
 import { defaultExercises, muscleGroups } from "@/lib/exercises";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { ExerciseInfo } from "@/src/components/workout";
 
 // Muscle group icons and colors
 const muscleGroupConfig: Record<string, { icon: string; color: string }> = {
@@ -39,6 +41,7 @@ export default function ExercisesScreen() {
   const { colors } = useTheme();
   const [search, setSearch] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
 
   // Filter exercises
   const filteredExercises = useMemo(() => {
@@ -186,7 +189,10 @@ export default function ExercisesScreen() {
                   {exercises.map((exercise, i) => (
                     <Pressable
                       key={exercise.id}
-                      onPress={() => hapticPress()}
+                      onPress={() => {
+                        hapticPress();
+                        setSelectedExercise(exercise.name);
+                      }}
                       style={[
                         styles.exerciseRow,
                         i < exercises.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -217,6 +223,21 @@ export default function ExercisesScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Exercise Info Modal */}
+      <Modal
+        visible={!!selectedExercise}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSelectedExercise(null)}
+      >
+        <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
+          <ExerciseInfo
+            exerciseName={selectedExercise || ""}
+            onClose={() => setSelectedExercise(null)}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -364,5 +385,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
+  },
+  modalContent: {
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
 });
