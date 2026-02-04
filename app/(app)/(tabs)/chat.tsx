@@ -41,10 +41,13 @@ import {
   generateOpenerMessage,
   generateSuggestedPrompts,
   detectActionFromResponse,
-  type CoachContext,
+  type CoachContext as LegacyCoachContext,
   type Action,
   type OpenerMessage,
 } from "@/lib/coachContext";
+import { getFullCoachContext, getLiteCoachContext } from "@/lib/coachContextBuilder";
+import { detectContextMode, shouldForceFullContext } from "@/lib/coachIntentDetector";
+import type { LiteCoachContext, FullCoachContext } from "@/src/types/coachContext";
 
 type Msg = {
   role: "user" | "assistant";
@@ -71,6 +74,11 @@ export default function Chat() {
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
   const [contextLoading, setContextLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // AI context (cached)
+  const [cachedFullContext, setCachedFullContext] = useState<FullCoachContext | null>(null);
+  const [cachedLiteContext, setCachedLiteContext] = useState<LiteCoachContext | null>(null);
+  const [isFirstMessage, setIsFirstMessage] = useState(true);
 
   // Auth check and context load
   useEffect(() => {
@@ -88,9 +96,15 @@ export default function Chat() {
 
       setUserId(session.user.id);
 
-      // Build context and generate opener
-      const context = await buildCoachContext(session.user.id);
-      const opener = generateOpenerMessage(context);
+      // Build legacy context for opener message (UI only)
+      const legacyContext = await buildCoachContext(session.user.id);
+      const opener = generateOpenerMessage(legacyContext);
+
+      // Pre-fetch and cache the new AI context
+      const fullContext = await getFullCoachContext(session.user.id);
+      const liteContext = await getLiteCoachContext(session.user.id);
+      setCachedFullContext(fullContext);
+      setCachedLiteContext(liteContext);
 
       // Set initial message with actions
       setMessages([{
@@ -192,8 +206,25 @@ export default function Chat() {
     try {
       const history = next.slice(-8).map((m) => ({ role: m.role, content: m.content }));
       
+      // Determine context mode based on message content
+      const shouldUseFull = shouldForceFullContext({ isFirstMessage }) || 
+                           detectContextMode(t) === "full";
+      
+      // Select appropriate context
+      let context: LiteCoachContext | FullCoachContext | undefined;
+      if (shouldUseFull && cachedFullContext) {
+        context = cachedFullContext;
+      } else if (cachedLiteContext) {
+        context = cachedLiteContext;
+      }
+      
+      // Mark that we've sent at least one message
+      if (isFirstMessage) {
+        setIsFirstMessage(false);
+      }
+      
       const { data, error } = await supabase.functions.invoke("chat", {
-        body: { text: t, history },
+        body: { text: t, history, context },
       });
 
       if (error) {
@@ -230,7 +261,7 @@ export default function Chat() {
       setLoading(false);
       scrollToBottom();
     }
-  }, [text, loading, messages, scrollToBottom]);
+  }, [text, loading, messages, scrollToBottom, cachedFullContext, cachedLiteContext, isFirstMessage]);
 
   // Retry after error
   const handleRetry = useCallback(() => {
