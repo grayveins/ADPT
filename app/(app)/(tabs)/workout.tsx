@@ -45,6 +45,13 @@ type SessionRow = {
   ended_at: string | null;
 };
 
+type ActiveProgram = {
+  id: string;
+  name: string;
+  created_at: string;
+  duration_weeks: number; // from program_data or default 8
+};
+
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
@@ -52,6 +59,7 @@ export default function WorkoutScreen() {
   const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [showNewWorkoutSheet, setShowNewWorkoutSheet] = useState(false);
+  const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
   const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -103,6 +111,26 @@ export default function WorkoutScreen() {
         .order("started_at", { ascending: false });
 
       setSessions((sessionRows ?? []) as SessionRow[]);
+
+      // Fetch active program if any
+      const { data: activeProgramData } = await supabase
+        .from("saved_programs")
+        .select("id, name, created_at, program_data")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .single();
+
+      if (activeProgramData) {
+        const programData = activeProgramData.program_data as Record<string, any> | null;
+        setActiveProgram({
+          id: activeProgramData.id,
+          name: activeProgramData.name,
+          created_at: activeProgramData.created_at,
+          duration_weeks: programData?.duration_weeks ?? 8, // Default 8 weeks
+        });
+      } else {
+        setActiveProgram(null);
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -149,8 +177,25 @@ export default function WorkoutScreen() {
     });
   }, []);
 
-  const programName = preferences?.trainingStyle?.replace(/_/g, " ") || "Custom Program";
-  const currentWeek = (preferences?.weekIndex ?? 0) + 1;
+  // Program info - prefer active saved program over profile training style
+  const programName = activeProgram?.name 
+    ?? preferences?.trainingStyle?.replace(/_/g, " ") 
+    ?? "Custom Program";
+  
+  // Calculate current week based on active program's start date
+  const { currentWeek, totalWeeks } = useMemo(() => {
+    if (activeProgram) {
+      const programStart = parseISO(activeProgram.created_at);
+      const weeksElapsed = differenceInCalendarWeeks(new Date(), programStart, { weekStartsOn: 1 });
+      const week = Math.min(Math.max(1, weeksElapsed + 1), activeProgram.duration_weeks);
+      return { currentWeek: week, totalWeeks: activeProgram.duration_weeks };
+    }
+    // Fallback to profile-based week calculation
+    return { 
+      currentWeek: (preferences?.weekIndex ?? 0) + 1, 
+      totalWeeks: 8 
+    };
+  }, [activeProgram, preferences?.weekIndex]);
 
   if (loading) {
     return (
@@ -190,7 +235,7 @@ export default function WorkoutScreen() {
                   {programName}
                 </Text>
                 <Text allowFontScaling={false} style={[styles.programWeek, { color: colors.textMuted }]}>
-                  Week {currentWeek} of 8
+                  Week {currentWeek} of {totalWeeks}
                 </Text>
               </View>
               <Pressable style={styles.programSettings}>
@@ -204,7 +249,7 @@ export default function WorkoutScreen() {
                 <View 
                   style={[
                     styles.weekProgressFill, 
-                    { width: `${(currentWeek / 8) * 100}%`, backgroundColor: colors.primary }
+                    { width: `${(currentWeek / totalWeeks) * 100}%`, backgroundColor: colors.primary }
                   ]} 
                 />
               </View>
