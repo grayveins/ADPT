@@ -1,8 +1,13 @@
 /**
  * Analytics Overview Screen
  * 
- * Shows all key lifts with compact sparklines and weekly volume chart.
- * Accessible via "View All Analytics" from Progress tab.
+ * Detailed analytics for power users:
+ * - Strength progress with sparklines
+ * - Weekly volume chart
+ * - Recovery status by muscle group
+ * - Muscle balance distribution
+ * 
+ * Accessible via "View Detailed Analytics" from Progress tab.
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -21,19 +26,31 @@ import { router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { differenceInDays } from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { useStrengthHistory, type TimeRange } from "@/src/hooks/useStrengthHistory";
 import { useVolumeHistory } from "@/src/hooks/useVolumeHistory";
+import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
 import { VolumeChart } from "@/src/components/progress";
-import { layout, spacing, radius, shadows } from "@/src/theme";
+import { layout, spacing, radius } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Key lifts to track
 const KEY_LIFTS = ["Bench Press", "Squat", "Deadlift", "Overhead Press"];
+
+// Muscle group colors for the balance chart
+const MUSCLE_COLORS: Record<string, string> = {
+  Chest: "#00C9B7",
+  Back: "#33D4C5",
+  Shoulders: "#00A89A",
+  Arms: "#7FA07F",
+  Legs: "#6B8E6B",
+  Core: "#60A5FA",
+};
 
 const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: "1M", value: "1M" },
@@ -230,6 +247,13 @@ export default function AnalyticsScreen() {
     refresh: refreshVolume,
   } = useVolumeHistory(userId, timeRange);
 
+  // Weekly Summary (for recovery status and muscle balance)
+  const { 
+    data: weeklySummary, 
+    loading: summaryLoading, 
+    refresh: refreshSummary 
+  } = useWeeklySummary(userId);
+
   // Format volume data for chart
   const volumeChartData = useMemo(() => {
     return volumeData.map((d) => ({
@@ -238,12 +262,61 @@ export default function AnalyticsScreen() {
     }));
   }, [volumeData]);
 
+  // Calculate recovery status for each muscle group
+  const recoveryStatus = useMemo(() => {
+    if (!weeklySummary?.muscleLastTrained) return { ready: [], moderate: [], rest: [] };
+    
+    const now = new Date();
+    const ready: string[] = [];
+    const moderate: string[] = [];
+    const rest: string[] = [];
+    
+    Object.entries(weeklySummary.muscleLastTrained).forEach(([muscle, lastDate]) => {
+      if (!lastDate) {
+        ready.push(muscle);
+        return;
+      }
+      
+      const daysSince = differenceInDays(now, lastDate);
+      const weeklyVolume = weeklySummary.muscleWeeklyVolume[muscle] || 0;
+      
+      // High volume muscles need more recovery
+      const isHighVolume = weeklyVolume > 10000;
+      
+      if (daysSince >= 3 || (!isHighVolume && daysSince >= 2)) {
+        ready.push(muscle);
+      } else if (daysSince >= 1) {
+        moderate.push(muscle);
+      } else {
+        rest.push(muscle);
+      }
+    });
+    
+    return { ready, moderate, rest };
+  }, [weeklySummary]);
+
+  // Calculate muscle balance percentages
+  const musclePercentages = useMemo(() => {
+    if (!weeklySummary?.muscleWeeklyVolume) return [];
+    
+    const totalVolume = Object.values(weeklySummary.muscleWeeklyVolume).reduce((a, b) => a + b, 0);
+    if (totalVolume === 0) return [];
+    
+    return Object.entries(weeklySummary.muscleWeeklyVolume)
+      .map(([muscle, vol]) => ({
+        muscle,
+        percent: (vol / totalVolume) * 100,
+        color: MUSCLE_COLORS[muscle] || colors.primary,
+      }))
+      .sort((a, b) => b.percent - a.percent);
+  }, [weeklySummary, colors.primary]);
+
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshVolume();
+    await Promise.all([refreshVolume(), refreshSummary()]);
     setRefreshing(false);
-  }, [refreshVolume]);
+  }, [refreshVolume, refreshSummary]);
 
   // Format large numbers
   const formatVolume = (vol: number): string => {
@@ -432,6 +505,103 @@ export default function AnalyticsScreen() {
           )}
         </Animated.View>
 
+        {/* Recovery Status Section */}
+        {!summaryLoading && (recoveryStatus.ready.length > 0 || recoveryStatus.moderate.length > 0 || recoveryStatus.rest.length > 0) && (
+          <Animated.View 
+            entering={FadeInDown.delay(250).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.sm }]}>
+              Recovery Status
+            </Text>
+            <Text allowFontScaling={false} style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+              Based on recent training volume and frequency
+            </Text>
+            <View style={styles.recoveryList}>
+              {recoveryStatus.ready.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.success + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.success }]}>
+                      Ready
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.ready.join(", ")}
+                  </Text>
+                </View>
+              )}
+              {recoveryStatus.moderate.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.gold + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.gold }]}>
+                      Moderate
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.moderate.join(", ")}
+                  </Text>
+                </View>
+              )}
+              {recoveryStatus.rest.length > 0 && (
+                <View style={styles.recoveryRow}>
+                  <View style={[styles.recoveryBadge, { backgroundColor: colors.intensity + "20" }]}>
+                    <Text allowFontScaling={false} style={[styles.recoveryLabel, { color: colors.intensity }]}>
+                      Rest
+                    </Text>
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.recoveryMuscles, { color: colors.text }]}>
+                    {recoveryStatus.rest.join(", ")}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Muscle Balance Section */}
+        {!summaryLoading && musclePercentages.length > 0 && (
+          <Animated.View 
+            entering={FadeInDown.delay(300).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.sm }]}>
+              Muscle Balance
+            </Text>
+            <Text allowFontScaling={false} style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+              Volume distribution this week
+            </Text>
+            
+            <View style={styles.muscleList}>
+              {musclePercentages.slice(0, 6).map((item) => (
+                <View key={item.muscle} style={styles.muscleRow}>
+                  <View style={styles.muscleLabel}>
+                    <View style={[styles.muscleDot, { backgroundColor: item.color }]} />
+                    <Text allowFontScaling={false} style={[styles.muscleName, { color: colors.text }]}>
+                      {item.muscle}
+                    </Text>
+                  </View>
+                  <View style={styles.muscleBarContainer}>
+                    <View style={[styles.muscleBarBg, { backgroundColor: colors.border }]}>
+                      <View 
+                        style={[
+                          styles.muscleBarFill, 
+                          { 
+                            width: `${item.percent}%`, 
+                            backgroundColor: item.color 
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text allowFontScaling={false} style={[styles.musclePercent, { color: colors.textMuted }]}>
+                      {item.percent.toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -607,5 +777,90 @@ const styles = StyleSheet.create({
   volumeAvgValue: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+
+  // Card (generic)
+  card: {
+    borderRadius: radius.xl,
+    padding: spacing.base,
+    marginBottom: spacing.base,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginBottom: spacing.base,
+  },
+
+  // Recovery Status
+  recoveryList: {
+    gap: spacing.md,
+  },
+  recoveryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  recoveryBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 72,
+  },
+  recoveryLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textAlign: "center",
+  },
+  recoveryMuscles: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+
+  // Muscle Balance
+  muscleList: {
+    gap: spacing.md,
+  },
+  muscleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  muscleLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    width: 90,
+  },
+  muscleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  muscleName: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  muscleBarContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  muscleBarBg: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  muscleBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  musclePercent: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    width: 32,
+    textAlign: "right",
   },
 });
