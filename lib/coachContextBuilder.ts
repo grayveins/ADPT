@@ -35,7 +35,7 @@ import {
   kgToLbs,
   calculateAge,
 } from "@/src/types/coachContext";
-import { differenceInDays, differenceInHours, parseISO, startOfWeek, subWeeks } from "date-fns";
+import { differenceInDays, differenceInHours, parseISO } from "date-fns";
 
 // ============================================================================
 // Main Builder Functions
@@ -86,6 +86,10 @@ export async function getLiteCoachContext(userId: string): Promise<LiteCoachCont
 
 /**
  * Build complete context from database
+ * OPTIMIZED: Reduced from 6 queries to 4 by:
+ * - Using joined query for workouts+exercises (2→1)
+ * - Extracting pain reports from workouts (eliminates 1)
+ * - Using RPC for workout counts (3→1)
  */
 async function buildFullContext(userId: string): Promise<FullCoachContext> {
   // Fetch all data in parallel for performance
@@ -94,16 +98,17 @@ async function buildFullContext(userId: string): Promise<FullCoachContext> {
     streakData,
     recentWorkoutsData,
     prData,
-    painReportsData,
     workoutCountsData,
   ] = await Promise.all([
     fetchProfileData(userId),
     fetchStreakData(userId),
     fetchRecentWorkouts(userId, 5),
     fetchPRData(userId),
-    fetchRecentPainReports(userId),
     fetchWorkoutCounts(userId),
   ]);
+
+  // Extract pain reports from already-fetched workouts (no extra query needed)
+  const painReportsData = extractPainReports(recentWorkoutsData);
 
   // Build sub-contexts
   const profile = buildUserProfile(profileData);
@@ -126,6 +131,20 @@ async function buildFullContext(userId: string): Promise<FullCoachContext> {
     progress,
     today,
   };
+}
+
+/**
+ * Extract pain reports from workout data
+ * OPTIMIZED: No separate query needed - uses already-fetched workout data
+ */
+function extractPainReports(workouts: WorkoutSessionWithExercises[]): PainReportRow[] {
+  return workouts
+    .filter(w => w.pain_location !== null)
+    .map(w => ({
+      pain_location: w.pain_location!,
+      started_at: w.started_at,
+      title: w.title,
+    }));
 }
 
 // ============================================================================
@@ -196,64 +215,50 @@ async function fetchStreakData(userId: string): Promise<StreakRow | null> {
   return data;
 }
 
-interface WorkoutSessionRow {
+interface WorkoutExerciseRow {
+  exercise_name: string;
+  muscle_group: string;
+}
+
+interface WorkoutSessionWithExercises {
   id: string;
   title: string;
   started_at: string;
   ended_at: string | null;
   post_workout_feeling: string | null;
   pain_location: string | null;
+  workout_exercises: WorkoutExerciseRow[];
 }
 
-interface WorkoutExerciseRow {
-  exercise_name: string;
-  muscle_group: string;
-}
-
+/**
+ * Fetch recent workouts with exercises in a single joined query
+ * OPTIMIZED: Reduced from 2 queries to 1 using Supabase's relation syntax
+ */
 async function fetchRecentWorkouts(
   userId: string, 
   limit: number
-): Promise<(WorkoutSessionRow & { exercises: WorkoutExerciseRow[] })[]> {
-  // Fetch sessions
-  const { data: sessions, error: sessionsError } = await supabase
+): Promise<WorkoutSessionWithExercises[]> {
+  const { data, error } = await supabase
     .from("workout_sessions")
-    .select("id, title, started_at, ended_at, post_workout_feeling, pain_location")
+    .select(`
+      id, 
+      title, 
+      started_at, 
+      ended_at, 
+      post_workout_feeling, 
+      pain_location,
+      workout_exercises(exercise_name, muscle_group)
+    `)
     .eq("user_id", userId)
     .order("started_at", { ascending: false })
     .limit(limit);
 
-  if (sessionsError) {
-    console.error("[CoachContextBuilder] Error fetching workouts:", sessionsError);
+  if (error) {
+    console.error("[CoachContextBuilder] Error fetching workouts:", error);
     return [];
   }
 
-  if (!sessions || sessions.length === 0) {
-    return [];
-  }
-
-  // Fetch exercises for each session
-  const sessionIds = sessions.map(s => s.id);
-  const { data: exercises, error: exercisesError } = await supabase
-    .from("workout_exercises")
-    .select("session_id, exercise_name, muscle_group")
-    .in("session_id", sessionIds);
-
-  if (exercisesError) {
-    console.error("[CoachContextBuilder] Error fetching exercises:", exercisesError);
-  }
-
-  // Map exercises to sessions
-  const exerciseMap = new Map<string, WorkoutExerciseRow[]>();
-  for (const ex of exercises || []) {
-    const sessionExercises = exerciseMap.get(ex.session_id) || [];
-    sessionExercises.push({ exercise_name: ex.exercise_name, muscle_group: ex.muscle_group });
-    exerciseMap.set(ex.session_id, sessionExercises);
-  }
-
-  return sessions.map(session => ({
-    ...session,
-    exercises: exerciseMap.get(session.id) || [],
-  }));
+  return (data as WorkoutSessionWithExercises[]) || [];
 }
 
 interface PRRow {
@@ -283,26 +288,7 @@ interface PainReportRow {
   title: string;
 }
 
-async function fetchRecentPainReports(userId: string): Promise<PainReportRow[]> {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const { data, error } = await supabase
-    .from("workout_sessions")
-    .select("pain_location, started_at, title")
-    .eq("user_id", userId)
-    .not("pain_location", "is", null)
-    .gte("started_at", thirtyDaysAgo.toISOString())
-    .order("started_at", { ascending: false })
-    .limit(5);
-
-  if (error) {
-    console.error("[CoachContextBuilder] Error fetching pain reports:", error);
-    return [];
-  }
-
-  return data || [];
-}
+// fetchRecentPainReports removed - now extracted from recentWorkouts (see extractPainReports)
 
 interface WorkoutCountsData {
   thisWeek: number;
@@ -310,34 +296,28 @@ interface WorkoutCountsData {
   total: number;
 }
 
+/**
+ * Fetch workout counts using optimized RPC function
+ * OPTIMIZED: Reduced from 3 queries to 1 using database function
+ */
 async function fetchWorkoutCounts(userId: string): Promise<WorkoutCountsData> {
-  const now = new Date();
-  const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-  const lastWeekStart = subWeeks(thisWeekStart, 1);
+  const { data, error } = await supabase.rpc("get_workout_counts", {
+    p_user_id: userId,
+  });
 
-  // Fetch all counts in parallel
-  const [thisWeekResult, lastWeekResult, totalResult] = await Promise.all([
-    supabase
-      .from("workout_sessions")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("started_at", thisWeekStart.toISOString()),
-    supabase
-      .from("workout_sessions")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("started_at", lastWeekStart.toISOString())
-      .lt("started_at", thisWeekStart.toISOString()),
-    supabase
-      .from("workout_sessions")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId),
-  ]);
+  if (error) {
+    console.error("[CoachContextBuilder] Error fetching workout counts:", error);
+    // Fallback to default values
+    return { thisWeek: 0, lastWeek: 0, total: 0 };
+  }
 
+  // RPC returns array with single row
+  const counts = Array.isArray(data) ? data[0] : data;
+  
   return {
-    thisWeek: thisWeekResult.count || 0,
-    lastWeek: lastWeekResult.count || 0,
-    total: totalResult.count || 0,
+    thisWeek: Number(counts?.this_week ?? 0),
+    lastWeek: Number(counts?.last_week ?? 0),
+    total: Number(counts?.total ?? 0),
   };
 }
 
@@ -425,7 +405,7 @@ function buildStrengthContext(prs: PRRow[]): StrengthContext {
 }
 
 function buildRecentWorkouts(
-  workouts: (WorkoutSessionRow & { exercises: WorkoutExerciseRow[] })[]
+  workouts: WorkoutSessionWithExercises[]
 ): RecentWorkout[] {
   return workouts.map(w => {
     let durationMinutes: number | null = null;
@@ -440,7 +420,7 @@ function buildRecentWorkouts(
       title: w.title,
       feeling: w.post_workout_feeling as PostWorkoutFeeling | null,
       painLocation: w.pain_location as PainLocation | null,
-      exercises: w.exercises.map(e => e.exercise_name),
+      exercises: w.workout_exercises.map((e: WorkoutExerciseRow) => e.exercise_name),
       durationMinutes,
     };
   });
@@ -476,7 +456,7 @@ function buildProgressContext(
 
 function buildTodayContext(
   profile: ProfileRow | null,
-  recentWorkouts: (WorkoutSessionRow & { exercises: WorkoutExerciseRow[] })[]
+  recentWorkouts: WorkoutSessionWithExercises[]
 ): TodayContext {
   const onboarding = profile?.onboarding_data;
   const preferredDays = onboarding?.preferredDays || [];
@@ -540,7 +520,7 @@ function getScheduledWorkoutType(
 }
 
 function calculateMuscleRecoveryStatus(
-  recentWorkouts: (WorkoutSessionRow & { exercises: WorkoutExerciseRow[] })[]
+  recentWorkouts: WorkoutSessionWithExercises[]
 ): { recovered: string[]; fatigued: string[] } {
   const now = new Date();
   const muscleLastTrained = new Map<string, Date>();
@@ -549,7 +529,7 @@ function calculateMuscleRecoveryStatus(
   for (const workout of recentWorkouts) {
     const workoutDate = parseISO(workout.started_at);
     
-    for (const exercise of workout.exercises) {
+    for (const exercise of workout.workout_exercises) {
       const muscle = exercise.muscle_group;
       if (!muscleLastTrained.has(muscle) || muscleLastTrained.get(muscle)! < workoutDate) {
         muscleLastTrained.set(muscle, workoutDate);
