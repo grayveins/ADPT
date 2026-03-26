@@ -16,16 +16,14 @@ import { StyleSheet, View, Text, TextInput, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withSequence,
   withTiming,
   interpolateColor,
-  runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { spacing, radius, animation, layout } from "@/src/theme";
+import { spacing, radius, layout } from "@/src/theme";
 
 type SetRowNewProps = {
   setNumber: number;
@@ -42,6 +40,7 @@ type SetRowNewProps = {
   // Optional
   disabled?: boolean;
   isPR?: boolean;
+  closeToPR?: boolean;
 };
 
 const ROW_HEIGHT = layout.touchTargetPrimary; // 56pt
@@ -60,6 +59,7 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   onRepsChange,
   disabled = false,
   isPR = false,
+  closeToPR = false,
 }) => {
   const { colors } = useTheme();
   
@@ -76,24 +76,25 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
     
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Scale bounce animation
+
+    // Hevy-style: crisp press-down, no bouncy overshoot
     scale.value = withSequence(
-      withTiming(0.98, { duration: 100 }),
-      withSpring(1.02, { damping: 10, stiffness: 400 }),
-      withSpring(1, { damping: 15, stiffness: 300 })
+      withTiming(0.97, { duration: 80 }),
+      withTiming(1, { duration: 120 })
     );
-    
+
     // Background fill animation
-    completionProgress.value = withTiming(1, { duration: 200 });
+    completionProgress.value = withTiming(1, { duration: 180 });
     
     // Trigger completion callback
     onComplete();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed, disabled, weight, reps, onComplete]);
 
   // Update completion progress when prop changes
   React.useEffect(() => {
     completionProgress.value = withTiming(completed ? 1 : 0, { duration: 200 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed]);
 
   // Animated row style
@@ -155,8 +156,10 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
             >
               PREV
             </Text>
-            <Text 
-              allowFontScaling={false} 
+            <Text
+              allowFontScaling={false}
+              numberOfLines={1}
+              ellipsizeMode="tail"
               style={[styles.previousValue, { color: colors.textSecondary }]}
             >
               {previousWeight} x {previousReps}
@@ -262,6 +265,15 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
           </Text>
         </View>
       )}
+
+      {/* Close to PR callout */}
+      {closeToPR && !completed && !isPR && (
+        <View style={[styles.prBadge, { backgroundColor: colors.intensity }]}>
+          <Text allowFontScaling={false} style={styles.prBadgeText}>
+            PR?
+          </Text>
+        </View>
+      )}
     </AnimatedPressable>
   );
 };
@@ -288,7 +300,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   previousColumn: {
-    width: 56,
+    width: 68,
     alignItems: "center",
   },
   previousLabel: {
@@ -317,7 +329,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   input: {
-    width: 52,
+    minWidth: 52,
+    width: 64,
     height: 36,
     borderRadius: radius.sm,
     borderWidth: 1,

@@ -14,7 +14,6 @@ import Animated, {
   withTiming,
   withSequence,
   FadeInDown,
-  ZoomIn,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -58,12 +57,11 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
   // Animation values
   const checkScale = useSharedValue(0);
   const checkOpacity = useSharedValue(0);
-  const ringProgress = useSharedValue(0);
 
   useEffect(() => {
     // Celebration animation on mount
     hapticCelebration();
-    
+
     checkScale.value = withDelay(
       300,
       withSequence(
@@ -72,7 +70,7 @@ export default function PlanReadyScreen({ onNext }: PlanReadyScreenProps) {
       )
     );
     checkOpacity.value = withDelay(300, withTiming(1, { duration: 300 }));
-    ringProgress.value = withDelay(200, withTiming(1, { duration: 800 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkStyle = useAnimatedStyle(() => ({

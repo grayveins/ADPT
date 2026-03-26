@@ -34,24 +34,25 @@ export const useRipple = (options: UseRippleOptions = {}) => {
 
   const trigger = useCallback(() => {
     "worklet";
-    
+
     if (haptic) {
       runOnJS(hapticSelect)();
     }
-    
+
     // Reset and animate
     scale.value = 0;
     opacity.value = 0.6;
-    
+
     scale.value = withTiming(maxScale, {
       duration,
       easing: Easing.out(Easing.ease),
     });
-    
+
     opacity.value = withSequence(
       withTiming(0.6, { duration: duration * 0.2 }),
       withTiming(0, { duration: duration * 0.8 })
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, maxScale, haptic]);
 
   const animatedStyle = useAnimatedStyle(() => ({

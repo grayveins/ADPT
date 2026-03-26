@@ -59,6 +59,7 @@ export const useBreathe = (options: UseBreatheOptions = {}) => {
       start();
     }
     return () => stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -119,6 +120,7 @@ export const usePulseGlow = (options: {
       start();
     }
     return () => stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -180,6 +182,7 @@ export const useFlicker = (options: { autoPlay?: boolean } = {}) => {
       start();
     }
     return () => stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   const animatedStyle = useAnimatedStyle(() => ({

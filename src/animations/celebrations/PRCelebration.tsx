@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useMemo } from "react";
-import { StyleSheet, Text, View, Dimensions, Pressable } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,16 +12,12 @@ import Animated, {
   withDelay,
   withSpring,
   withSequence,
-  FadeIn,
-  FadeOut,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
-import { SPRING_CONFIG, Z_INDEX, TIMING, PARTICLE_COLORS } from "../constants";
+import { SPRING_CONFIG, Z_INDEX, PARTICLE_COLORS } from "../constants";
 import { Confetti } from "../components/Confetti";
 import { haptic } from "../feedback/haptics";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type PRCelebrationProps = {
   visible: boolean;
@@ -93,6 +89,7 @@ export const PRCelebration: React.FC<PRCelebrationProps> = ({
       contentTranslateY.value = 20;
       setShowConfetti(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const overlayStyle = useAnimatedStyle(() => ({

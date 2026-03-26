@@ -150,7 +150,7 @@ export default function EquipmentScreen({ onNext }: EquipmentScreenProps) {
           Confirm your equipment
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          We've pre-selected based on your {gymTypeLabel}. Tap to adjust.
+          We&apos;ve pre-selected based on your {gymTypeLabel}. Tap to adjust.
         </Text>
       </Animated.View>
 

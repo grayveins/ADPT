@@ -7,10 +7,10 @@
  * Flow:
  * 1. "How did that feel?" - [Easy] [Good] [Hard] [Pain]
  * 2. If Pain selected → "Where?" - [Shoulder] [Back] [Knee] [Elbow] [Other]
- * 3. Saves to workout_session and creates coach event if pain
+ * 3. Confirmation screen (auto-dismisses after 2s)
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -18,12 +18,16 @@ import {
   Pressable,
   Modal,
 } from "react-native";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, FadeInUp } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import type ViewShotType from "react-native-view-shot";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius, components } from "@/src/theme";
-import { hapticPress } from "@/src/animations/feedback/haptics";
+import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
+import { CelebrationConfetti } from "@/src/animations/components/Confetti";
+import { WorkoutShareCard } from "@/src/components/share/WorkoutShareCard";
+import { captureAndShare } from "@/src/utils/shareCard";
 
 // Feeling options
 type PostWorkoutFeeling = "easy" | "good" | "hard" | "pain";
@@ -31,12 +35,22 @@ type PostWorkoutFeeling = "easy" | "good" | "hard" | "pain";
 // Pain location options (minimal set per design spec)
 type PainLocation = "shoulder" | "back" | "knee" | "elbow" | "other";
 
+type WorkoutShareData = {
+  totalVolumeLbs?: number;
+  exerciseCount?: number;
+  setCount?: number;
+  prsHit?: number;
+  strengthScore?: number;
+};
+
 type PostWorkoutCheckinProps = {
   visible: boolean;
   onComplete: (data: PostWorkoutData) => void;
   onSkip?: () => void;
   workoutTitle?: string;
   duration?: number;
+  /** Pass workout stats to enable the "Share Workout" button on the confirmation screen. */
+  shareData?: WorkoutShareData;
 };
 
 export type PostWorkoutData = {
@@ -44,14 +58,14 @@ export type PostWorkoutData = {
   painLocation: PainLocation | null;
 };
 
-const FEELINGS: Array<{ key: PostWorkoutFeeling; label: string; icon: string }> = [
+const FEELINGS: { key: PostWorkoutFeeling; label: string; icon: string }[] = [
   { key: "easy", label: "Easy", icon: "flash-outline" },
   { key: "good", label: "Good", icon: "thumbs-up-outline" },
   { key: "hard", label: "Hard", icon: "barbell-outline" },
   { key: "pain", label: "Pain", icon: "alert-circle-outline" },
 ];
 
-const PAIN_LOCATIONS: Array<{ key: PainLocation; label: string }> = [
+const PAIN_LOCATIONS: { key: PainLocation; label: string }[] = [
   { key: "shoulder", label: "Shoulder" },
   { key: "back", label: "Back" },
   { key: "knee", label: "Knee" },
@@ -65,12 +79,64 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
   onSkip,
   workoutTitle = "Workout",
   duration,
+  shareData,
 }) => {
   const { colors } = useTheme();
-  
-  const [step, setStep] = useState<1 | 2>(1);
+
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [feeling, setFeeling] = useState<PostWorkoutFeeling | null>(null);
   const [painLocation, setPainLocation] = useState<PainLocation | null>(null);
+  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareCardRef = useRef<ViewShotType>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    setIsSharing(true);
+    // Cancel auto-dismiss while sharing
+    if (autoDismissRef.current) {
+      clearTimeout(autoDismissRef.current);
+      autoDismissRef.current = null;
+    }
+    try {
+      await captureAndShare(shareCardRef, "adpt-workout");
+    } finally {
+      setIsSharing(false);
+    }
+  }, []);
+
+  // Auto-dismiss after confirmation screen
+  useEffect(() => {
+    if (step === 3) {
+      autoDismissRef.current = setTimeout(() => {
+        // Reset and close
+        setStep(1);
+        setFeeling(null);
+        setPainLocation(null);
+        setShowConfetti(false);
+        // Notify parent to finish the workout flow
+        if (onSkip) onSkip();
+      }, shareData ? 5000 : 2000);
+    }
+
+    return () => {
+      if (autoDismissRef.current) {
+        clearTimeout(autoDismissRef.current);
+      }
+    };
+  }, [step, onSkip, shareData]);
+
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const showConfirmation = useCallback((data: PostWorkoutData) => {
+    // Save data first
+    onComplete(data);
+    // Then show confirmation with celebration
+    setStep(3);
+    if (data.feeling !== "pain") {
+      hapticSuccess();
+      setShowConfetti(true);
+    }
+  }, [onComplete]);
 
   const handleFeelingSelect = useCallback((selected: PostWorkoutFeeling) => {
     hapticPress();
@@ -80,14 +146,10 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
       // Show pain location picker
       setStep(2);
     } else {
-      // Complete immediately
-      onComplete({ feeling: selected, painLocation: null });
-      // Reset state
-      setStep(1);
-      setFeeling(null);
-      setPainLocation(null);
+      // Show confirmation screen
+      showConfirmation({ feeling: selected, painLocation: null });
     }
-  }, [onComplete]);
+  }, [showConfirmation]);
 
   const handlePainLocationSelect = useCallback((location: PainLocation) => {
     hapticPress();
@@ -98,13 +160,9 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
     if (!painLocation) return;
     
     hapticPress();
-    onComplete({ feeling: "pain", painLocation });
-    
-    // Reset state
-    setStep(1);
-    setFeeling(null);
-    setPainLocation(null);
-  }, [painLocation, onComplete]);
+    // Show confirmation screen
+    showConfirmation({ feeling: "pain", painLocation });
+  }, [painLocation, showConfirmation]);
 
   const handleBack = useCallback(() => {
     hapticPress();
@@ -138,7 +196,7 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
           entering={FadeInDown.duration(300)}
           style={[styles.sheet, { backgroundColor: colors.card }]}
         >
-          {step === 1 ? (
+          {step === 1 && (
             /* Step 1: How did that feel? */
             <Animated.View entering={FadeIn.duration(200)}>
               {/* Header */}
@@ -214,7 +272,9 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
                 </Text>
               </Pressable>
             </Animated.View>
-          ) : (
+          )}
+
+          {step === 2 && (
             /* Step 2: Pain Location */
             <Animated.View entering={FadeIn.duration(200)}>
               {/* Header */}
@@ -223,13 +283,13 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
                   allowFontScaling={false} 
                   style={[styles.title, { color: colors.text }]}
                 >
-                  Where's the pain?
+                  Where&apos;s the pain?
                 </Text>
                 <Text 
                   allowFontScaling={false} 
                   style={[styles.subtitle, { color: colors.textMuted }]}
                 >
-                  We'll check in next session
+                  We&apos;ll check in next session
                 </Text>
               </View>
 
@@ -301,6 +361,94 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
                 </Text>
               </Pressable>
             </Animated.View>
+          )}
+
+          {step === 3 && (
+            /* Step 3: Confirmation (auto-dismisses) */
+            <Animated.View entering={FadeIn.duration(200)} style={styles.confirmationContainer}>
+              {/* Confetti for non-pain feedback */}
+              <CelebrationConfetti
+                active={showConfetti}
+                onComplete={() => setShowConfetti(false)}
+              />
+              <Animated.View
+                entering={FadeInUp.delay(100).duration(300)}
+                style={[styles.confirmationIcon, { backgroundColor: feeling === "pain" ? colors.errorMuted : colors.successMuted }]}
+              >
+                <Ionicons
+                  name={feeling === "pain" ? "alert-circle" : "checkmark-circle"}
+                  size={48}
+                  color={feeling === "pain" ? colors.intensity : colors.success}
+                />
+              </Animated.View>
+
+              <Animated.Text
+                entering={FadeInUp.delay(200).duration(300)}
+                allowFontScaling={false}
+                style={[styles.confirmationTitle, { color: colors.text }]}
+              >
+                {feeling === "pain" ? "Noted" : "Saved!"}
+              </Animated.Text>
+
+              <Animated.Text
+                entering={FadeInUp.delay(300).duration(300)}
+                allowFontScaling={false}
+                style={[styles.confirmationSubtitle, { color: colors.textMuted }]}
+              >
+                {feeling === "pain" && painLocation
+                  ? `We'll modify exercises to protect your ${painLocation}`
+                  : "We're adjusting your next workouts based on your feedback"}
+              </Animated.Text>
+
+              {/* Share Workout button */}
+              {shareData && feeling !== "pain" && (
+                <Animated.View entering={FadeInUp.delay(400).duration(300)} style={styles.shareButtonRow}>
+                  <Pressable
+                    onPress={handleShare}
+                    disabled={isSharing}
+                    style={({ pressed }) => [
+                      styles.shareButton,
+                      { borderColor: colors.primary },
+                      pressed && { backgroundColor: colors.primaryMuted },
+                    ]}
+                  >
+                    <Ionicons
+                      name="share-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.shareButtonText, { color: colors.primary }]}
+                    >
+                      {isSharing ? "Preparing..." : "Share Workout"}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              )}
+            </Animated.View>
+          )}
+
+          {/* Off-screen share card for capture (absolutely positioned, outside visible area) */}
+          {shareData && step === 3 && (
+            <View style={styles.offScreen}>
+              <WorkoutShareCard
+                ref={shareCardRef}
+                workoutName={workoutTitle}
+                date={new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+                durationMinutes={duration ? Math.floor(duration / 60) : 0}
+                totalVolumeLbs={shareData.totalVolumeLbs ?? 0}
+                exerciseCount={shareData.exerciseCount ?? 0}
+                setCount={shareData.setCount ?? 0}
+                prsHit={shareData.prsHit}
+                strengthScore={shareData.strengthScore}
+                format="story"
+              />
+            </View>
           )}
         </Animated.View>
       </View>
@@ -405,6 +553,54 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
+  },
+  // Confirmation screen (step 3)
+  confirmationContainer: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
+  },
+  confirmationIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.lg,
+  },
+  confirmationTitle: {
+    fontSize: 22,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: spacing.sm,
+  },
+  confirmationSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  // Share button
+  shareButtonRow: {
+    marginTop: spacing.xl,
+  },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  // Off-screen container for share card capture
+  offScreen: {
+    position: "absolute",
+    left: -9999,
+    top: -9999,
   },
 });
 

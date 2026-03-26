@@ -71,7 +71,7 @@ export default function ScheduleScreen({ onNext }: ScheduleScreenProps) {
           Which days work for you?
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          We'll build your program around your schedule.
+          We&apos;ll build your program around your schedule.
         </Text>
       </Animated.View>
 
@@ -150,7 +150,7 @@ export default function ScheduleScreen({ onNext }: ScheduleScreenProps) {
           allowFontScaling={false}
           style={styles.flexibleNote}
         >
-          Don't worry, you can change this anytime
+          Don&apos;t worry, you can change this anytime
         </Animated.Text>
       </View>
     </View>

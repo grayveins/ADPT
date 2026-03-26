@@ -38,14 +38,26 @@ export default function ProgressLayout() {
       <Stack.Screen
         name="analytics"
         options={{
-          title: "Analytics",
-          headerBackVisible: true,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="[exercise]"
         options={{
-          title: "", // Will be set dynamically
+          title: "",
+          headerBackVisible: true,
+        }}
+      />
+      <Stack.Screen
+        name="prs"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="milestones"
+        options={{
+          title: "Milestones",
           headerBackVisible: true,
         }}
       />

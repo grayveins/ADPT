@@ -7,7 +7,6 @@ import React from "react";
 import {
   View,
   Pressable,
-  StyleSheet,
   type ViewStyle,
   type StyleProp,
 } from "react-native";
@@ -117,5 +116,3 @@ export function Card({
     </View>
   );
 }
-
-const styles = StyleSheet.create({});

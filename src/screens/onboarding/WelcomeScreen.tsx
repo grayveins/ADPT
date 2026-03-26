@@ -1,7 +1,7 @@
 /**
  * WelcomeScreen
- * Minimalist, fitness-centric welcome with name input
- * Inspired by premium fitness apps (Fitbod, Hevy, Strong)
+ * Clean, minimal welcome with logo and name input
+ * No bouncy animations - simple fade-ins only
  */
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
@@ -13,16 +13,17 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  Image,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withDelay,
   withTiming,
-  Easing,
   withRepeat,
   withSequence,
+  withSpring,
+  Easing,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -30,91 +31,12 @@ import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+// Logo asset
+const LOGO = require("@/assets/images/icon.png");
 
 type WelcomeScreenProps = {
   onNext: () => void;
 };
-
-// Abstract fitness-themed decorative element
-function FitnessGraphic({ colors }: { colors: ReturnType<typeof useTheme>["colors"] }) {
-  const barHeights = [0.4, 0.6, 0.8, 1.0, 0.7, 0.5, 0.3];
-  const animatedValues = barHeights.map(() => useSharedValue(0));
-
-  useEffect(() => {
-    animatedValues.forEach((av, i) => {
-      av.value = withDelay(
-        100 + i * 80,
-        withTiming(1, { duration: 600, easing: Easing.out(Easing.back(1.2)) })
-      );
-    });
-  }, []);
-
-  return (
-    <View style={graphicStyles.container}>
-      {/* Abstract progress bars representing growth */}
-      <View style={graphicStyles.barsContainer}>
-        {barHeights.map((height, i) => {
-          const animatedStyle = useAnimatedStyle(() => ({
-            transform: [{ scaleY: animatedValues[i].value }],
-          }));
-
-          return (
-            <Animated.View
-              key={i}
-              style={[
-                graphicStyles.bar,
-                { 
-                  height: height * 80,
-                  backgroundColor: i === 3 ? colors.primary : `${colors.primary}${Math.round((0.2 + i * 0.1) * 255).toString(16).padStart(2, '0')}`,
-                },
-                animatedStyle,
-              ]}
-            />
-          );
-        })}
-      </View>
-      
-      {/* Subtle pulse ring */}
-      <View style={[graphicStyles.pulseRing, { borderColor: `${colors.primary}20` }]} />
-      <View style={[graphicStyles.pulseRingInner, { borderColor: `${colors.primary}10` }]} />
-    </View>
-  );
-}
-
-const graphicStyles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 140,
-    marginBottom: 8,
-  },
-  barsContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    height: 80,
-  },
-  bar: {
-    width: 12,
-    borderRadius: 6,
-    transformOrigin: "bottom",
-  },
-  pulseRing: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  pulseRingInner: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 1,
-  },
-});
 
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const { colors } = useTheme();
@@ -124,24 +46,45 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const inputRef = useRef<TextInput>(null);
 
   // Animation values
-  const graphicOpacity = useSharedValue(0);
+  const logoOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.8);
+  const glowScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
+  const contentTranslateY = useSharedValue(20);
   const inputOpacity = useSharedValue(0);
   const footerOpacity = useSharedValue(0);
 
   useEffect(() => {
-    graphicOpacity.value = withDelay(100, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    contentOpacity.value = withDelay(300, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    inputOpacity.value = withDelay(500, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    footerOpacity.value = withDelay(700, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+    // Logo: fade + scale with spring
+    logoOpacity.value = withDelay(100, withTiming(1, { duration: 500 }));
+    logoScale.value = withDelay(100, withSpring(1, { damping: 12, stiffness: 200 }));
+
+    // No glow animation — clean and static
+
+    // Content: fade + slide up with spring
+    contentOpacity.value = withDelay(300, withTiming(1, { duration: 400 }));
+    contentTranslateY.value = withDelay(300, withSpring(0, { damping: 15, stiffness: 150 }));
+
+    // Input and footer: simple fades
+    inputOpacity.value = withDelay(500, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+    footerOpacity.value = withDelay(650, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const graphicStyle = useAnimatedStyle(() => ({
-    opacity: graphicOpacity.value,
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
   }));
 
   const contentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
   }));
 
   const inputStyle = useAnimatedStyle(() => ({
@@ -165,10 +108,12 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Decorative graphic */}
-      <Animated.View style={[styles.graphicSection, graphicStyle]}>
-        <FitnessGraphic colors={colors} />
-      </Animated.View>
+      {/* Logo Section — clean, no glow */}
+      <View style={styles.logoSection}>
+        <Animated.View style={logoStyle}>
+          <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+        </Animated.View>
+      </View>
 
       {/* Brand and Value Prop */}
       <Animated.View style={[styles.contentSection, contentStyle]}>
@@ -178,7 +123,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           </Text>
           <View style={styles.tagline}>
             <Text allowFontScaling={false} style={styles.taglineText}>
-              AI-Powered Training
+              Smart Training
             </Text>
           </View>
         </View>
@@ -204,7 +149,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           <View style={styles.bullet}>
             <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
             <Text allowFontScaling={false} style={styles.bulletText}>
-              AI coach available 24/7
+              Built around your schedule
             </Text>
           </View>
         </View>
@@ -267,8 +212,24 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       flex: 1,
       paddingBottom: 24,
     },
-    graphicSection: {
-      marginTop: 16,
+    logoSection: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 24,
+      marginBottom: 16,
+      height: 140,
+    },
+    logoGlow: {
+      position: "absolute",
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      opacity: 0.15,
+    },
+    logo: {
+      width: 100,
+      height: 100,
+      borderRadius: 24,
     },
     contentSection: {
       gap: 20,

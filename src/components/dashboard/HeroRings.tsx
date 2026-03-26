@@ -17,7 +17,7 @@ export const HeroRings: React.FC<HeroRingsProps> = ({
   compliance,
   intensity,
 }) => {
-  const { colors, typography } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View style={styles.container}>

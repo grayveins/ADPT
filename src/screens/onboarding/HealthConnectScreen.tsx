@@ -37,7 +37,7 @@ const benefits = [
 
 export default function HealthConnectScreen({ onNext }: HealthConnectScreenProps) {
   const { colors } = useTheme();
-  const { form, updateForm } = useOnboarding();
+  const { updateForm } = useOnboarding();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleConnect = async () => {

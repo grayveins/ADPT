@@ -55,6 +55,7 @@ export const CountUpText: React.FC<CountUpTextProps> = ({
       animatedValue.value = value;
       setDisplayValue(value);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, animated, duration]);
 
   return (
@@ -82,6 +83,7 @@ export const AnimatedNumber: React.FC<{
     scale.value = withTiming(1.1, { duration: 100 }, () => {
       scale.value = withTiming(1, { duration: 150 });
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const animatedStyle = {

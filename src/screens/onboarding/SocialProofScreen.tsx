@@ -74,6 +74,7 @@ function TestimonialCard({
   useEffect(() => {
     scale.value = withSpring(isActive ? 1 : 0.9, { damping: 15 });
     opacity.value = withTiming(isActive ? 1 : 0.5, { duration: 300 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
 
   const cardStyle = useAnimatedStyle(() => ({
@@ -142,9 +143,10 @@ export default function SocialProofScreen({ onNext }: SocialProofScreenProps) {
   useEffect(() => {
     headerOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
     headerY.value = withDelay(100, withSpring(0, { damping: 20 }));
-    
+
     ctaOpacity.value = withDelay(800, withTiming(1, { duration: 400 }));
     ctaScale.value = withDelay(800, withSpring(1, { damping: 15 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const headerStyle = useAnimatedStyle(() => ({

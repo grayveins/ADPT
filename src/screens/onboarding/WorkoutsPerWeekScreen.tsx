@@ -127,10 +127,11 @@ export default function WorkoutsPerWeekScreen({ onNext }: WorkoutsPerWeekScreenP
 
   // Update workoutsPerWeek when days change
   useEffect(() => {
-    updateForm({ 
+    updateForm({
       workoutsPerWeek: selectedDays.length,
       preferredDays: selectedDays,
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDays]);
 
   const toggleDay = (dayKey: string) => {

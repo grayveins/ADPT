@@ -4,7 +4,7 @@
  * Replaces MainGoalScreen with cleaner UX
  */
 
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -58,7 +58,7 @@ export default function GoalsScreen({ onNext }: GoalsScreenProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { form, updateForm } = useOnboarding();
 
-  const { selectedValue, isAdvancing, select, isSelected } = useAutoAdvance({
+  const { selectedValue, isAdvancing, select } = useAutoAdvance({
     delay: 350,
     onSelect: (value) => {
       updateForm({ goal: value as OnboardingForm["goal"] });
@@ -76,10 +76,10 @@ export default function GoalsScreen({ onNext }: GoalsScreenProps) {
     >
       <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
         <Text allowFontScaling={false} style={styles.title}>
-          What's your main goal?
+          What&apos;s your main goal?
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          We'll personalize your workouts based on this.
+          We&apos;ll personalize your workouts based on this.
         </Text>
       </Animated.View>
 

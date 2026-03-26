@@ -3,7 +3,7 @@
  * Three mini progress rings for muscles, sets, exercises
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, View, Text } from "react-native";
 import { useTheme } from "@/src/context/ThemeContext";
 import { AnimatedProgressRing } from "@/src/animations/components";

@@ -4,18 +4,15 @@
  * Features: workout preview, weekly schedule, social proof
  */
 
-import React, { useState, useMemo, useEffect } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useEffect } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
-import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
 import Button from "@/src/components/Button";
 import { hapticCelebration } from "@/src/animations/feedback/haptics";
-import { defaultUnits } from "@/lib/units";
-import { supabase } from "@/lib/supabase";
 
 const goalLabels: Record<string, string> = {
   build_muscle: "Build Muscle",
@@ -94,10 +91,13 @@ const DAYS = [
   { key: "sunday", label: "S" },
 ];
 
-export default function SummaryScreen() {
+type SummaryScreenProps = {
+  onNext: () => void;
+};
+
+export default function SummaryScreen({ onNext }: SummaryScreenProps) {
   const { colors } = useTheme();
-  const { form, resetForm } = useOnboarding();
-  const [saving, setSaving] = useState(false);
+  const { form } = useOnboarding();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Trigger haptic on mount (confetti removed for cleaner experience)
@@ -134,71 +134,9 @@ export default function SummaryScreen() {
     [form.goal, form.splitPreference]
   );
 
-  const onFinish = async () => {
-    if (saving) return;
-    setSaving(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setSaving(false);
-      router.replace("/sign-in");
-      return;
-    }
-
-    const onboardingData = {
-      planSummary: form.planSummary ?? "",
-      attribution: form.attribution ?? "",
-      appleHealthConnected: form.appleHealthConnected ?? false,
-      planChoice: form.planChoice ?? "free",
-      goal: form.goal ?? null,
-      workoutsPerWeek: form.workoutsPerWeek ?? null,
-      splitPreference: form.splitPreference ?? null,
-      goalWhy: form.goalWhy ?? null,
-      limitations: form.limitations ?? [],
-      limitationsOtherText: form.limitationsOtherText ?? "",
-      trainingStyle: form.trainingStyle ?? null,
-      experienceLevel: form.experienceLevel ?? null,
-      equipment: form.equipment ?? null,
-      activityLevel: form.activityLevel ?? null,
-      workoutDuration: form.workoutDuration ?? null,
-      goalTimeline: form.goalTimeline ?? null,
-      sex: form.sex ?? null,
-      ageRange: form.ageRange ?? null,
-      preferredDays: form.preferredDays ?? [],
-      bestLifts: form.bestLifts ?? null,
-      gymType: form.gymType ?? null,
-      availableEquipment: form.availableEquipment ?? [],
-    };
-
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
-      first_name: form.firstName ?? null,
-      sex: form.sex ?? null,
-      birth_year: form.birthYear ?? null,
-      height_cm: form.heightCm ?? null,
-      weight_kg: form.weightKg ?? null,
-      goal: form.goal ?? null,
-      activity_level: form.activityLevel ?? null,
-      training_style: form.trainingStyle ?? null,
-      units: form.units ?? defaultUnits,
-      onboarding_data: onboardingData,
-      onboarding_complete: true,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      Alert.alert("Error", "We couldn't save your profile. Please try again.");
-      setSaving(false);
-      return;
-    }
-
-    await hapticCelebration();
-    resetForm();
-    setSaving(false);
-    router.replace("/(app)/(tabs)" as any);
+  const handleContinue = () => {
+    hapticCelebration();
+    onNext();
   };
 
   return (
@@ -224,7 +162,7 @@ export default function SummaryScreen() {
           style={styles.header}
         >
           <Text allowFontScaling={false} style={styles.title}>
-            You're all set, {planSummary.firstName}!
+            You&apos;re all set, {planSummary.firstName}!
           </Text>
           <Text allowFontScaling={false} style={styles.subtitle}>
             Your personalized {planSummary.goal.toLowerCase()} plan is ready.
@@ -387,9 +325,8 @@ export default function SummaryScreen() {
           style={styles.footer}
         >
           <Button
-            title={saving ? "Setting up..." : "Start Training"}
-            onPress={onFinish}
-            disabled={saving}
+            title="Continue"
+            onPress={handleContinue}
           />
         </Animated.View>
       </ScrollView>

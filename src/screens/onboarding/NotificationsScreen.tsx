@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useMemo } from "react";
-import { StyleSheet, Text, View, Pressable, Platform } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -70,6 +70,7 @@ function NotificationPreview({ colors }: { colors: ReturnType<typeof useTheme>["
         true
       );
     }, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const style = useAnimatedStyle(() => ({
@@ -134,7 +135,7 @@ export default function NotificationsScreen({ onNext }: NotificationsScreenProps
   useEffect(() => {
     headerOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
     headerY.value = withDelay(100, withSpring(0, { damping: 20 }));
-    
+
     bellScale.value = withDelay(300, withSpring(1, { damping: 10 }));
     
     // Bell ring animation
@@ -151,6 +152,7 @@ export default function NotificationsScreen({ onNext }: NotificationsScreenProps
         false
       );
     }, 600);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const headerStyle = useAnimatedStyle(() => ({

@@ -80,6 +80,7 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
     if (glow && progress > 0.9) {
       glowOpacity.value = withTiming(0.6, { duration: TIMING.normal });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress, animated, glow]);
 
   // Breathing animation
@@ -100,6 +101,7 @@ export const AnimatedProgressRing: React.FC<AnimatedProgressRingProps> = ({
         false
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [breathe]);
 
   const animatedCircleProps = useAnimatedProps(() => {

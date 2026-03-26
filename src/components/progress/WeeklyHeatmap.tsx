@@ -7,7 +7,7 @@
 
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { format, subWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
+import { subWeeks, startOfWeek, addDays, isSameDay } from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
 

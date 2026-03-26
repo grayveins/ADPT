@@ -45,6 +45,7 @@ function AnimatedCounter({
       delay,
       withTiming(value, { duration: 1500, easing: Easing.out(Easing.cubic) })
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const textStyle = useAnimatedStyle(() => ({
@@ -72,6 +73,7 @@ function StarRating({ rating, delay, colors }: {
 
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const style = useAnimatedStyle(() => ({
@@ -114,6 +116,7 @@ function TestimonialAvatar({
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
     scale.value = withDelay(delay, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const style = useAnimatedStyle(() => ({
@@ -159,12 +162,13 @@ export default function ValuePropScreen({ onNext }: ValuePropScreenProps) {
   useEffect(() => {
     headlineOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
     headlineY.value = withDelay(200, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    
+
     statsOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
     benefitsOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
-    
+
     ctaOpacity.value = withDelay(1200, withTiming(1, { duration: 400 }));
     ctaScale.value = withDelay(1200, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const headlineStyle = useAnimatedStyle(() => ({
@@ -281,6 +285,7 @@ function BenefitItem({ icon, text, delay, colors }: { icon: string; text: string
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
     translateX.value = withDelay(delay, withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const style = useAnimatedStyle(() => ({

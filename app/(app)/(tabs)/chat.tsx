@@ -18,7 +18,6 @@ import {
   ScrollView,
   Text,
   StyleSheet,
-  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -35,15 +34,12 @@ import {
   SuggestedPrompts,
   OfflineContent,
 } from "@/src/components/chat";
-import { layout, spacing, shadows } from "@/src/theme";
+import { layout, spacing } from "@/src/theme";
 import {
   buildCoachContext,
   generateOpenerMessage,
-  generateSuggestedPrompts,
   detectActionFromResponse,
-  type CoachContext as LegacyCoachContext,
   type Action,
-  type OpenerMessage,
 } from "@/lib/coachContext";
 import { getFullCoachContext, getLiteCoachContext } from "@/lib/coachContextBuilder";
 import { detectContextMode, shouldForceFullContext } from "@/lib/coachIntentDetector";
@@ -73,19 +69,13 @@ export default function Chat() {
   const [inputHeight, setInputHeight] = useState<number>(layout.inputMinHeight);
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
   const [contextLoading, setContextLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  
   // AI context (cached)
   const [cachedFullContext, setCachedFullContext] = useState<FullCoachContext | null>(null);
   const [cachedLiteContext, setCachedLiteContext] = useState<LiteCoachContext | null>(null);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
 
   // Auth check and context load
-  useEffect(() => {
-    loadInitialContext();
-  }, []);
-
-  const loadInitialContext = async () => {
+  const loadInitialContext = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -93,8 +83,6 @@ export default function Chat() {
         router.replace("/sign-in");
         return;
       }
-
-      setUserId(session.user.id);
 
       // Build legacy context for opener message (UI only)
       const legacyContext = await buildCoachContext(session.user.id);
@@ -133,9 +121,11 @@ export default function Chat() {
     } finally {
       setContextLoading(false);
     }
-  };
+  }, [markAsRead]);
 
-  
+  useEffect(() => {
+    loadInitialContext();
+  }, [loadInitialContext]);
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {

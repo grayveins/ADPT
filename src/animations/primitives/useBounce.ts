@@ -54,6 +54,7 @@ export const useBounce = (options: UseBounceOptions = {}) => {
     if (autoPlay) {
       bounce();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   const animatedStyle = useAnimatedStyle(() => ({

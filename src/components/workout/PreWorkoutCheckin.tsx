@@ -13,7 +13,6 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ScrollView,
 } from "react-native";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -121,7 +120,7 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
             /* Step 1: Energy/Readiness */
             <Animated.View entering={FadeIn.duration(200)}>
               <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-                How's your energy level?
+                How&apos;s your energy level?
               </Text>
               
               <View style={styles.readinessGrid}>
@@ -249,7 +248,7 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
                   </View>
                   
                   <Text allowFontScaling={false} style={[styles.adaptationBody, { color: colors.textSecondary }]}>
-                    We'll modify exercises to work around your {painAreas.map(area => bodyRegions[area].label.toLowerCase()).join(" and ")}. Your progress won't be affected — we're optimizing for long-term results.
+                    We&apos;ll modify exercises to work around your {painAreas.map(area => bodyRegions[area].label.toLowerCase()).join(" and ")}. Your progress won&apos;t be affected — we&apos;re optimizing for long-term results.
                   </Text>
 
                   <View style={styles.adaptationBullets}>
@@ -262,7 +261,7 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
                     <View style={styles.adaptationBullet}>
                       <Ionicons name="analytics" size={14} color={colors.primary} />
                       <Text allowFontScaling={false} style={[styles.adaptationBulletText, { color: colors.textSecondary }]}>
-                        We'll track how it feels and adjust future sessions
+                        We&apos;ll track how it feels and adjust future sessions
                       </Text>
                     </View>
                   </View>

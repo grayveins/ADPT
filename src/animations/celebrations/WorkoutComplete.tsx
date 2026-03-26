@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useMemo } from "react";
-import { StyleSheet, Text, View, Dimensions, Pressable } from "react-native";
+import { StyleSheet, Text, View, Pressable, Share } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,16 +14,16 @@ import Animated, {
   withSpring,
   withSequence,
   Easing,
-  runOnJS,
   FadeIn,
-  FadeOut,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
-import { SPRING_CONFIG, Z_INDEX, TIMING } from "../constants";
+import { theme as appTheme } from "@/src/theme";
+import { SPRING_CONFIG, Z_INDEX } from "../constants";
 import { hapticCelebration } from "../feedback/haptics";
+import { CelebrationConfetti } from "../components/Confetti";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Motivational messages based on context
@@ -49,22 +49,56 @@ type WorkoutStats = {
   totalVolume?: number;
   workoutsThisWeek?: number;
   isStreak?: boolean;
+  prs?: { exercise: string; value: string; previous?: string }[];
 };
 
 type WorkoutCompleteProps = {
   visible: boolean;
   stats: WorkoutStats;
   onContinue: () => void;
+  onShare?: () => void;
 };
 
 export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
   visible,
   stats,
   onContinue,
+  onShare,
 }) => {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [showButton, setShowButton] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const formattedVolume = useMemo(() => {
+    if (!stats.totalVolume) return null;
+    if (stats.totalVolume >= 1000) {
+      return `${(stats.totalVolume / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+    }
+    return stats.totalVolume.toLocaleString();
+  }, [stats.totalVolume]);
+
+  const handleShare = async () => {
+    if (onShare) {
+      // Use visual share card (Instagram Stories-ready)
+      onShare();
+      return;
+    }
+    // Fallback: text-based share
+    const lines = [
+      `Workout Complete`,
+      `${stats.duration} | ${stats.exercises} exercises | ${stats.sets} sets`,
+    ];
+    if (stats.totalVolume) lines.push(`${stats.totalVolume.toLocaleString()} lbs moved`);
+    if (stats.prs && stats.prs.length > 0) {
+      lines.push(`${stats.prs.length} PR${stats.prs.length > 1 ? "s" : ""} hit!`);
+      stats.prs.forEach(pr => lines.push(`  ${pr.exercise}: ${pr.value}`));
+    }
+    lines.push("", "Trained with ADPT Fit");
+    try {
+      await Share.share({ message: lines.join("\n") });
+    } catch { /* user cancelled */ }
+  };
 
   // Animation values
   const overlayOpacity = useSharedValue(0);
@@ -79,7 +113,7 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
   useEffect(() => {
     if (visible) {
       // Sequence the celebration
-      
+
       // 0ms: Overlay fades in
       overlayOpacity.value = withTiming(1, { duration: 200 });
       
@@ -121,6 +155,11 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
       // 1200ms: Message fades in
       messageOpacity.value = withDelay(1200, withTiming(1, { duration: 300 }));
       
+      // 600ms: Confetti
+      setTimeout(() => {
+        setShowConfetti(true);
+      }, 600);
+
       // 2500ms: Show button
       setTimeout(() => {
         setShowButton(true);
@@ -136,7 +175,9 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
       statsTranslateY.value = 30;
       messageOpacity.value = 0;
       setShowButton(false);
+      setShowConfetti(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const overlayStyle = useAnimatedStyle(() => ({
@@ -169,6 +210,12 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
 
   return (
     <Animated.View style={[styles.overlay, overlayStyle]}>
+      {/* Confetti */}
+      <CelebrationConfetti
+        active={showConfetti}
+        onComplete={() => setShowConfetti(false)}
+      />
+
       {/* Content */}
       <Pressable style={styles.content} onPress={onContinue}>
         {/* Checkmark */}
@@ -225,7 +272,43 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
               Sets
             </Text>
           </View>
+          {formattedVolume && (
+            <>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text allowFontScaling={false} style={styles.statValue}>
+                  {formattedVolume}
+                </Text>
+                <Text allowFontScaling={false} style={styles.statLabel}>
+                  lbs
+                </Text>
+              </View>
+            </>
+          )}
         </Animated.View>
+
+        {/* PR Summary */}
+        {stats.prs && stats.prs.length > 0 && (
+          <Animated.View style={[styles.prContainer, statsStyle]}>
+            {stats.prs.map((pr, i) => (
+              <View key={i} style={styles.prCard}>
+                <Ionicons name="trophy" size={16} color={colors.gold} />
+                <View style={styles.prInfo}>
+                  <Text allowFontScaling={false} style={styles.prExercise}>{pr.exercise}</Text>
+                  <View style={styles.prValues}>
+                    {pr.previous && (
+                      <>
+                        <Text allowFontScaling={false} style={styles.prPrevious}>{pr.previous}</Text>
+                        <Ionicons name="arrow-forward" size={12} color={colors.textMuted} />
+                      </>
+                    )}
+                    <Text allowFontScaling={false} style={[styles.prNew, { color: colors.gold }]}>{pr.value}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </Animated.View>
+        )}
 
         {/* Motivational message */}
         <Animated.Text
@@ -235,17 +318,23 @@ export const WorkoutComplete: React.FC<WorkoutCompleteProps> = ({
           {getMotivationalMessage(stats)}
         </Animated.Text>
 
-        {/* Continue button */}
+        {/* Action buttons */}
         {showButton && (
           <Animated.View
             entering={FadeIn.duration(300)}
             style={styles.buttonContainer}
           >
-            <Pressable style={styles.button} onPress={onContinue}>
-              <Text allowFontScaling={false} style={styles.buttonText}>
-                Continue
-              </Text>
-            </Pressable>
+            <View style={styles.buttonRow}>
+              <Pressable style={styles.shareButton} onPress={handleShare}>
+                <Ionicons name="share-outline" size={20} color={colors.text} />
+                <Text allowFontScaling={false} style={styles.shareButtonText}>Share</Text>
+              </Pressable>
+              <Pressable style={styles.button} onPress={onContinue}>
+                <Text allowFontScaling={false} style={styles.buttonText}>
+                  Continue
+                </Text>
+              </Pressable>
+            </View>
           </Animated.View>
         )}
       </Pressable>
@@ -279,6 +368,7 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     title: {
       color: colors.text,
+      fontFamily: appTheme.fonts.heading,
       fontSize: 32,
       fontWeight: "700",
       marginBottom: 32,
@@ -295,17 +385,19 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     statItem: {
       alignItems: "center",
-      paddingHorizontal: 16,
+      flex: 1,
+      paddingHorizontal: 4,
     },
     statValue: {
       color: colors.text,
+      fontFamily: appTheme.fonts.bodySemiBold,
       fontSize: 24,
-      fontWeight: "600",
+      fontVariant: ["tabular-nums" as const],
     },
     statLabel: {
-      color: colors.muted,
+      color: colors.textMuted,
+      fontFamily: appTheme.fonts.body,
       fontSize: 12,
-      fontWeight: "400",
       marginTop: 4,
     },
     statDivider: {
@@ -314,18 +406,80 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
       backgroundColor: colors.border,
     },
     message: {
-      color: colors.muted,
+      color: colors.textMuted,
+      fontFamily: appTheme.fonts.body,
       fontSize: 16,
-      fontWeight: "400",
       textAlign: "center",
       lineHeight: 24,
       marginBottom: 32,
       maxWidth: 280,
     },
+    prContainer: {
+      width: "100%",
+      gap: 8,
+      marginBottom: 16,
+    },
+    prCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: "rgba(255, 215, 0, 0.08)",
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: "rgba(255, 215, 0, 0.2)",
+    },
+    prInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    prExercise: {
+      color: colors.text,
+      fontFamily: appTheme.fonts.bodySemiBold,
+      fontSize: 14,
+    },
+    prValues: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    prPrevious: {
+      color: colors.textMuted,
+      fontFamily: appTheme.fonts.body,
+      fontSize: 13,
+      textDecorationLine: "line-through" as const,
+    },
+    prNew: {
+      fontFamily: appTheme.fonts.bodySemiBold,
+      fontSize: 14,
+      fontWeight: "700",
+    },
     buttonContainer: {
       width: "100%",
     },
+    buttonRow: {
+      flexDirection: "row",
+      gap: 12,
+      width: "100%",
+    },
+    shareButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    shareButtonText: {
+      color: colors.text,
+      fontFamily: appTheme.fonts.bodyMedium,
+      fontSize: 16,
+    },
     button: {
+      flex: 1,
       backgroundColor: colors.primary,
       paddingVertical: 16,
       paddingHorizontal: 48,
@@ -333,8 +487,8 @@ const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
     },
     buttonText: {
       color: colors.textOnPrimary,
+      fontFamily: appTheme.fonts.bodySemiBold,
       fontSize: 18,
-      fontWeight: "600",
       textAlign: "center",
     },
   });

@@ -14,28 +14,39 @@ export default function RootLayout() {
           <KeyboardProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
-          {/* Auth screens - allow normal navigation */}
-          <Stack.Screen name="index" />
-          <Stack.Screen name="welcome" />
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="sign-up" />
+          {/* Auth screens - disable swipe-back to prevent returning to authenticated screens after logout */}
+          <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="sign-in" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="sign-up" options={{ gestureEnabled: false }} />
           <Stack.Screen name="settings" />
-          
+
           {/* Authenticated app - disable swipe back to prevent returning to welcome */}
-          <Stack.Screen 
-            name="(app)" 
-            options={{ 
+          <Stack.Screen
+            name="(app)"
+            options={{
               gestureEnabled: false,
               animation: "fade",
-            }} 
+            }}
           />
-          
+
           {/* Onboarding - disable swipe back */}
-          <Stack.Screen 
-            name="onboarding" 
-            options={{ 
+          <Stack.Screen
+            name="onboarding"
+            options={{
               gestureEnabled: false,
-            }} 
+              fullScreenGestureEnabled: false,
+            }}
+          />
+
+          {/* Workout modal stack - full screen modal for workout flow */}
+          <Stack.Screen
+            name="(workout)"
+            options={{
+              presentation: "modal",
+              animation: "slide_from_bottom",
+              gestureEnabled: true,
+            }}
           />
         </Stack>
           </KeyboardProvider>

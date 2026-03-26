@@ -10,7 +10,6 @@ import {
   Text,
   View,
   TextInput,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -120,10 +119,10 @@ export default function BestLiftsScreen({ onNext }: BestLiftsScreenProps) {
     <KeyboardAvoidingView
       style={styles.keyboardView}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 150 : 0}
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { flexGrow: 1 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -132,7 +131,7 @@ export default function BestLiftsScreen({ onNext }: BestLiftsScreenProps) {
             Know your best lifts?
           </Text>
           <Text allowFontScaling={false} style={styles.subtitle}>
-            Enter your best set for each lift. We'll calculate your starting weights.
+            Enter your best set for each lift. We&apos;ll calculate your starting weights.
           </Text>
         </Animated.View>
 
@@ -227,7 +226,7 @@ export default function BestLiftsScreen({ onNext }: BestLiftsScreenProps) {
           {!hasAnyLifts && (
             <Animated.View entering={FadeInDown.delay(550).duration(400)}>
               <Text allowFontScaling={false} style={styles.skipNote}>
-                You can skip this — we'll figure it out together
+                You can skip this — we&apos;ll figure it out together
               </Text>
             </Animated.View>
           )}

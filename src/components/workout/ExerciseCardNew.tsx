@@ -12,13 +12,12 @@
  * Design: Clean, professional, gym-readable
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useCallback } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
@@ -69,7 +68,9 @@ type ExerciseCardNewProps = {
   targetReps: string;
   targetRIR: number;
   // Previous workout data per set
-  previousSets?: Array<{ weight: string; reps: string } | null>;
+  previousSets?: ({ weight: string; reps: string } | null)[];
+  // PR data for close-to-PR callout
+  currentPRWeight?: number;
   // Callbacks
   onSetComplete: (setId: string) => void;
   onSetChange: (setId: string, field: "weight" | "reps", value: string) => void;
@@ -88,6 +89,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
   targetReps,
   targetRIR,
   previousSets = [],
+  currentPRWeight,
   onSetComplete,
   onSetChange,
   onSwapExercise,
@@ -114,6 +116,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
     hapticPress();
     rotation.value = withSpring(isExpanded ? 0 : 180, animation.spring.snappy);
     onToggleExpand?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, onToggleExpand]);
 
   const chevronStyle = useAnimatedStyle(() => ({
@@ -123,6 +126,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
   // Update rotation when isExpanded prop changes
   React.useEffect(() => {
     rotation.value = withSpring(isExpanded ? 180 : 0, animation.spring.snappy);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
   return (
@@ -153,6 +157,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
               allowFontScaling={false} 
               style={[styles.exerciseName, { color: colors.text }]}
               numberOfLines={1}
+              ellipsizeMode="tail"
             >
               {name}
             </Text>
@@ -164,9 +169,10 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           </View>
           
           {/* Meta info: muscles, target reps, RIR */}
-          <Text 
-            allowFontScaling={false} 
+          <Text
+            allowFontScaling={false}
             style={[styles.metaText, { color: colors.textMuted }]}
+            numberOfLines={1}
           >
             {muscles.join(" · ")} · {targetReps} reps · RIR {targetRIR}
           </Text>
@@ -286,6 +292,14 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           {/* Set rows */}
           {sets.map((set, index) => {
             const prevSet = previousSets[index];
+            // Show "PR?" if weight is within 10% of current PR
+            const weightNum = set.weight ? parseFloat(set.weight) : 0;
+            const isCloseToPR = !!(
+              currentPRWeight &&
+              weightNum > 0 &&
+              weightNum >= currentPRWeight * 0.9 &&
+              weightNum <= currentPRWeight
+            );
             return (
               <SetRowNew
                 key={set.id}
@@ -295,6 +309,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
                 completed={set.completed}
                 previousWeight={prevSet?.weight}
                 previousReps={prevSet?.reps}
+                closeToPR={isCloseToPR}
                 onComplete={() => onSetComplete(set.id)}
                 onWeightChange={(value) => onSetChange(set.id, "weight", value)}
                 onRepsChange={(value) => onSetChange(set.id, "reps", value)}
@@ -383,9 +398,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.base,
+    paddingVertical: 14,
     borderRadius: radius.sm,
+    minHeight: 44,
   },
   actionButtonText: {
     fontSize: 13,

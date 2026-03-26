@@ -24,6 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
+import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import { theme } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -151,10 +152,19 @@ function ProgressBar({ currentIndex, colors }: { currentIndex: number; colors: R
   );
 }
 
-export default function Onboarding() {
+export default function Onboarding({ canDismiss }: { canDismiss?: boolean } = {}) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Allow dismissal when navigated to from an authenticated context (e.g. Settings)
+  const handleDismiss = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(tabs)" as any);
+    }
+  }, []);
 
   const goNext = useCallback(() => {
     hapticPress();
@@ -189,8 +199,8 @@ export default function Onboarding() {
         {/* Header with back button and progress */}
         <View style={styles.header}>
           {showBackButton ? (
-            <Pressable 
-              onPress={goBack} 
+            <Pressable
+              onPress={goBack}
               style={styles.backButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -199,14 +209,24 @@ export default function Onboarding() {
           ) : (
             <View style={styles.backPlaceholder} />
           )}
-          
+
           {showProgress && (
             <View style={styles.progressWrapper}>
               <ProgressBar currentIndex={currentIndex} colors={colors} />
             </View>
           )}
-          
-          <View style={styles.backPlaceholder} />
+
+          {canDismiss ? (
+            <Pressable
+              onPress={handleDismiss}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={24} color={colors.textMuted} />
+            </Pressable>
+          ) : (
+            <View style={styles.backPlaceholder} />
+          )}
         </View>
 
         {/* Screen content with animation - clean linear transitions */}

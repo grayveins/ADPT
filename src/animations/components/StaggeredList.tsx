@@ -3,7 +3,7 @@
  * Container that animates children with staggered entrance
  */
 
-import React, { ReactNode, Children, cloneElement, isValidElement } from "react";
+import React, { ReactNode, Children, isValidElement } from "react";
 import { View, ViewStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -102,6 +102,7 @@ export const StaggeredItem: React.FC<StaggeredItemProps> = ({
     opacity.value = withDelay(delay, withTiming(1, { duration: TIMING.normal }));
     translateY.value = withDelay(delay, withSpring(0, SPRING_CONFIG.gentle));
     translateX.value = withDelay(delay, withSpring(0, SPRING_CONFIG.gentle));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({

@@ -65,7 +65,7 @@ export default function WorkoutDurationScreen({ onNext }: WorkoutDurationScreenP
           How long do you want{"\n"}to train?
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
-          We'll structure your workouts to fit your schedule.
+          We&apos;ll structure your workouts to fit your schedule.
         </Text>
       </Animated.View>
 

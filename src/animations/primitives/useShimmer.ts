@@ -47,6 +47,7 @@ export const useShimmer = (options: UseShimmerOptions = {}) => {
       start();
     }
     return () => stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   // Returns translateX percentage for shimmer gradient
@@ -100,6 +101,7 @@ export const useEdgeShimmer = (options: {
       start();
     }
     return () => stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   // Returns rotation or position for border shimmer

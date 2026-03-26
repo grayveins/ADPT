@@ -11,14 +11,13 @@ import Animated, {
   withSpring,
   withTiming,
   withRepeat,
-  withSequence,
   Easing,
   runOnJS,
   interpolate,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { darkColors, theme } from "@/src/theme";
-import { SPRING_CONFIG, SCALE, OPACITY, TIMING } from "../constants";
+import { SPRING_CONFIG, SCALE, OPACITY } from "../constants";
 import { hapticPress } from "../feedback/haptics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -60,6 +59,7 @@ export const AnimatedCard: React.FC<AnimatedCardProps> = ({
         false
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shimmer]);
 
   const handlePressIn = () => {

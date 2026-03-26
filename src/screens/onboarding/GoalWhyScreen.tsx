@@ -122,7 +122,7 @@ export default function GoalWhyScreen({ onNext }: GoalWhyScreenProps) {
       >
         <Ionicons name="sparkles" size={16} color={colors.primary} />
         <Text allowFontScaling={false} style={styles.encouragementText}>
-          Your "why" is the secret to staying consistent
+          Your &quot;why&quot; is the secret to staying consistent
         </Text>
       </Animated.View>
 

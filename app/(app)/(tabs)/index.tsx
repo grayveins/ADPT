@@ -8,9 +8,8 @@
  * - Pre-workout feeling check-in
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,7 +17,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useFonts } from "expo-font";
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
 
@@ -47,10 +46,19 @@ import { TabHeader } from "@/src/components/layout";
 import { ToastContainer } from "@/src/animations/celebrations";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { useStreak } from "@/src/hooks/useStreak";
-import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
-import { type ReadinessLevel, layout, spacing, shadows, bodyRegions } from "@/src/theme";
-import { PreWorkoutCheckin, type CheckinData } from "@/src/components/workout";
+import { layout, spacing, shadows } from "@/src/theme";
+// PreWorkoutCheckin removed — go straight to workout
 import { ErrorState } from "@/src/components/ErrorState";
+import { HomeSkeleton } from "@/src/animations/components";
+import { useWorkoutLimit } from "@/src/hooks/useWorkoutLimit";
+import UpgradePrompt from "@/src/components/UpgradePrompt";
+import TrialBanner from "@/src/components/TrialBanner";
+import { useStrengthScore } from "@/src/hooks/useStrengthScore";
+import { useUserXP } from "@/src/hooks/useUserXP";
+import StrengthScoreRing from "@/src/components/StrengthScoreRing";
+import { getNextRank } from "@/lib/ranks";
+import { MesocyclePlan } from "@/src/components/progress";
+import { generateSmartWorkout } from "@/lib/workout/generateSmart";
 
 type SessionRow = {
   id: string;
@@ -90,7 +98,7 @@ const getCoachMessage = (
 };
 
 export default function HomeScreen() {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
   
   const [loaded] = useFonts({
     Inter_400Regular,
@@ -105,22 +113,32 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   
   // Streak data
-  const { currentStreak, workedOutToday, refreshStreak } = useStreak(userId);
+  const { currentStreak, workedOutToday, isStreakAtRisk, refreshStreak, streakFreezeAvailable, freezeStreak } = useStreak(userId);
 
-  // Active limitations
-  const { limitations, getActiveLimitationAreas, markCheckedToday } = useActiveLimitations(userId);
-  const activeLimitationAreas = getActiveLimitationAreas();
 
-  // Pre-workout check-in modal
-  const [checkinOpen, setCheckinOpen] = useState(false);
-  
+  // Workout limit (free tier: 3/week) — refresh on tab focus after completing a workout
+  const { canStartWorkout, refresh: refreshWorkoutLimit } = useWorkoutLimit();
+  useFocusEffect(useCallback(() => { refreshWorkoutLimit(); }, [refreshWorkoutLimit]));
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  // Strength Score
+  const { score: strengthScore, loading: scoreLoading } = useStrengthScore(userId);
+
+  // XP + Rank
+  const { data: xpData } = useUserXP(userId);
+
+  // Auto-generated workout preview (Fitbod-style)
+  type ExercisePreview = { name: string; sets: number; reps: string };
+  const [generatedPreview, setGeneratedPreview] = useState<ExercisePreview[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // Pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
 
   // Fetch all data for home screen
-  const fetchData = async (isRefresh = false) => {
+  const fetchData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     setError(null);
     try {
@@ -178,7 +196,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [weekStart, refreshStreak]);
 
   // Pull-to-refresh handler
   const handleRefresh = () => {
@@ -189,7 +207,27 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!loaded) return;
     fetchData();
-  }, [loaded, weekStart]);
+  }, [loaded, weekStart, fetchData]);
+
+  // Auto-generate today's exercise preview (Fitbod-style: workout ready on open)
+  useEffect(() => {
+    if (!userId || workedOutToday) return;
+    setPreviewLoading(true);
+    generateSmartWorkout({ userId, insights: null })
+      .then((workout) => {
+        if (workout?.exercises) {
+          setGeneratedPreview(
+            workout.exercises.slice(0, 4).map((ex) => ({
+              name: ex.name,
+              sets: ex.sets.length,
+              reps: ex.targetReps,
+            }))
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPreviewLoading(false));
+  }, [userId, workedOutToday]);
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, SessionRow>();
@@ -249,26 +287,20 @@ export default function HomeScreen() {
 
   const openCheckin = () => {
     hapticPress();
+    if (!canStartWorkout) {
+      setShowUpgrade(true);
+      return;
+    }
     if (todayWorkout && !todayWorkout.isRest) {
-      setCheckinOpen(true);
+      router.push({
+        pathname: "/(workout)/active",
+        params: {
+          type: todayWorkout.type,
+          name: todayWorkout.type,
+        },
+      });
     } else {
       router.push("/(app)/(tabs)/workout");
-    }
-  };
-
-  const handleCheckinComplete = (data: CheckinData) => {
-    setCheckinOpen(false);
-    if (todayWorkout) {
-      router.push({
-        pathname: "/(app)/workout/active",
-        params: { 
-          type: todayWorkout.type, 
-          name: todayWorkout.type,
-          readiness: data.readiness,
-          adjustmentPercent: String(data.adjustmentPercent),
-          painAreas: data.painAreas.join(","),
-        }
-      });
     }
   };
 
@@ -283,9 +315,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <HomeSkeleton />
       </View>
     );
   }
@@ -315,8 +345,12 @@ export default function HomeScreen() {
       <TabHeader
         title={greetingTitle}
         streakCount={currentStreak}
+        rank={xpData?.rank ?? undefined}
+        level={xpData?.level}
         userName={profileName}
       />
+
+      <TrialBanner />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -339,29 +373,25 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Active Limitation Insight Card */}
-        {activeLimitationAreas.length > 0 && !workedOutToday && !isRestDay && (
-          <Animated.View 
-            entering={FadeInDown.delay(25).duration(400)}
-            style={[styles.limitationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <View style={styles.limitationHeader}>
-              <View style={[styles.limitationIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.limitationTitle, { color: colors.text }]}>
-                Training Around Your {activeLimitationAreas.map(area => bodyRegions[area].label).join(" & ")}
+        {/* Streak at risk — compact banner */}
+        {isStreakAtRisk && currentStreak > 0 && !workedOutToday && (
+          <Animated.View entering={FadeInDown.delay(15).duration(300)}>
+            <Pressable
+              onPress={streakFreezeAvailable ? async () => {
+                hapticPress();
+                const ok = await freezeStreak();
+                if (ok) refreshStreak();
+              } : openCheckin}
+              style={[styles.streakBanner, { backgroundColor: "rgba(255, 107, 53, 0.1)" }]}
+            >
+              <Ionicons name="flame" size={16} color={colors.intensity} />
+              <Text allowFontScaling={false} style={[styles.streakBannerText, { color: colors.intensity }]}>
+                {currentStreak}-day streak at risk
               </Text>
-            </View>
-            <Text allowFontScaling={false} style={[styles.limitationBody, { color: colors.textSecondary }]}>
-              Today's workout has been adapted to avoid aggravation. Focus on controlled movement and proper form.
-            </Text>
-            <View style={styles.limitationFooter}>
-              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-              <Text allowFontScaling={false} style={[styles.limitationFooterText, { color: colors.textMuted }]}>
-                We'll check in after your workout
+              <Text allowFontScaling={false} style={[styles.streakBannerCta, { color: colors.intensity }]}>
+                {streakFreezeAvailable ? "Freeze" : "Train now"}
               </Text>
-            </View>
+            </Pressable>
           </Animated.View>
         )}
 
@@ -389,8 +419,47 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {/* Strength Score Card */}
+        {!scoreLoading && strengthScore && strengthScore.totalScore > 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(75).duration(400)}
+            style={styles.scoreSection}
+          >
+            <Pressable
+              onPress={() => router.push("/(app)/progress/analytics")}
+              style={[styles.scoreCard, { backgroundColor: colors.card }]}
+            >
+              <StrengthScoreRing score={strengthScore.totalScore} level={xpData?.level ?? 1} size={108} strokeWidth={6} hideNextRank />
+              <View style={styles.scoreInfo}>
+                <Text allowFontScaling={false} style={[styles.scoreTitle, { color: colors.textMuted }]}>
+                  STRENGTH SCORE
+                </Text>
+                {xpData && getNextRank(xpData.level) && (
+                  <Text allowFontScaling={false} style={[styles.scoreNext, { color: colors.textMuted }]}>
+                    Level {getNextRank(xpData.level)!.minLevel - xpData.level} to{" "}
+                    <Text style={{ color: getNextRank(xpData.level)!.color }}>
+                      {getNextRank(xpData.level)!.name}
+                    </Text>
+                  </Text>
+                )}
+                <View style={styles.scoreViewMore}>
+                  <Text allowFontScaling={false} style={[styles.scoreViewText, { color: colors.primary }]}>
+                    View Details
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Mesocycle Phase (compact) */}
+        <Animated.View entering={FadeInDown.delay(90).duration(400)} style={{ marginBottom: layout.sectionGap }}>
+          <MesocyclePlan currentWeek={1} phase="accumulation" compact />
+        </Animated.View>
+
         {/* TODAY'S WORKOUT - Hero Card (80% focus) */}
-        <Animated.View 
+        <Animated.View
           entering={FadeInDown.delay(100).duration(400)}
           style={styles.heroSection}
         >
@@ -407,7 +476,7 @@ export default function HomeScreen() {
                 Great work today. Rest and recover.
               </Text>
               <Pressable 
-                onPress={() => router.push("/(app)/workout/history")}
+                onPress={() => router.push("/(workout)/history")}
                 style={[styles.heroSecondaryButton, { borderColor: colors.border }]}
               >
                 <Text allowFontScaling={false} style={[styles.heroSecondaryButtonText, { color: colors.text }]}>
@@ -437,38 +506,54 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           ) : (
-            // Active workout state
+            // Active workout state — Fitbod-style with exercise preview
             <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
-              {/* Workout Type Badge */}
-              <View style={[styles.heroTypeBadge, { backgroundColor: colors.primaryMuted }]}>
-                <Text allowFontScaling={false} style={[styles.heroTypeBadgeText, { color: colors.primary }]}>
-                  {todayWorkout?.type ?? "Full Body"}
-                </Text>
+              {/* Header row: type badge + meta */}
+              <View style={styles.heroHeaderRow}>
+                <View style={[styles.heroTypeBadge, { backgroundColor: colors.primaryMuted }]}>
+                  <Ionicons name="sparkles" size={12} color={colors.primary} />
+                  <Text allowFontScaling={false} style={[styles.heroTypeBadgeText, { color: colors.primary }]}>
+                    {todayWorkout?.type ?? "Full Body"}
+                  </Text>
+                </View>
+                {todayWorkout && (
+                  <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
+                    ~{todayWorkout.durationMinutes} min
+                  </Text>
+                )}
               </View>
 
-              {/* Main Content */}
               <Text allowFontScaling={false} style={[styles.heroTitle, { color: colors.text }]}>
-                Today's Workout
+                Today&apos;s Workout
               </Text>
-              
-              {todayWorkout && (
-                <View style={styles.heroMeta}>
-                  <View style={styles.heroMetaItem}>
-                    <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-                    <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
-                      ~{todayWorkout.durationMinutes} min
-                    </Text>
-                  </View>
-                  <View style={styles.heroMetaItem}>
-                    <Ionicons name="fitness-outline" size={16} color={colors.textMuted} />
-                    <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
-                      {todayWorkout.focus.split(" - ")[0]}
-                    </Text>
-                  </View>
+
+              {/* Exercise preview list */}
+              {previewLoading && !generatedPreview && (
+                <View style={styles.exercisePreview}>
+                  {[1, 2, 3, 4].map((i) => (
+                    <View key={i} style={[styles.exercisePreviewRow, i < 4 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+                      <View style={{ width: 120 + (i * 20), height: 14, backgroundColor: colors.card, borderRadius: 4 }} />
+                      <View style={{ width: 40, height: 14, backgroundColor: colors.card, borderRadius: 4 }} />
+                    </View>
+                  ))}
+                </View>
+              )}
+              {generatedPreview && generatedPreview.length > 0 && (
+                <View style={styles.exercisePreview}>
+                  {generatedPreview.map((ex, i) => (
+                    <View key={i} style={[styles.exercisePreviewRow, i < generatedPreview.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+                      <Text allowFontScaling={false} style={[styles.exercisePreviewName, { color: colors.text }]} numberOfLines={1}>
+                        {ex.name}
+                      </Text>
+                      <Text allowFontScaling={false} style={[styles.exercisePreviewSets, { color: colors.textMuted }]}>
+                        {ex.sets} x {ex.reps}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               )}
 
-              {/* Start Button - Opens pre-workout check-in */}
+              {/* Start Button */}
               <Pressable
                 onPress={openCheckin}
                 style={({ pressed }) => [
@@ -486,36 +571,18 @@ export default function HomeScreen() {
           )}
         </Animated.View>
 
-        {/* Quick Actions */}
-        <Animated.View 
-          entering={FadeInDown.delay(150).duration(400)}
-          style={styles.quickActionsSection}
-        >
-          <Pressable
-            onPress={() => router.push("/(app)/(tabs)/chat")}
-            style={[styles.quickAction, { backgroundColor: colors.card }]}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-              <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
-            </View>
-            <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-              Ask Coach
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </Pressable>
-        </Animated.View>
       </ScrollView>
 
-      {/* Pre-workout check-in modal */}
-      <PreWorkoutCheckin
-        visible={checkinOpen}
-        onClose={() => setCheckinOpen(false)}
-        onStart={handleCheckinComplete}
-        workoutType={todayWorkout?.type ?? "Workout"}
-        estimatedDuration={todayWorkout?.durationMinutes ?? 45}
-      />
-
       <ToastContainer />
+      <UpgradePrompt
+        visible={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature="workouts"
+        strengthScore={strengthScore?.totalScore}
+        rankName={xpData?.rank?.name}
+        rankColor={xpData?.rank?.color}
+        workoutsCompleted={sessions.length}
+      />
     </View>
   );
 }
@@ -543,6 +610,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
+  },
+
+  // Streak at risk banner
+  streakBanner: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: spacing.md,
+  },
+  streakBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  streakBannerCta: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 
   // Limitation Card
@@ -609,6 +696,42 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
+  // Strength Score Card
+  scoreSection: {
+    marginBottom: layout.sectionGap,
+  },
+  scoreCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    padding: spacing.base,
+    borderRadius: 16,
+    gap: spacing.base,
+    ...shadows.card,
+  },
+  scoreInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  scoreTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+  },
+  scoreViewMore: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 2,
+    marginTop: 4,
+  },
+  scoreViewText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  scoreNext: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+
   // Hero Card (Today's Workout)
   heroSection: {
     marginBottom: layout.sectionGap,
@@ -630,23 +753,50 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.base,
   },
+  heroHeaderRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    marginBottom: spacing.sm,
+  },
   heroTypeBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: spacing.base,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   heroTypeBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
+    textTransform: "uppercase" as const,
     letterSpacing: 0.5,
   },
   heroTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
     marginBottom: spacing.sm,
+  },
+  // Exercise preview (Fitbod-style)
+  exercisePreview: {
+    marginBottom: spacing.md,
+  },
+  exercisePreviewRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    paddingVertical: 9,
+  },
+  exercisePreviewName: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  exercisePreviewSets: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginLeft: 12,
   },
   heroSubtitle: {
     fontSize: 15,

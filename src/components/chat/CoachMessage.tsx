@@ -9,7 +9,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { spacing, radius } from "@/src/theme";
+import { spacing } from "@/src/theme";
 import { ActionButton } from "./ActionButton";
 import type { Action } from "@/lib/coachContext";
 

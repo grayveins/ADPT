@@ -13,7 +13,6 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { darkColors, theme } from "@/src/theme";
-import { TIMING } from "@/src/animations/constants";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 

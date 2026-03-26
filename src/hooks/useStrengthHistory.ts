@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { subDays, subMonths, parseISO, format } from "date-fns";
+import { subMonths, parseISO, format } from "date-fns";
 import { supabase } from "@/lib/supabase";
 
 export type TimeRange = "1M" | "3M" | "6M" | "ALL";

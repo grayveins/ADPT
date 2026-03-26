@@ -1,22 +1,20 @@
 /**
- * Progress Screen - Simplified, Clean Design
+ * Progress Screen - Minimal, Clean Design
  * 
- * Minimal view for beginners with:
- * - Streak hero
- * - Coach insights
- * - GitHub-style activity heatmap
- * - PR teaser (top 2 recently improved)
- * - Active modifications (conditional - only if has limitations)
- * - Link to detailed analytics for nerds
+ * Simple view with:
+ * - Streak hero (motivation)
+ * - PR teaser (achievement)
+ * - Activity heatmap (consistency)
+ * - Active modifications (conditional - safety)
+ * - Subtle link to detailed analytics
  */
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
-  ActivityIndicator,
   RefreshControl,
   Pressable,
 } from "react-native";
@@ -27,13 +25,15 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { parseISO, subDays, subMonths } from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { layout, spacing, bodyRegions } from "@/src/theme";
+import { layout, spacing } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { useStreak } from "@/src/hooks/useStreak";
-import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
-import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
-import { WeeklyHeatmap } from "@/src/components/progress";
+import { useStrengthScore } from "@/src/hooks/useStrengthScore";
+import { useUserXP } from "@/src/hooks/useUserXP";
+import { RankBadge } from "@/src/components/RankBadge";
+import { WeeklyHeatmap, StrengthScoreCard } from "@/src/components/progress";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { ProgressSkeleton } from "@/src/animations/components";
 
 // Key lifts to track for PR teaser
 const KEY_LIFTS = ["Bench Press", "Squat", "Deadlift", "Overhead Press"];
@@ -57,16 +57,11 @@ export default function ProgressScreen() {
   // Streak
   const { currentStreak, longestStreak, loading: streakLoading, refreshStreak } = useStreak(userId);
   
-  // Weekly Summary (for insights)
-  const { data: weeklySummary, loading: summaryLoading, refresh: refreshSummary } = useWeeklySummary(userId);
-  
-  // Active Limitations (for pain/injury tracking)
-  const { 
-    limitations, 
-    loading: limitationsLoading, 
-    resolveLimitation,
-    refresh: refreshLimitations 
-  } = useActiveLimitations(userId);
+  // Strength Score
+  const { score: strengthScore, loading: scoreLoading, refreshScore } = useStrengthScore(userId);
+
+  // XP + Rank
+  const { data: xpData, refresh: refreshXP } = useUserXP(userId);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -123,7 +118,8 @@ export default function ProgressScreen() {
         const weight = set.weight_lbs || 0;
         
         if (!exerciseName || weight === 0 || !KEY_LIFTS.includes(exerciseName)) return;
-        
+        if (!sessionDate) return;
+
         const data = liftData.get(exerciseName)!;
         const setDate = parseISO(sessionDate);
         
@@ -159,8 +155,7 @@ export default function ProgressScreen() {
       setRecentPRs(allPRs.slice(0, 2));
       
       refreshStreak();
-      refreshSummary();
-      refreshLimitations();
+      refreshScore();
       
     } catch (error) {
       console.error("Error fetching progress:", error);
@@ -168,59 +163,16 @@ export default function ProgressScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshStreak, refreshSummary, refreshLimitations]);
+  }, [refreshStreak, refreshScore]);
   
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Generate coach insights from data
-  const coachInsights = useMemo(() => {
-    const insights: string[] = [];
-    
-    if (weeklySummary) {
-      // Volume trend insight
-      if (weeklySummary.volumeTrend > 15) {
-        insights.push(`Volume up ${weeklySummary.volumeTrend}% this week. Great progress - monitor recovery.`);
-      } else if (weeklySummary.volumeTrend < -15) {
-        insights.push(`Volume down ${Math.abs(weeklySummary.volumeTrend)}% this week. Consider if recovery was needed or time to push harder.`);
-      }
-      
-      // Workout frequency insight
-      if (weeklySummary.workoutsCompleted < weeklySummary.workoutsTarget && weeklySummary.workoutsTarget > 0) {
-        const remaining = weeklySummary.workoutsTarget - weeklySummary.workoutsCompleted;
-        insights.push(`${remaining} workout${remaining > 1 ? "s" : ""} remaining this week to hit your target.`);
-      } else if (weeklySummary.workoutsCompleted >= weeklySummary.workoutsTarget && weeklySummary.workoutsTarget > 0) {
-        insights.push("On track with your weekly workout goal.");
-      }
-      
-      // Muscle imbalance insight
-      const muscleVolumes = Object.entries(weeklySummary.muscleWeeklyVolume);
-      if (muscleVolumes.length > 0) {
-        const sorted = muscleVolumes.sort((a, b) => b[1] - a[1]);
-        const highest = sorted[0];
-        const lowest = sorted[sorted.length - 1];
-        
-        if (highest[1] > lowest[1] * 3 && sorted.length > 2) {
-          insights.push(`Consider adding more ${lowest[0].toLowerCase()} work for balanced development.`);
-        }
-      }
-    }
-    
-    // Streak insight
-    if (currentStreak >= 7) {
-      insights.push(`${currentStreak} day streak - consistency is key to progress.`);
-    }
-    
-    return insights.slice(0, 3); // Max 3 insights
-  }, [weeklySummary, currentStreak]);
-
-  if (loading || streakLoading || summaryLoading || limitationsLoading) {
+  if (loading || streakLoading || scoreLoading) {
     return (
       <View style={[styles.safe, { backgroundColor: colors.bg }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ProgressSkeleton />
       </View>
     );
   }
@@ -239,9 +191,40 @@ export default function ProgressScreen() {
           />
         }
       >
+        {/* Strength Score */}
+        {strengthScore && (
+          <Animated.View entering={FadeInDown.delay(0).duration(300)}>
+            <StrengthScoreCard
+              score={strengthScore}
+              onLiftPress={(liftName) => {
+                hapticPress();
+                router.push(`/progress/${encodeURIComponent(liftName)}`);
+              }}
+              onMilestonesPress={() => {
+                hapticPress();
+                router.push("/progress/milestones");
+              }}
+            />
+          </Animated.View>
+        )}
+
+        {/* Rank + XP Progress */}
+        {xpData && xpData.totalXP > 0 && (
+          <Animated.View entering={FadeInDown.delay(30).duration(300)}>
+            <RankBadge
+              variant="full"
+              rank={xpData.rank}
+              level={xpData.level}
+              totalXP={xpData.totalXP}
+              levelProgress={xpData.levelProgress}
+              xpToNextLevel={xpData.xpToNextLevel}
+            />
+          </Animated.View>
+        )}
+
         {/* Streak Hero */}
-        <Animated.View 
-          entering={FadeInDown.delay(0).duration(300)}
+        <Animated.View
+          entering={FadeInDown.delay(50).duration(300)}
           style={[styles.streakHero, { backgroundColor: colors.card }]}
         >
           <View style={styles.streakIconContainer}>
@@ -267,54 +250,16 @@ export default function ProgressScreen() {
           )}
         </Animated.View>
 
-        {/* Coach Insights Card */}
-        {coachInsights.length > 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(50).duration(300)}
-            style={[styles.card, { backgroundColor: colors.card }]}
-          >
-            <View style={styles.insightsHeader}>
-              <View style={[styles.insightsIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="bulb-outline" size={18} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
-                Insights
-              </Text>
-            </View>
-            <View style={styles.insightsList}>
-              {coachInsights.map((insight, index) => (
-                <View key={index} style={styles.insightRow}>
-                  <View style={[styles.insightDot, { backgroundColor: colors.primary }]} />
-                  <Text allowFontScaling={false} style={[styles.insightText, { color: colors.textSecondary }]}>
-                    {insight}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Workout Heatmap */}
-        <Animated.View 
-          entering={FadeInDown.delay(100).duration(300)}
-          style={[styles.card, { backgroundColor: colors.card }]}
-        >
-          <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
-            Activity
-          </Text>
-          <WeeklyHeatmap workoutDates={workoutDates} weeks={12} />
-        </Animated.View>
-
         {/* PR Teaser Card */}
         {recentPRs.length > 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(150).duration(300)}
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(300)}
             style={[styles.card, { backgroundColor: colors.card }]}
           >
             <Pressable
               onPress={() => {
                 hapticPress();
-                router.push("/progress/analytics");
+                router.push("/progress/prs");
               }}
             >
               <View style={styles.prTeaserHeader}>
@@ -372,92 +317,21 @@ export default function ProgressScreen() {
           </Animated.View>
         )}
 
-        {/* Active Modifications Card - Pain/Injury Tracking (Conditional) */}
-        {limitations.length > 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(200).duration(300)}
-            style={[styles.card, { backgroundColor: colors.card }]}
-          >
-            <View style={styles.limitationsHeader}>
-              <View style={[styles.limitationsIcon, { backgroundColor: colors.gold + "20" }]}>
-                <Ionicons name="shield-checkmark-outline" size={18} color={colors.gold} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
-                Active Modifications
-              </Text>
-            </View>
-            <Text allowFontScaling={false} style={[styles.limitationsSubtitle, { color: colors.textMuted }]}>
-              Your workouts are being adapted for these areas
-            </Text>
-            
-            <View style={styles.limitationsList}>
-              {limitations.map((limitation) => {
-                const daysSince = Math.floor(
-                  (new Date().getTime() - limitation.reportedAt.getTime()) / (1000 * 60 * 60 * 24)
-                );
-                const areaLabel = bodyRegions[limitation.area]?.label || limitation.area;
-                
-                return (
-                  <View 
-                    key={limitation.id} 
-                    style={[styles.limitationItem, { borderColor: colors.border }]}
-                  >
-                    <View style={styles.limitationInfo}>
-                      <Text allowFontScaling={false} style={[styles.limitationArea, { color: colors.text }]}>
-                        {areaLabel}
-                      </Text>
-                      <View style={styles.limitationMeta}>
-                        <Text allowFontScaling={false} style={[styles.limitationMetaText, { color: colors.textMuted }]}>
-                          {daysSince === 0 ? "Today" : daysSince === 1 ? "1 day" : `${daysSince} days`}
-                        </Text>
-                        <View style={[styles.limitationDot, { backgroundColor: colors.textMuted }]} />
-                        <Text allowFontScaling={false} style={[styles.limitationMetaText, { color: colors.textMuted }]}>
-                          {limitation.workoutsModified} workout{limitation.workoutsModified !== 1 ? "s" : ""} modified
-                        </Text>
-                      </View>
-                      {limitation.status === "monitoring" && (
-                        <View style={[styles.monitoringBadge, { backgroundColor: colors.success + "20" }]}>
-                          <Text allowFontScaling={false} style={[styles.monitoringText, { color: colors.success }]}>
-                            Improving
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Pressable
-                      onPress={() => {
-                        hapticPress();
-                        resolveLimitation(limitation.id);
-                      }}
-                      style={({ pressed }) => [
-                        styles.resolveButton,
-                        { backgroundColor: colors.success + "15" },
-                        pressed && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
-                      <Text allowFontScaling={false} style={[styles.resolveText, { color: colors.success }]}>
-                        Resolved
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-            
-            {/* Medical Disclaimer */}
-            <View style={[styles.disclaimer, { backgroundColor: colors.bg }]}>
-              <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
-              <Text allowFontScaling={false} style={[styles.disclaimerText, { color: colors.textMuted }]}>
-                If pain persists beyond 2 weeks, consult a healthcare professional
-              </Text>
-            </View>
-          </Animated.View>
-        )}
+        {/* Workout Heatmap */}
+        <Animated.View
+          entering={FadeInDown.delay(150).duration(300)}
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
+          <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
+            Activity
+          </Text>
+          <WeeklyHeatmap workoutDates={workoutDates} weeks={12} />
+        </Animated.View>
 
-        {/* View Detailed Analytics Button */}
-        <Animated.View 
+        {/* Analytics Link */}
+        <Animated.View
           entering={FadeInDown.delay(250).duration(300)}
-          style={styles.analyticsButtonContainer}
+          style={styles.analyticsLinkContainer}
         >
           <Pressable
             onPress={() => {
@@ -465,23 +339,21 @@ export default function ProgressScreen() {
               router.push("/progress/analytics");
             }}
             style={({ pressed }) => [
-              styles.analyticsButton, 
-              { backgroundColor: colors.card },
-              pressed && { opacity: 0.9 },
+              styles.analyticsLink,
+              pressed && { opacity: 0.6 },
             ]}
           >
-            <Ionicons name="analytics-outline" size={20} color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.analyticsButtonText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.analyticsLinkText, { color: colors.textMuted }]}>
               View Detailed Analytics
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
           </Pressable>
         </Animated.View>
 
         {/* Empty State */}
         {workoutDates.length === 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(150).duration(300)}
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(300)}
             style={[styles.emptyCard, { backgroundColor: colors.card }]}
           >
             <View style={[styles.emptyIcon, { backgroundColor: colors.primaryMuted }]}>
@@ -577,41 +449,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   
-  // Coach Insights
-  insightsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  insightsIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  insightsList: {
-    gap: spacing.md,
-  },
-  insightRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  insightDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 6,
-  },
-  insightText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 20,
-  },
-  
   // PR Teaser
   prTeaserHeader: {
     flexDirection: "row",
@@ -682,21 +519,22 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   
-  // Analytics Button
-  analyticsButtonContainer: {
+  // Subtle Analytics Link
+  analyticsLinkContainer: {
+    alignItems: "center",
+    marginTop: spacing.sm,
     marginBottom: spacing.base,
   },
-  analyticsButton: {
+  analyticsLink: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.base,
-    borderRadius: 16,
-    gap: spacing.md,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  analyticsButtonText: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
+  analyticsLinkText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
   },
   
   // Active Modifications / Limitations

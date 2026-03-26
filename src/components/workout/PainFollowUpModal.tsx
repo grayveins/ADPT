@@ -31,13 +31,13 @@ type PainFollowUpModalProps = {
   onSkip: () => void;
 };
 
-const FEEDBACK_OPTIONS: Array<{
+const FEEDBACK_OPTIONS: {
   key: PainFeedback;
   label: string;
   description: string;
   icon: string;
   color: "success" | "text" | "intensity";
-}> = [
+}[] = [
   {
     key: "better",
     label: "Better",

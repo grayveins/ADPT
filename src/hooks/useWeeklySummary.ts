@@ -8,7 +8,7 @@
  * - Coach insights based on data
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { startOfWeek, endOfWeek, subWeeks, parseISO, differenceInMinutes } from "date-fns";
 import { supabase } from "@/lib/supabase";
 

@@ -149,19 +149,19 @@ export function createAction(type: ActionType): Action {
       return {
         type,
         label: 'Start Workout',
-        route: '/(app)/workout/active',
+        route: '/(workout)/active',
       };
     case 'start_first_workout':
       return {
         type,
         label: 'Start First Workout',
-        route: '/(app)/workout/active',
+        route: '/(workout)/active',
       };
     case 'view_session':
       return {
         type,
         label: 'View Session',
-        route: '/(app)/progress',
+        route: '/(app)/(tabs)/progress',
       };
     case 'recovery_tips':
       return {
@@ -172,7 +172,7 @@ export function createAction(type: ActionType): Action {
       return {
         type,
         label: 'Go Lighter Today',
-        route: '/(app)/workout/active',
+        route: '/(workout)/active',
         params: { adjustIntensity: 'lower' },
       };
     case 'pain_better':

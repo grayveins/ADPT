@@ -104,6 +104,10 @@ function CustomDrawerContent(props: any) {
     try {
       await supabase.auth.signOut();
       closeDrawer();
+      // Dismiss all stacked routes first, then replace to prevent swipe-back
+      while (router.canGoBack()) {
+        router.back();
+      }
       router.replace("/sign-in");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -143,7 +147,7 @@ function CustomDrawerContent(props: any) {
       </View>
 
       {/* Bottom Section */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { borderTopColor: colors.border }]}>
         <MenuItem icon="log-out-outline" label="Sign Out" onPress={onSignOut} color={colors.error} />
         
         {/* App Version */}
@@ -181,12 +185,6 @@ export default function AuthenticatedLayout() {
         />
         <Drawer.Screen
           name="progress"
-          options={{
-            drawerItemStyle: { display: "none" },
-          }}
-        />
-        <Drawer.Screen
-          name="workout"
           options={{
             drawerItemStyle: { display: "none" },
           }}
@@ -255,7 +253,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingBottom: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#333",
     paddingTop: spacing.base,
   },
   versionText: {

@@ -6,7 +6,6 @@
 import React, { useCallback } from "react";
 import {
   Pressable,
-  StyleSheet,
   type ViewStyle,
   type StyleProp,
 } from "react-native";
@@ -132,5 +131,3 @@ export function IconButton({
     </AnimatedPressable>
   );
 }
-
-const styles = StyleSheet.create({});

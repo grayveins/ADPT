@@ -7,11 +7,10 @@ import { useCallback } from "react";
 import {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { SPRING_CONFIG, SCALE, OPACITY } from "../constants";
+import { SCALE, OPACITY } from "../constants";
 import { hapticPress } from "../feedback/haptics";
 
 type UseSpringPressOptions = {
@@ -40,27 +39,31 @@ export const useSpringPress = (options: UseSpringPressOptions = {}) => {
   const handlePressIn = useCallback(() => {
     "worklet";
     pressed.value = true;
-    scaleValue.value = withSpring(scale, SPRING_CONFIG.snappy);
-    opacityValue.value = withTiming(OPACITY.pressed, { duration: 100 });
-    
+    // Crisp press-down (timing, not spring) — Hevy/Trainerize feel
+    scaleValue.value = withTiming(scale, { duration: 80 });
+    opacityValue.value = withTiming(OPACITY.pressed, { duration: 80 });
+
     if (haptic) {
       runOnJS(hapticPress)();
     }
-    
+
     if (onPressIn) {
       runOnJS(onPressIn)();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale, haptic, onPressIn]);
 
   const handlePressOut = useCallback(() => {
     "worklet";
     pressed.value = false;
-    scaleValue.value = withSpring(1, SPRING_CONFIG.snappy);
+    // Quick release — slightly faster than press-down
+    scaleValue.value = withTiming(1, { duration: 120 });
     opacityValue.value = withTiming(1, { duration: 100 });
-    
+
     if (onPressOut) {
       runOnJS(onPressOut)();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onPressOut]);
 
   const handlePress = useCallback(() => {

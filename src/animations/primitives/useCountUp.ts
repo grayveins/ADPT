@@ -40,16 +40,19 @@ export const useCountUp = (options: UseCountUpOptions) => {
       duration,
       easing: Easing.out(Easing.ease),
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, duration]);
 
   const reset = useCallback(() => {
     value.value = from;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from]);
 
   useEffect(() => {
     if (autoPlay) {
       animate();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay, to]);
 
   return {
@@ -77,6 +80,7 @@ export const useRollingNumber = (options: {
     // Animate offset for rolling effect
     offset.value = withTiming(0, { duration });
     currentValue.value = targetValue;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetValue]);
 
   return {

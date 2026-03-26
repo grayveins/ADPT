@@ -5,7 +5,6 @@
  */
 
 import React, { createContext, useContext, useMemo } from "react";
-import { useColorScheme } from "react-native";
 import {
   lightColors,
   darkColors,
@@ -59,8 +58,6 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children, forcedColorScheme }: ThemeProviderProps) {
   // Default to dark mode for gym-readable, professional appearance
   // Later we can add a settings toggle to switch to light mode
-  const systemScheme = useColorScheme();
-  
   // Use forced scheme if provided, otherwise default to dark
   // Change this to `systemScheme ?? "dark"` to respect system preference
   const colorScheme: ColorScheme = forcedColorScheme ?? "dark";

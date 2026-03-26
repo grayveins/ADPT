@@ -1,17 +1,20 @@
 /**
  * RestTimer
  * Circular countdown timer with smooth animation
+ * Color shifts green → yellow → red as time runs down
  */
 
-import React, { useEffect, useState, useCallback } from "react";
-import { StyleSheet, View, Text, Pressable } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedProps,
   useAnimatedStyle,
+  useDerivedValue,
   withTiming,
   withRepeat,
   withSequence,
+  interpolateColor,
   Easing,
   cancelAnimation,
 } from "react-native-reanimated";
@@ -19,9 +22,13 @@ import Svg, { Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { haptic } from "@/src/animations/feedback/haptics";
-import { TIMING } from "@/src/animations/constants";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+// Color stops for the timer gradient
+const COLOR_GREEN = "#4CAF50";
+const COLOR_YELLOW = "#FFC107";
+const COLOR_RED = "#FF6B35";
 
 type RestTimerProps = {
   duration: number; // seconds
@@ -34,7 +41,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
   onComplete,
   onSkip,
 }) => {
-  const { colors, typography } = useTheme();
+  const { colors } = useTheme();
   const [timeLeft, setTimeLeft] = useState(duration);
   const [isRunning, setIsRunning] = useState(true);
 
@@ -46,6 +53,27 @@ export const RestTimer: React.FC<RestTimerProps> = ({
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+
+  // Derive the animated color from progress (0 → 1)
+  // 0.0–0.5: green → yellow, 0.5–0.8: yellow → red, 0.8–1.0: stays red
+  const timerColor = useDerivedValue(() => {
+    if (progress.value <= 0.5) {
+      // Green → Yellow (100%–50% remaining)
+      return interpolateColor(
+        progress.value,
+        [0, 0.5],
+        [COLOR_GREEN, COLOR_YELLOW]
+      );
+    }
+    // Yellow → Red (50%–20% remaining)
+    return interpolateColor(
+      progress.value,
+      [0.5, 0.8],
+      [COLOR_YELLOW, COLOR_RED],
+      "RGB",
+      { gamma: 1 }
+    );
+  });
 
   // Start countdown
   useEffect(() => {
@@ -59,7 +87,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
           onComplete();
           return 0;
         }
-        
+
         // Haptic at 10 seconds
         if (prev === 11) {
           // Start pulse animation
@@ -73,12 +101,12 @@ export const RestTimer: React.FC<RestTimerProps> = ({
           );
           pulseOpacity.value = withTiming(0.3, { duration: 300 });
         }
-        
+
         // Haptic at each second under 5
         if (prev <= 5) {
           haptic("light");
         }
-        
+
         return prev - 1;
       });
     }, 1000);
@@ -94,6 +122,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
       cancelAnimation(progress);
       cancelAnimation(pulseScale);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, duration]);
 
   const handleSkip = () => {
@@ -109,6 +138,7 @@ export const RestTimer: React.FC<RestTimerProps> = ({
 
   const animatedCircleProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - progress.value),
+    stroke: timerColor.value,
   }));
 
   const containerStyle = useAnimatedStyle(() => ({
@@ -120,13 +150,15 @@ export const RestTimer: React.FC<RestTimerProps> = ({
     transform: [{ scale: 1.2 }],
   }));
 
+  const timeTextStyle = useAnimatedStyle(() => ({
+    color: timerColor.value,
+  }));
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  const isUrgent = timeLeft <= 10;
 
   return (
     <View style={styles.container}>
@@ -149,7 +181,6 @@ export const RestTimer: React.FC<RestTimerProps> = ({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={isUrgent ? colors.intensity : colors.primary}
             strokeWidth={strokeWidth}
             fill="none"
             strokeLinecap="round"
@@ -162,27 +193,23 @@ export const RestTimer: React.FC<RestTimerProps> = ({
 
         {/* Center content */}
         <View style={styles.centerContent}>
-          <Text
+          <Animated.Text
             allowFontScaling={false}
-            style={[
-              styles.timeText, 
-              { color: colors.text },
-              isUrgent && { color: colors.intensity }
-            ]}
+            style={[styles.timeText, timeTextStyle]}
           >
             {formatTime(timeLeft)}
-          </Text>
-          <Text allowFontScaling={false} style={[styles.label, { color: colors.muted }]}>
+          </Animated.Text>
+          <Animated.Text allowFontScaling={false} style={[styles.label, { color: colors.muted }]}>
             {timeLeft === 0 ? "Let's go!" : "Rest"}
-          </Text>
+          </Animated.Text>
         </View>
       </Animated.View>
 
       {/* Skip button */}
       <Pressable style={[styles.skipButton, { backgroundColor: colors.card }]} onPress={handleSkip}>
-        <Text allowFontScaling={false} style={[styles.skipText, { color: colors.muted }]}>
+        <Animated.Text allowFontScaling={false} style={[styles.skipText, { color: colors.muted }]}>
           Skip Rest
-        </Text>
+        </Animated.Text>
         <Ionicons name="play-forward" size={16} color={colors.muted} />
       </Pressable>
     </View>

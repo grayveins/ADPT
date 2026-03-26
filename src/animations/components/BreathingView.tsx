@@ -59,6 +59,7 @@ export const BreathingView: React.FC<BreathingViewProps> = ({
     return () => {
       cancelAnimation(scale);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, minScale, maxScale, duration]);
 
   const animatedStyle = useAnimatedStyle(() => ({

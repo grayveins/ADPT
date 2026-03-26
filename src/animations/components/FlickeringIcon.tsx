@@ -69,6 +69,7 @@ export const FlickeringIcon: React.FC<FlickeringIconProps> = ({
       cancelAnimation(scale);
       cancelAnimation(opacity);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
   const animatedStyle = useAnimatedStyle(() => ({

@@ -4,8 +4,8 @@
  * Creates excitement and primes user for success
  */
 
-import React, { useEffect, useMemo } from "react";
-import { StyleSheet, Text, View, Pressable, Dimensions } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, View, Pressable, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,8 +23,10 @@ import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import { theme } from "@/src/theme";
 import { useOnboarding } from "@/src/context/OnboardingContext";
-import { hapticPress, hapticCelebration } from "@/src/animations/feedback/haptics";
+import { hapticCelebration } from "@/src/animations/feedback/haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "@/lib/supabase";
+import { defaultUnits } from "@/lib/units";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -51,7 +53,7 @@ function CelebrationParticle({
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(0.8, { duration: 500 }));
     scale.value = withDelay(delay, withSpring(1, { damping: 8 }));
-    
+
     translateY.value = withDelay(
       delay + 200,
       withRepeat(
@@ -63,6 +65,7 @@ function CelebrationParticle({
         true
       )
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const style = useAnimatedStyle(() => ({
@@ -83,7 +86,8 @@ function CelebrationParticle({
 
 export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
   const { colors } = useTheme();
-  const { form } = useOnboarding();
+  const { form, resetForm } = useOnboarding();
+  const [saving, setSaving] = useState(false);
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Animation values
@@ -114,6 +118,7 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
     // Header animation
     headerOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
     headerY.value = withDelay(300, withSpring(0, { damping: 20 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const trophyStyle = useAnimatedStyle(() => ({
@@ -133,12 +138,73 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
   }));
 
   const handleStart = async () => {
+    if (saving) return;
+    setSaving(true);
     hapticCelebration();
-    
-    // Mark onboarding as complete
+
+    // Save profile to Supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setSaving(false);
+      router.replace("/sign-in");
+      return;
+    }
+
+    const onboardingData = {
+      planSummary: form.planSummary ?? "",
+      attribution: form.attribution ?? "",
+      appleHealthConnected: form.appleHealthConnected ?? false,
+      planChoice: form.planChoice ?? "free",
+      goal: form.goal ?? null,
+      workoutsPerWeek: form.workoutsPerWeek ?? null,
+      splitPreference: form.splitPreference ?? null,
+      goalWhy: form.goalWhy ?? null,
+      limitations: form.limitations ?? [],
+      limitationsOtherText: form.limitationsOtherText ?? "",
+      trainingStyle: form.trainingStyle ?? null,
+      experienceLevel: form.experienceLevel ?? null,
+      equipment: form.equipment ?? null,
+      activityLevel: form.activityLevel ?? null,
+      workoutDuration: form.workoutDuration ?? null,
+      goalTimeline: form.goalTimeline ?? null,
+      sex: form.sex ?? null,
+      ageRange: form.ageRange ?? null,
+      preferredDays: form.preferredDays ?? [],
+      bestLifts: form.bestLifts ?? null,
+      gymType: form.gymType ?? null,
+      availableEquipment: form.availableEquipment ?? [],
+    };
+
+    const { error } = await supabase.from("profiles").upsert({
+      id: user.id,
+      first_name: form.firstName ?? null,
+      sex: form.sex ?? null,
+      birth_year: form.birthYear ?? null,
+      height_cm: form.heightCm ?? null,
+      weight_kg: form.weightKg ?? null,
+      goal: form.goal ?? null,
+      activity_level: form.activityLevel ?? null,
+      training_style: form.trainingStyle ?? null,
+      units: form.units ?? defaultUnits,
+      onboarding_data: onboardingData,
+      onboarding_complete: true,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      Alert.alert("Error", "We couldn't save your profile. Please try again.");
+      setSaving(false);
+      return;
+    }
+
+    // Mark onboarding as complete locally
     await AsyncStorage.setItem("onboarding_complete", "true");
-    
-    // Navigate to main app
+
+    resetForm();
+    setSaving(false);
     router.replace("/(app)/(tabs)");
   };
 
@@ -186,7 +252,7 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
       {/* Header */}
       <Animated.View style={[styles.header, headerStyle]}>
         <Text allowFontScaling={false} style={styles.title}>
-          You're all set!
+          You&apos;re all set!
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
           {getMotivationalMessage()}
@@ -237,9 +303,9 @@ export default function GetStartedScreen({ onNext }: GetStartedScreenProps) {
         >
           <View style={styles.ctaGradient}>
             <Text allowFontScaling={false} style={styles.ctaText}>
-              Start Training
+              {saving ? "Setting up..." : "Start Training"}
             </Text>
-            <Ionicons name="barbell" size={22} color={colors.textOnPrimary} />
+            {!saving && <Ionicons name="barbell" size={22} color={colors.textOnPrimary} />}
           </View>
         </Pressable>
 

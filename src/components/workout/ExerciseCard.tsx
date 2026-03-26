@@ -3,7 +3,7 @@
  * Exercise with sets, video thumbnail, and completion state
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { StyleSheet, View, Text, Pressable, Image } from "react-native";
 import Animated, {
   useAnimatedStyle,

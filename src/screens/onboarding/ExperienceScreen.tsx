@@ -73,7 +73,7 @@ export default function ExperienceScreen({ onNext }: ExperienceScreenProps) {
     >
       <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
         <Text allowFontScaling={false} style={styles.title}>
-          What's your training experience?
+          What&apos;s your training experience?
         </Text>
         <Text allowFontScaling={false} style={styles.subtitle}>
           This helps us match the complexity of your workouts.

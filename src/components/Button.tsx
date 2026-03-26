@@ -16,7 +16,7 @@ export default function Button({
   style,
   disabled,
 }: ButtonProps) {
-  const { colors, radius, typography } = useTheme();
+  const { colors, radius } = useTheme();
 
   if (variant === "link") {
     return (

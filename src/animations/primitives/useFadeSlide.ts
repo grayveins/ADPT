@@ -73,6 +73,7 @@ export const useFadeSlide = (options: UseFadeSlideOptions = {}) => {
     if (autoPlay) {
       animate();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay]);
 
   const animatedStyle = useAnimatedStyle(() => ({

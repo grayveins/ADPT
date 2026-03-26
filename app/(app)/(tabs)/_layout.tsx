@@ -8,16 +8,57 @@
  * - Chat: Custom minimal header (manages own)
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, StyleSheet, View, Text } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { layout, spacing } from "@/src/theme";
-import { useCoachUnread } from "@/src/hooks/useCoachUnread";
+// Coach chat removed — no top fitness app uses AI chat (Fitbod, Gravl, MacroFactor all skip it)
 
-type IconName = keyof typeof Ionicons.glyphMap;
+/** Tab icon with spring scale on focus change */
+function AnimatedTabIcon({
+  name,
+  outlineName,
+  size,
+  color,
+  focused,
+  children,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  outlineName: keyof typeof Ionicons.glyphMap;
+  size: number;
+  color: string;
+  focused: boolean;
+  children?: React.ReactNode;
+}) {
+  const scale = useSharedValue(focused ? 1.15 : 1);
+
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.15 : 1, {
+      damping: 12,
+      stiffness: 200,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Ionicons name={focused ? name : outlineName} size={size} color={color} />
+      {children}
+    </Animated.View>
+  );
+}
 
 // Simple centered header for Workout/Progress screens
 function SimpleHeader({ title }: { title: string }) {
@@ -47,8 +88,6 @@ function SimpleHeader({ title }: { title: string }) {
 export default function TabLayout() {
   const { colors, typography } = useTheme();
   const insets = useSafeAreaInsets();
-  const { hasUnread } = useCoachUnread();
-  
   // Tab bar configuration - use dynamic safe area
   const tabBarHeight = Platform.OS === "ios" ? 49 + insets.bottom : 60;
   const iconSize = 24;
@@ -79,10 +118,12 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
+            <AnimatedTabIcon
+              name="home"
+              outlineName="home-outline"
               size={iconSize}
               color={color}
+              focused={focused}
             />
           ),
         }}
@@ -95,10 +136,12 @@ export default function TabLayout() {
           headerShown: true,
           header: () => <SimpleHeader title="Workout" />,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "barbell" : "barbell-outline"}
+            <AnimatedTabIcon
+              name="barbell"
+              outlineName="barbell-outline"
               size={iconSize}
               color={color}
+              focused={focused}
             />
           ),
         }}
@@ -111,40 +154,26 @@ export default function TabLayout() {
           headerShown: true,
           header: () => <SimpleHeader title="Progress" />,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "stats-chart" : "stats-chart-outline"}
+            <AnimatedTabIcon
+              name="stats-chart"
+              outlineName="stats-chart-outline"
               size={iconSize}
               color={color}
+              focused={focused}
             />
           ),
         }}
       />
 
+      {/* Chat tab hidden — replaced by Programs. File kept for backwards compat. */}
       <Tabs.Screen
         name="chat"
-        options={{
-          title: "Coach",
-          tabBarIcon: ({ color, focused }) => (
-            <View>
-              <Ionicons
-                name={focused ? "chatbubble" : "chatbubble-outline"}
-                size={iconSize}
-                color={color}
-              />
-              {hasUnread && (
-                <View style={[styles.unreadBadge, { backgroundColor: colors.error }]} />
-              )}
-            </View>
-          ),
-        }}
+        options={{ href: null }}
       />
 
-      {/* Hide social tab from navigation but keep file for now */}
       <Tabs.Screen
         name="social"
-        options={{
-          href: null, // This hides it from the tab bar
-        }}
+        options={{ href: null }}
       />
     </Tabs>
   );

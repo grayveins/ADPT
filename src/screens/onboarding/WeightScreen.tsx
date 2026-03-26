@@ -52,8 +52,8 @@ export default function WeightScreen({ onNext }: WeightScreenProps) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text allowFontScaling={false} style={styles.title}>What's your current weight?</Text>
-        <Text allowFontScaling={false} style={styles.subtitle}>Estimate if you're unsure.</Text>
+        <Text allowFontScaling={false} style={styles.title}>What&apos;s your current weight?</Text>
+        <Text allowFontScaling={false} style={styles.subtitle}>Estimate if you&apos;re unsure.</Text>
       </View>
 
       <View style={styles.valueRow}>
