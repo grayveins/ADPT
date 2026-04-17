@@ -340,8 +340,6 @@ export default function HomeScreen() {
       <TabHeader
         title={greetingTitle}
         streakCount={currentStreak}
-        rank={xpData?.rank ?? undefined}
-        level={xpData?.level}
         userName={profileName}
       />
 

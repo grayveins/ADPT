@@ -648,6 +648,112 @@ export interface Database {
           current_period_end?: string | null;
         };
       };
+      client_macros: {
+        Row: {
+          id: string;
+          client_id: string;
+          coach_id: string;
+          calories: number | null;
+          protein_g: number | null;
+          carbs_g: number | null;
+          fat_g: number | null;
+          effective_from: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          coach_id: string;
+          calories?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          effective_from?: string;
+          notes?: string | null;
+        };
+        Update: {
+          calories?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          notes?: string | null;
+        };
+      };
+      meal_plans: {
+        Row: {
+          id: string;
+          client_id: string;
+          coach_id: string;
+          title: string;
+          storage_path: string;
+          file_size_bytes: number | null;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          coach_id: string;
+          title: string;
+          storage_path: string;
+          file_size_bytes?: number | null;
+        };
+        Update: {
+          title?: string;
+          storage_path?: string;
+          file_size_bytes?: number | null;
+        };
+      };
+      sessions: {
+        Row: {
+          id: string;
+          client_id: string;
+          coach_id: string;
+          scheduled_at: string;
+          duration_minutes: number;
+          location: string | null;
+          notes: string | null;
+          status: "scheduled" | "completed" | "cancelled" | "no_show";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          coach_id: string;
+          scheduled_at: string;
+          duration_minutes?: number;
+          location?: string | null;
+          notes?: string | null;
+          status?: "scheduled" | "completed" | "cancelled" | "no_show";
+        };
+        Update: {
+          scheduled_at?: string;
+          duration_minutes?: number;
+          location?: string | null;
+          notes?: string | null;
+          status?: "scheduled" | "completed" | "cancelled" | "no_show";
+        };
+      };
+      coach_notes: {
+        Row: {
+          id: string;
+          coach_id: string;
+          client_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          coach_id: string;
+          client_id: string;
+          body: string;
+        };
+        Update: {
+          body?: string;
+        };
+      };
     };
     Views: {
       user_personal_records: {
