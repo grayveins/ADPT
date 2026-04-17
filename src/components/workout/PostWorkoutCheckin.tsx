@@ -20,14 +20,9 @@ import {
 } from "react-native";
 import Animated, { FadeInDown, FadeIn, FadeInUp } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import type ViewShotType from "react-native-view-shot";
-
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius, components } from "@/src/theme";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
-import { CelebrationConfetti } from "@/src/animations/components/Confetti";
-import { WorkoutShareCard } from "@/src/components/share/WorkoutShareCard";
-import { captureAndShare } from "@/src/utils/shareCard";
 
 // Feeling options
 type PostWorkoutFeeling = "easy" | "good" | "hard" | "pain";
@@ -87,22 +82,7 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
   const [feeling, setFeeling] = useState<PostWorkoutFeeling | null>(null);
   const [painLocation, setPainLocation] = useState<PainLocation | null>(null);
   const autoDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shareCardRef = useRef<ViewShotType>(null);
-  const [isSharing, setIsSharing] = useState(false);
-
-  const handleShare = useCallback(async () => {
-    setIsSharing(true);
-    // Cancel auto-dismiss while sharing
-    if (autoDismissRef.current) {
-      clearTimeout(autoDismissRef.current);
-      autoDismissRef.current = null;
-    }
-    try {
-      await captureAndShare(shareCardRef, "adpt-workout");
-    } finally {
-      setIsSharing(false);
-    }
-  }, []);
+  const [isSharing] = useState(false);
 
   // Auto-dismiss after confirmation screen
   useEffect(() => {
@@ -367,10 +347,6 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
             /* Step 3: Confirmation (auto-dismisses) */
             <Animated.View entering={FadeIn.duration(200)} style={styles.confirmationContainer}>
               {/* Confetti for non-pain feedback */}
-              <CelebrationConfetti
-                active={showConfetti}
-                onComplete={() => setShowConfetti(false)}
-              />
               <Animated.View
                 entering={FadeInUp.delay(100).duration(300)}
                 style={[styles.confirmationIcon, { backgroundColor: feeling === "pain" ? colors.errorMuted : colors.successMuted }]}
@@ -400,55 +376,7 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
                   : "We're adjusting your next workouts based on your feedback"}
               </Animated.Text>
 
-              {/* Share Workout button */}
-              {shareData && feeling !== "pain" && (
-                <Animated.View entering={FadeInUp.delay(400).duration(300)} style={styles.shareButtonRow}>
-                  <Pressable
-                    onPress={handleShare}
-                    disabled={isSharing}
-                    style={({ pressed }) => [
-                      styles.shareButton,
-                      { borderColor: colors.primary },
-                      pressed && { backgroundColor: colors.primaryMuted },
-                    ]}
-                  >
-                    <Ionicons
-                      name="share-outline"
-                      size={18}
-                      color={colors.primary}
-                    />
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.shareButtonText, { color: colors.primary }]}
-                    >
-                      {isSharing ? "Preparing..." : "Share Workout"}
-                    </Text>
-                  </Pressable>
-                </Animated.View>
-              )}
             </Animated.View>
-          )}
-
-          {/* Off-screen share card for capture (absolutely positioned, outside visible area) */}
-          {shareData && step === 3 && (
-            <View style={styles.offScreen}>
-              <WorkoutShareCard
-                ref={shareCardRef}
-                workoutName={workoutTitle}
-                date={new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-                durationMinutes={duration ? Math.floor(duration / 60) : 0}
-                totalVolumeLbs={shareData.totalVolumeLbs ?? 0}
-                exerciseCount={shareData.exerciseCount ?? 0}
-                setCount={shareData.setCount ?? 0}
-                prsHit={shareData.prsHit}
-                strengthScore={shareData.strengthScore}
-                format="story"
-              />
-            </View>
           )}
         </Animated.View>
       </View>
