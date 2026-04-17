@@ -22,7 +22,7 @@ export { AddExerciseButton } from "./AddExerciseButton";
 export { InlineRestTimer } from "./InlineRestTimer";
 export { RPESlider } from "./RPESlider";
 export { CoachRationale } from "./CoachRationale";
-export { ExerciseRankBadge } from "./ExerciseRankBadge";
+// ExerciseRankBadge removed — XP/rank system cut for v1
 export { ExerciseNotes } from "./ExerciseNotes";
 export { SupersetGroup } from "./SupersetGroup";
 export { SaveAsTemplateSheet } from "./SaveAsTemplateSheet";

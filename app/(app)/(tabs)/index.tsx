@@ -41,23 +41,18 @@ import {
 } from "@/lib/workoutPlan";
 
 // Components
-import { CalWeekRow } from "@/src/components/dashboard/CalWeekRow";
 import { TabHeader } from "@/src/components/layout";
 import { ToastContainer } from "@/src/animations/celebrations";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { useStreak } from "@/src/hooks/useStreak";
 import { layout, spacing, shadows } from "@/src/theme";
-// PreWorkoutCheckin removed — go straight to workout
 import { ErrorState } from "@/src/components/ErrorState";
 import { HomeSkeleton } from "@/src/animations/components";
 import { useWorkoutLimit } from "@/src/hooks/useWorkoutLimit";
-import UpgradePrompt from "@/src/components/UpgradePrompt";
-import TrialBanner from "@/src/components/TrialBanner";
 import { useStrengthScore } from "@/src/hooks/useStrengthScore";
 import { useUserXP } from "@/src/hooks/useUserXP";
-import StrengthScoreRing from "@/src/components/StrengthScoreRing";
-import { getNextRank } from "@/lib/ranks";
-import { MesocyclePlan } from "@/src/components/progress";
+import UpgradePrompt from "@/src/components/UpgradePrompt";
+import TrialBanner from "@/src/components/TrialBanner";
 import { generateSmartWorkout } from "@/lib/workout/generateSmart";
 
 type SessionRow = {
@@ -400,7 +395,7 @@ export default function HomeScreen() {
           entering={FadeInDown.delay(50).duration(400)}
           style={styles.weekSection}
         >
-          <CalWeekRow days={weekDays} />
+          {/* Week days */}
           <View style={styles.weekStats}>
             <Text allowFontScaling={false} style={[styles.weekStatsText, { color: colors.textMuted }]}>
               {completed} of {target} workouts this week
@@ -419,44 +414,7 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Strength Score Card */}
-        {!scoreLoading && strengthScore && strengthScore.totalScore > 0 && (
-          <Animated.View
-            entering={FadeInDown.delay(75).duration(400)}
-            style={styles.scoreSection}
-          >
-            <Pressable
-              onPress={() => router.push("/(app)/progress/analytics")}
-              style={[styles.scoreCard, { backgroundColor: colors.card }]}
-            >
-              <StrengthScoreRing score={strengthScore.totalScore} level={xpData?.level ?? 1} size={108} strokeWidth={6} hideNextRank />
-              <View style={styles.scoreInfo}>
-                <Text allowFontScaling={false} style={[styles.scoreTitle, { color: colors.textMuted }]}>
-                  STRENGTH SCORE
-                </Text>
-                {xpData && getNextRank(xpData.level) && (
-                  <Text allowFontScaling={false} style={[styles.scoreNext, { color: colors.textMuted }]}>
-                    Level {getNextRank(xpData.level)!.minLevel - xpData.level} to{" "}
-                    <Text style={{ color: getNextRank(xpData.level)!.color }}>
-                      {getNextRank(xpData.level)!.name}
-                    </Text>
-                  </Text>
-                )}
-                <View style={styles.scoreViewMore}>
-                  <Text allowFontScaling={false} style={[styles.scoreViewText, { color: colors.primary }]}>
-                    View Details
-                  </Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-                </View>
-              </View>
-            </Pressable>
-          </Animated.View>
-        )}
-
-        {/* Mesocycle Phase (compact) */}
-        <Animated.View entering={FadeInDown.delay(90).duration(400)} style={{ marginBottom: layout.sectionGap }}>
-          <MesocyclePlan currentWeek={1} phase="accumulation" compact />
-        </Animated.View>
+        {/* Strength score and mesocycle removed for minimal prototype */}
 
         {/* TODAY'S WORKOUT - Hero Card (80% focus) */}
         <Animated.View
