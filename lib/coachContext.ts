@@ -198,7 +198,7 @@ export async function buildCoachContext(userId: string): Promise<CoachContext> {
   try {
     // Call the database function that aggregates all context
     const { data: dbContext, error: contextError } = await supabase
-      .rpc('get_coach_context', { p_user_id: userId });
+      .rpc('get_coach_context_fast', { p_user_id: userId });
 
     if (contextError) {
       console.error('Error fetching coach context:', contextError);
