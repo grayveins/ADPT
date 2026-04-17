@@ -30,7 +30,6 @@ import {
   ExerciseSwapModal,
   ExerciseNotes,
   SaveAsTemplateSheet,
-  WorkoutShareCard,
   PostWorkoutCheckin,
   CoachRationale,
 } from "@/src/components/workout";
@@ -110,7 +109,7 @@ function ActiveWorkoutInner() {
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapExerciseId, setSwapExerciseId] = useState<string | null>(null);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [showShareCard, setShowShareCard] = useState(false);
+  const [_showShareCard, _setShowShareCard] = useState(false);
   const [showFirstWorkout, setShowFirstWorkout] = useState(false);
   const [showStreakMilestone, setShowStreakMilestone] = useState(false);
   const [streakDays, setStreakDays] = useState(0);
@@ -413,7 +412,7 @@ function ActiveWorkoutInner() {
           workoutsThisWeek: (weeklySummary?.workoutsCompleted ?? 0) + 1,
         }}
         onContinue={handleFinishContinue}
-        onShare={() => setShowShareCard(true)}
+        onShare={() => {}}
       />
 
       {/* PR Celebration */}
@@ -515,18 +514,7 @@ function ActiveWorkoutInner() {
         }}
       />
 
-      {/* Visual Share Card */}
-      <WorkoutShareCard
-        visible={showShareCard}
-        onClose={() => setShowShareCard(false)}
-        workoutName={state.title}
-        date={format(new Date(), "MMM d, yyyy")}
-        duration={`${Math.floor(state.elapsedSeconds / 60)}:${(state.elapsedSeconds % 60).toString().padStart(2, "0")}`}
-        exercises={state.exercises.length}
-        sets={progress.completedSets}
-        totalVolume={workoutStats.totalVolume || undefined}
-        prs={workoutStats.prs.length > 0 ? workoutStats.prs : undefined}
-      />
+      {/* Share card removed — react-native-view-shot not installed */}
 
       <ToastContainer />
     </SafeAreaView>
