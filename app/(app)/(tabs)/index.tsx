@@ -868,51 +868,84 @@ const styles = StyleSheet.create({
   weekStripDateBold: { fontWeight: "700" },
 });
 
+const WEEKS_TO_SHOW = 12;
+
 function WeekStrip() {
   const { colors } = useTheme();
   const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    []
-  );
+  const scrollRef = React.useRef<ScrollView>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const allDays = useMemo(() => {
+    const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const firstWeekStart = addDays(currentWeekStart, -(WEEKS_TO_SHOW - 1) * 7);
+    return Array.from({ length: WEEKS_TO_SHOW * 7 }, (_, i) => addDays(firstWeekStart, i));
+  }, []);
+
+  const scrollToToday = useCallback(() => {
+    if (containerWidth > 0 && scrollRef.current) {
+      const weekWidth = containerWidth;
+      const offset = (WEEKS_TO_SHOW - 1) * weekWidth;
+      scrollRef.current.scrollTo({ x: offset, animated: false });
+    }
+  }, [containerWidth]);
+
+  useEffect(() => { scrollToToday(); }, [scrollToToday]);
 
   return (
-    <View style={styles.weekStrip}>
-      {days.map((day, i) => {
-        const isToday = isSameDay(day, today);
-        return (
-          <View key={i} style={styles.weekStripDay}>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.weekStripLabel,
-                { color: isToday ? colors.text : colors.textMuted },
-                isToday && styles.weekStripLabelBold,
-              ]}
-            >
-              {format(day, "EEEEE")}
-            </Text>
-            <View
-              style={[
-                styles.weekStripCircle,
-                isToday && { backgroundColor: colors.text },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.weekStripDate,
-                  { color: isToday ? colors.bg : colors.textMuted },
-                  isToday && styles.weekStripDateBold,
-                ]}
-              >
-                {format(day, "d")}
-              </Text>
+    <View
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      style={{ overflow: "hidden" }}
+    >
+      {containerWidth > 0 && (
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={{ width: containerWidth }}
+          contentContainerStyle={{ width: containerWidth * WEEKS_TO_SHOW }}
+        >
+          {Array.from({ length: WEEKS_TO_SHOW }, (_, weekIdx) => (
+            <View key={weekIdx} style={[styles.weekStrip, { width: containerWidth }]}>
+              {allDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day, i) => {
+                const isToday = isSameDay(day, today);
+                return (
+                  <View key={i} style={styles.weekStripDay}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.weekStripLabel,
+                        { color: isToday ? colors.text : colors.textMuted },
+                        isToday && styles.weekStripLabelBold,
+                      ]}
+                    >
+                      {format(day, "EEEEE")}
+                    </Text>
+                    <View
+                      style={[
+                        styles.weekStripCircle,
+                        isToday && { backgroundColor: colors.text },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.weekStripDate,
+                          { color: isToday ? colors.bg : colors.textMuted },
+                          isToday && styles.weekStripDateBold,
+                        ]}
+                      >
+                        {format(day, "d")}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-          </View>
-        );
-      })}
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }

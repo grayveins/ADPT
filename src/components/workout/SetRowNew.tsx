@@ -1,14 +1,6 @@
 /**
- * SetRowNew - Premium set row component
- * 
- * Features:
- * - 56pt touch target (gym-friendly, sweaty hands)
- * - Full row tap-to-complete
- * - PREVIOUS column showing last workout data
- * - Green background fill on completion
- * - Scale bounce + haptic feedback
- * 
- * Design: Hevy/Strong inspired, minimal, professional
+ * SetRowNew — Minimal set row (Hevy/Trainerize table style)
+ * Simple row: set# | previous | weight | reps | checkbox
  */
 
 import React, { useCallback } from "react";
@@ -18,32 +10,26 @@ import Animated, {
   useAnimatedStyle,
   withSequence,
   withTiming,
-  interpolateColor,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { spacing, radius, layout } from "@/src/theme";
+import { spacing } from "@/src/theme";
 
 type SetRowNewProps = {
   setNumber: number;
   weight: string;
   reps: string;
   completed: boolean;
-  // Previous workout data
   previousWeight?: string;
   previousReps?: string;
-  // Callbacks
   onComplete: () => void;
   onWeightChange: (weight: string) => void;
   onRepsChange: (reps: string) => void;
-  // Optional
   disabled?: boolean;
   isPR?: boolean;
   closeToPR?: boolean;
 };
-
-const ROW_HEIGHT = layout.touchTargetPrimary; // 56pt
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -58,222 +44,102 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   onWeightChange,
   onRepsChange,
   disabled = false,
-  isPR = false,
-  closeToPR = false,
 }) => {
   const { colors } = useTheme();
-  
-  // Animation values
   const scale = useSharedValue(1);
-  const completionProgress = useSharedValue(completed ? 1 : 0);
 
-  // Handle row tap to complete
-  const handleRowPress = useCallback(() => {
-    if (completed || disabled) return;
-    
-    // Only complete if we have weight and reps
-    if (!weight || !reps) return;
-    
-    // Haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Hevy-style: crisp press-down, no bouncy overshoot
+  const handleComplete = useCallback(() => {
+    if (disabled) return;
     scale.value = withSequence(
-      withTiming(0.97, { duration: 80 }),
-      withTiming(1, { duration: 120 })
+      withTiming(0.97, { duration: 60 }),
+      withTiming(1, { duration: 100 })
     );
-
-    // Background fill animation
-    completionProgress.value = withTiming(1, { duration: 180 });
-    
-    // Trigger completion callback
     onComplete();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completed, disabled, weight, reps, onComplete]);
+  }, [disabled, onComplete]);
 
-  // Update completion progress when prop changes
-  React.useEffect(() => {
-    completionProgress.value = withTiming(completed ? 1 : 0, { duration: 200 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completed]);
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
-  // Animated row style
-  const rowAnimatedStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      completionProgress.value,
-      [0, 1],
-      [colors.cardAlt, colors.successMuted]
-    );
-    
-    return {
-      transform: [{ scale: scale.value }],
-      backgroundColor,
-    };
-  });
-
-  // Animated set number badge style
-  const setNumberStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      completionProgress.value,
-      [0, 1],
-      [colors.border, colors.success]
-    );
-    
-    return { backgroundColor };
-  });
-
-  // Animated text style for set number
-  const setNumberTextColor = completed ? colors.textOnPrimary : colors.textMuted;
-  const inputTextColor = completed ? colors.textMuted : colors.text;
+  const prevText = previousWeight && previousReps
+    ? `${previousWeight} lbs x ${previousReps}`
+    : "—";
 
   return (
     <AnimatedPressable
-      onPress={handleRowPress}
+      onPress={handleComplete}
       disabled={disabled}
       style={[
         styles.row,
-        rowAnimatedStyle,
-        { borderRadius: radius.md },
+        rowStyle,
+        completed && { backgroundColor: colors.successMuted },
       ]}
     >
-      {/* Set Number Badge */}
-      <Animated.View style={[styles.setNumberBadge, setNumberStyle]}>
-        <Text 
-          allowFontScaling={false} 
-          style={[styles.setNumberText, { color: setNumberTextColor }]}
-        >
-          {setNumber}
-        </Text>
-      </Animated.View>
-
-      {/* Previous Data Column */}
-      <View style={styles.previousColumn}>
-        {previousWeight && previousReps ? (
-          <>
-            <Text 
-              allowFontScaling={false} 
-              style={[styles.previousLabel, { color: colors.textMuted }]}
-            >
-              PREV
-            </Text>
-            <Text
-              allowFontScaling={false}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.previousValue, { color: colors.textSecondary }]}
-            >
-              {previousWeight} x {previousReps}
-            </Text>
-          </>
-        ) : (
-          <Text 
-            allowFontScaling={false} 
-            style={[styles.previousEmpty, { color: colors.textMuted }]}
-          >
-            --
-          </Text>
-        )}
-      </View>
-
-      {/* Divider */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-      {/* Weight Input */}
-      <View style={styles.inputGroup}>
-        <TextInput
-          value={weight}
-          onChangeText={onWeightChange}
-          placeholder={previousWeight || "0"}
-          placeholderTextColor={colors.inputPlaceholder}
-          keyboardType="numeric"
-          keyboardAppearance="dark"
-          style={[
-            styles.input,
-            { 
-              backgroundColor: completed ? "transparent" : colors.inputBg,
-              color: inputTextColor,
-              borderColor: completed ? "transparent" : colors.inputBorder,
-            },
-          ]}
-          editable={!completed && !disabled}
-          selectTextOnFocus
-          allowFontScaling={false}
-        />
-        <Text 
-          allowFontScaling={false} 
-          style={[styles.inputUnit, { color: colors.textMuted }]}
-        >
-          lbs
-        </Text>
-      </View>
-
-      {/* Multiply Sign */}
-      <Text 
-        allowFontScaling={false} 
-        style={[styles.multiply, { color: colors.textMuted }]}
+      {/* Set number */}
+      <Text
+        allowFontScaling={false}
+        style={[styles.setNum, { color: colors.textMuted }]}
       >
-        x
+        {setNumber}
       </Text>
 
-      {/* Reps Input */}
-      <View style={styles.inputGroup}>
-        <TextInput
-          value={reps}
-          onChangeText={onRepsChange}
-          placeholder={previousReps || "0"}
-          placeholderTextColor={colors.inputPlaceholder}
-          keyboardType="numeric"
-          keyboardAppearance="dark"
-          style={[
-            styles.input,
-            { 
-              backgroundColor: completed ? "transparent" : colors.inputBg,
-              color: inputTextColor,
-              borderColor: completed ? "transparent" : colors.inputBorder,
-            },
-          ]}
-          editable={!completed && !disabled}
-          selectTextOnFocus
-          allowFontScaling={false}
-        />
-        <Text 
-          allowFontScaling={false} 
-          style={[styles.inputUnit, { color: colors.textMuted }]}
-        >
-          reps
-        </Text>
-      </View>
+      {/* Previous */}
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={[styles.prev, { color: colors.textMuted }]}
+      >
+        {prevText}
+      </Text>
 
-      {/* Completion Indicator */}
-      <View style={styles.completionIndicator}>
+      {/* Weight input */}
+      <TextInput
+        value={weight}
+        onChangeText={onWeightChange}
+        placeholder={previousWeight || "—"}
+        placeholderTextColor={colors.inputPlaceholder}
+        keyboardType="numeric"
+        style={[
+          styles.input,
+          {
+            color: colors.text,
+            borderColor: completed ? "transparent" : colors.border,
+            backgroundColor: completed ? "transparent" : colors.bg,
+          },
+        ]}
+        editable={!completed && !disabled}
+        selectTextOnFocus
+        allowFontScaling={false}
+      />
+
+      {/* Reps input */}
+      <TextInput
+        value={reps}
+        onChangeText={onRepsChange}
+        placeholder={previousReps || "—"}
+        placeholderTextColor={colors.inputPlaceholder}
+        keyboardType="numeric"
+        style={[
+          styles.input,
+          {
+            color: colors.text,
+            borderColor: completed ? "transparent" : colors.border,
+            backgroundColor: completed ? "transparent" : colors.bg,
+          },
+        ]}
+        editable={!completed && !disabled}
+        selectTextOnFocus
+        allowFontScaling={false}
+      />
+
+      {/* Checkbox */}
+      <View style={styles.checkWrap}>
         {completed ? (
-          <View style={[styles.checkCircle, { backgroundColor: colors.success }]}>
-            <Text allowFontScaling={false} style={styles.checkMark}>
-              ✓
-            </Text>
-          </View>
+          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
         ) : (
-          <View style={[styles.emptyCircle, { borderColor: colors.border }]} />
+          <View style={[styles.emptyCheck, { borderColor: colors.border }]} />
         )}
       </View>
-
-      {/* PR Badge (if applicable) */}
-      {isPR && (
-        <View style={[styles.prBadge, { backgroundColor: colors.gold }]}>
-          <Text allowFontScaling={false} style={styles.prBadgeText}>
-            PR
-          </Text>
-        </View>
-      )}
-
-      {/* Close to PR callout */}
-      {closeToPR && !completed && !isPR && (
-        <View style={[styles.prBadge, { backgroundColor: colors.intensity }]}>
-          <Text allowFontScaling={false} style={styles.prBadgeText}>
-            PR?
-          </Text>
-        </View>
-      )}
     </AnimatedPressable>
   );
 };
@@ -282,107 +148,39 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    height: ROW_HEIGHT,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    height: 48,
+    paddingHorizontal: spacing.base,
     gap: spacing.sm,
   },
-  setNumberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  setNumberText: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "Inter_600SemiBold",
-  },
-  previousColumn: {
-    width: 68,
-    alignItems: "center",
-  },
-  previousLabel: {
-    fontSize: 9,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.5,
-  },
-  previousValue: {
-    fontSize: 12,
-    fontWeight: "500",
-    fontFamily: "Inter_500Medium",
-    marginTop: 1,
-  },
-  previousEmpty: {
+  setNum: {
+    width: 30,
     fontSize: 14,
     fontWeight: "500",
-  },
-  divider: {
-    width: 1,
-    height: 32,
-  },
-  inputGroup: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 2,
-  },
-  input: {
-    minWidth: 52,
-    width: 64,
-    height: 36,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
     textAlign: "center",
   },
-  inputUnit: {
-    fontSize: 11,
-    fontWeight: "500",
-    fontFamily: "Inter_500Medium",
+  prev: {
+    width: 80,
+    fontSize: 12,
+    textAlign: "center",
   },
-  multiply: {
-    fontSize: 14,
-    fontWeight: "500",
+  input: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: "600",
   },
-  completionIndicator: {
-    marginLeft: "auto",
-  },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  checkWrap: {
+    width: 32,
     alignItems: "center",
-    justifyContent: "center",
   },
-  checkMark: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  emptyCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-  },
-  prBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  emptyCheck: {
+    width: 22,
+    height: 22,
     borderRadius: 4,
-  },
-  prBadgeText: {
-    color: "#000000",
-    fontSize: 9,
-    fontWeight: "700",
-    fontFamily: "Inter_600SemiBold",
+    borderWidth: 1.5,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,12 +10,7 @@ import {
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import {
-  startOfWeek,
-  addDays,
-  format,
-  isSameDay,
-} from "date-fns";
+import { format } from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
@@ -75,13 +70,6 @@ export default function WorkoutScreen() {
     setRefreshing(false);
   }, [refreshTemplates, fetchProgram]);
 
-  // Week strip
-  const today = new Date();
-  const weekDays = useMemo(() => {
-    const start = startOfWeek(today, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-  }, []);
-
   const startEmptyWorkout = () => {
     hapticPress();
     router.push({ pathname: "/(workout)/active", params: { name: "Workout", sourceType: "empty" } });
@@ -123,44 +111,6 @@ export default function WorkoutScreen() {
         <Pressable onPress={startEmptyWorkout} hitSlop={8}>
           <Ionicons name="add" size={26} color={colors.text} />
         </Pressable>
-      </View>
-
-      {/* Week day strip */}
-      <View style={styles.weekStrip}>
-        {weekDays.map((day, i) => {
-          const isToday = isSameDay(day, today);
-          return (
-            <View key={i} style={styles.weekDay}>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.weekDayLabel,
-                  { color: isToday ? colors.text : colors.textMuted },
-                  isToday && styles.weekDayLabelBold,
-                ]}
-              >
-                {format(day, "EEEEE")}
-              </Text>
-              <View
-                style={[
-                  styles.weekDayCircle,
-                  isToday && { backgroundColor: colors.text },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.weekDayDate,
-                    { color: isToday ? colors.bg : colors.textMuted },
-                    isToday && styles.weekDayDateBold,
-                  ]}
-                >
-                  {format(day, "d")}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
       </View>
 
       <ScrollView
@@ -335,26 +285,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   headerTitle: { fontSize: 28, fontWeight: "700" },
-
-  // Week strip
-  weekStrip: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.base,
-  },
-  weekDay: { alignItems: "center", gap: 4 },
-  weekDayLabel: { fontSize: 13 },
-  weekDayLabelBold: { fontWeight: "600" },
-  weekDayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  weekDayDate: { fontSize: 14 },
-  weekDayDateBold: { fontWeight: "700" },
 
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
 
