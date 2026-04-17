@@ -130,11 +130,27 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: "Calendar",
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              name="calendar"
+              outlineName="calendar-outline"
+              size={iconSize}
+              color={color}
+              focused={focused}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="workout"
         options={{
-          title: "Workout",
+          title: "Workouts",
           headerShown: true,
-          header: () => <SimpleHeader title="Workout" />,
+          header: () => <SimpleHeader title="Workouts" />,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               name="barbell"
@@ -148,15 +164,13 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="progress"
+        name="meals"
         options={{
-          title: "Progress",
-          headerShown: true,
-          header: () => <SimpleHeader title="Progress" />,
+          title: "Meals",
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
-              name="stats-chart"
-              outlineName="stats-chart-outline"
+              name="restaurant"
+              outlineName="restaurant-outline"
               size={iconSize}
               color={color}
               focused={focused}
@@ -165,16 +179,11 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Chat tab hidden — replaced by Programs. File kept for backwards compat. */}
-      <Tabs.Screen
-        name="chat"
-        options={{ href: null }}
-      />
-
-      <Tabs.Screen
-        name="social"
-        options={{ href: null }}
-      />
+      {/* Hidden legacy tabs — Expo Router requires the files to exist */}
+      <Tabs.Screen name="progress" options={{ href: null }} />
+      <Tabs.Screen name="chat" options={{ href: null }} />
+      <Tabs.Screen name="social" options={{ href: null }} />
+      <Tabs.Screen name="checkin" options={{ href: null }} />
     </Tabs>
   );
 }
