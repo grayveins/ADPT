@@ -12,8 +12,6 @@ import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import YoutubePlayer from "react-native-youtube-iframe";
-
 import { useTheme } from "@/src/context/ThemeContext";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { MuscleGroupDisplay } from "@/src/components/MuscleImage";
@@ -668,91 +666,20 @@ function getExerciseVideo(exerciseName: string): { videoId: string; startTime: n
   return null;
 }
 
-/**
- * YouTube Video Player Component
- * Uses react-native-youtube-iframe for better performance and control
- * Video requires tap to start (no autoplay)
- */
 function YouTubeVideoPlayer({
   videoId,
-  startTime = 0,
 }: {
   videoId: string;
   startTime?: number;
 }) {
   const { colors } = useTheme();
-  const [playing, setPlaying] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  // Stop video on unmount to comply with YouTube ToS
-  useEffect(() => {
-    return () => setPlaying(false);
-  }, []);
-
-  const onStateChange = useCallback((state: string) => {
-    if (state === "ended") {
-      setPlaying(false);
-    }
-  }, []);
-
-  const onReady = useCallback(() => {
-    setReady(true);
-  }, []);
-
-  const onError = useCallback(() => {
-    setHasError(true);
-  }, []);
-
-  const handlePlayPress = useCallback(() => {
-    hapticPress();
-    setPlaying(true);
-  }, []);
-
-  if (hasError) {
-    return (
-      <View style={[styles.videoPlaceholder, { backgroundColor: colors.bgSecondary }]}>
-        <Ionicons name="alert-circle-outline" size={32} color={colors.textMuted} />
-        <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
-          Video unavailable
-        </Text>
-      </View>
-    );
-  }
 
   return (
-    <View style={styles.videoContainer}>
-      {/* Play button overlay - shown before video starts */}
-      {!playing && (
-        <Pressable
-          style={[styles.videoOverlay, { backgroundColor: colors.bgSecondary }]}
-          onPress={handlePlayPress}
-        >
-          <View style={[styles.playButton, { backgroundColor: colors.primary }]}>
-            <Ionicons name="play" size={24} color={colors.textOnPrimary} />
-          </View>
-          <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
-            {ready ? "Tap to play" : "Loading..."}
-          </Text>
-        </Pressable>
-      )}
-      <YoutubePlayer
-        height={160}
-        play={playing}
-        videoId={videoId}
-        onChangeState={onStateChange}
-        onReady={onReady}
-        onError={onError}
-        initialPlayerParams={{
-          start: startTime,
-          rel: false,
-          modestbranding: true,
-        }}
-        webViewStyle={{ opacity: playing ? 1 : 0.01 }} // Android crash workaround + hide when not playing
-        webViewProps={{
-          renderToHardwareTextureAndroid: true, // Additional Android stability
-        }}
-      />
+    <View style={[styles.videoPlaceholder, { backgroundColor: colors.bgSecondary }]}>
+      <Ionicons name="play-circle-outline" size={32} color={colors.textMuted} />
+      <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
+        Video: {videoId}
+      </Text>
     </View>
   );
 }
