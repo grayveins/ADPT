@@ -8,7 +8,7 @@
  * - Pre-workout feeling check-in
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -873,7 +873,7 @@ const WEEKS_TO_SHOW = 12;
 function WeekStrip() {
   const { colors } = useTheme();
   const today = new Date();
-  const scrollRef = React.useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
   const allDays = useMemo(() => {
