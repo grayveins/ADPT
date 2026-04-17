@@ -5,14 +5,20 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { OnboardingProvider } from "@/src/context/OnboardingContext";
 import { SubscriptionProvider } from "@/src/context/SubscriptionContext";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+
+function StatusBarSync() {
+  return <StatusBar style="dark" />;
+}
 
 export default function RootLayout() {
   return (
+    <ErrorBoundary label="App">
     <ThemeProvider>
       <SubscriptionProvider>
         <OnboardingProvider>
           <KeyboardProvider>
-          <StatusBar style="light" />
+          <StatusBarSync />
           <Stack screenOptions={{ headerShown: false }}>
           {/* Auth screens - disable swipe-back to prevent returning to authenticated screens after logout */}
           <Stack.Screen name="index" options={{ gestureEnabled: false }} />
@@ -53,5 +59,6 @@ export default function RootLayout() {
         </OnboardingProvider>
       </SubscriptionProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }

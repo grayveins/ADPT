@@ -1,13 +1,11 @@
 /**
- * Theme Context
- * Provides theme values throughout the app via useTheme() hook
- * Defaults to dark mode for gym-readable, professional feel
+ * Theme Context — single light theme (Cal AI inspired)
+ * No dark mode in v1. useTheme() returns the same palette always.
  */
 
 import React, { createContext, useContext, useMemo } from "react";
 import {
   lightColors,
-  darkColors,
   space,
   radius,
   typography,
@@ -16,23 +14,12 @@ import {
   animation,
 } from "../theme";
 
-// Colors type that works for both light and dark
-type ThemeColors = typeof lightColors | typeof darkColors;
-
-// =============================================================================
-// TYPES
-// =============================================================================
-type ColorScheme = "light" | "dark";
+type ThemeColors = typeof lightColors;
 
 interface ThemeContextValue {
-  // Current color scheme
-  colorScheme: ColorScheme;
-  isDark: boolean;
-  
-  // Colors for current scheme
+  colorScheme: "light";
+  isDark: false;
   colors: ThemeColors;
-  
-  // Design tokens (same for both schemes)
   space: typeof space;
   radius: typeof radius;
   typography: typeof typography;
@@ -41,39 +28,25 @@ interface ThemeContextValue {
   animation: typeof animation;
 }
 
-// =============================================================================
-// CONTEXT
-// =============================================================================
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-// =============================================================================
-// PROVIDER
-// =============================================================================
 interface ThemeProviderProps {
   children: React.ReactNode;
-  /** Force a specific color scheme (useful for testing) */
-  forcedColorScheme?: ColorScheme;
 }
 
-export function ThemeProvider({ children, forcedColorScheme }: ThemeProviderProps) {
-  // Default to dark mode for gym-readable, professional appearance
-  // Later we can add a settings toggle to switch to light mode
-  // Use forced scheme if provided, otherwise default to dark
-  // Change this to `systemScheme ?? "dark"` to respect system preference
-  const colorScheme: ColorScheme = forcedColorScheme ?? "dark";
-  
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const value = useMemo<ThemeContextValue>(() => ({
-    colorScheme,
-    isDark: colorScheme === "dark",
-    colors: colorScheme === "dark" ? darkColors : lightColors,
+    colorScheme: "light",
+    isDark: false,
+    colors: lightColors,
     space,
     radius,
     typography,
     components,
     shadows,
     animation,
-  }), [colorScheme]);
-  
+  }), []);
+
   return (
     <ThemeContext.Provider value={value}>
       {children}
@@ -81,20 +54,14 @@ export function ThemeProvider({ children, forcedColorScheme }: ThemeProviderProp
   );
 }
 
-// =============================================================================
-// HOOK
-// =============================================================================
 export function useTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);
-  
+
   if (!context) {
-    // Fallback for components used outside ThemeProvider
-    // This allows gradual migration - components work even without provider
-    // Default to dark mode to match provider default
     return {
-      colorScheme: "dark",
-      isDark: true,
-      colors: darkColors,
+      colorScheme: "light",
+      isDark: false,
+      colors: lightColors,
       space,
       radius,
       typography,
@@ -103,22 +70,15 @@ export function useTheme(): ThemeContextValue {
       animation,
     };
   }
-  
+
   return context;
 }
 
-// =============================================================================
-// CONVENIENCE HOOKS
-// =============================================================================
-
-/** Get just the colors from theme */
 export function useColors() {
   const { colors } = useTheme();
   return colors;
 }
 
-/** Check if dark mode is active */
 export function useIsDark(): boolean {
-  const { isDark } = useTheme();
-  return isDark;
+  return false;
 }

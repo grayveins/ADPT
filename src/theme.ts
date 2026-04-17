@@ -1,14 +1,13 @@
 /**
- * ADPT Design System v3 - Teal/Cyan Theme
- * 
- * Design Philosophy: "PT in Your Pocket"
- * - Dark mode default (gym-readable, professional)
- * - Teal/Cyan primary (trust + energy, gender-neutral)
- * - Sage green for success/completion states
- * - Scientific, minimal, approachable
- * 
+ * ADPT Design System v4 — Minimal Black & White
+ *
+ * Design reference: Cal AI light mode
+ * - White background, black text, no color accents
+ * - Soft rounded cards on #F5F5F5 surfaces
+ * - Single light theme (no dark mode in v1)
+ *
  * HCI Standards:
- * - Touch targets: 56pt primary CTAs, 48pt secondary (gym-friendly)
+ * - Touch targets: 56pt primary CTAs, 48pt secondary
  * - WCAG AA contrast: 4.5:1 text, 3:1 UI components
  * - Spacing: 4px base grid
  */
@@ -16,170 +15,91 @@
 import { Platform } from "react-native";
 
 // =============================================================================
-// COLORS - Dark Mode (DEFAULT)
+// COLORS — Single light theme (Cal AI inspired)
 // =============================================================================
-export const darkColors = {
+const colors = {
   // Backgrounds
-  bg: "#0A0A0A",              // Near-black
-  bgSecondary: "#141414",     // Elevated surfaces
-  bgTertiary: "#1C1C1C",      // Cards, inputs
-  
-  // Primary - Teal/Cyan (trust + energy)
-  primary: "#00C9B7",         // Primary actions, progress rings
-  primaryDark: "#00A89A",     // Pressed states
-  primaryLight: "#33D4C5",    // Lighter variant
-  primaryMuted: "rgba(0, 201, 183, 0.15)",  // Subtle backgrounds
-  primaryFaint: "rgba(0, 201, 183, 0.08)",  // Very subtle tint
-  
-  // Success - Sage Green (completed states, PRs)
-  success: "#7FA07F",
-  successDark: "#6B8E6B",
-  successMuted: "rgba(127, 160, 127, 0.15)",
-  
-  // Accent Colors (semantic, use sparingly)
-  intensity: "#FF6B35",       // Urgency - rest timer, warnings
-  gold: "#FFD700",            // Achievement - PRs, trophies, streaks
-  
-  // Semantic
-  error: "#F87171",
-  errorMuted: "rgba(248, 113, 113, 0.15)",
-  warning: "#FBBF24",
-  warningMuted: "rgba(251, 191, 36, 0.15)",
-  info: "#60A5FA",
-  infoMuted: "rgba(96, 165, 250, 0.15)",
-  
-  // Text
-  text: "#F5F5F5",            // Primary text
-  textSecondary: "#A3A3A3",   // Secondary text
-  textMuted: "#737373",       // Placeholders, hints
-  textOnPrimary: "#0A0A0A",   // Dark text on teal buttons
-  
-  // UI Elements
-  border: "#2A2A2A",          // Subtle borders
-  borderStrong: "#3D3D3D",    // Emphasized borders
-  card: "#1C1C1C",            // Card backgrounds
-  cardAlt: "#242424",         // Alternative card
-  overlay: "rgba(0, 0, 0, 0.7)", // Modal overlays
-  
-  // Interactive
-  pressed: "rgba(0, 201, 183, 0.18)",   // Button pressed
-  selected: "rgba(0, 201, 183, 0.12)",  // Selected item
-  disabled: "#2A2A2A",        // Disabled backgrounds
-  disabledText: "#525252",    // Disabled text
-  
-  // Input
-  inputBg: "#141414",
-  inputBorder: "#2A2A2A",
-  inputBorderFocus: "#00C9B7",
-  inputPlaceholder: "#737373",
-  
-  // Tab Bar
-  tabBarBg: "#0A0A0A",
-  tabBarBorder: "#2A2A2A",
-  tabBarActive: "#00C9B7",
-  tabBarInactive: "#737373",
-  
-  // Progress
-  progressBg: "#2A2A2A",
-  progressFill: "#00C9B7",
-  
-  // Legacy compatibility aliases
-  bgTop: "#141414",
-  muted: "#A3A3A3",
-  muted2: "#737373",
-  chip: "#00C9B7",
-  ringBg: "#2A2A2A",
-  accent: "#00C9B7",
-  accentMuted: "rgba(0, 201, 183, 0.15)",
-  selectedBg: "rgba(0, 201, 183, 0.12)",
-  pressedBg: "rgba(0, 201, 183, 0.18)",
-  hoverBg: "rgba(0, 201, 183, 0.08)",
-  shadow: "rgba(0, 0, 0, 0.40)",
-  shadowStrong: "rgba(0, 0, 0, 0.50)",
-} as const;
+  bg: "#FFFFFF",
+  bgSecondary: "#F5F5F5",
+  bgTertiary: "#F0F0F0",
 
-// =============================================================================
-// COLORS - Light Mode (toggle in settings)
-// =============================================================================
-export const lightColors = {
-  // Backgrounds
-  bg: "#FAFAFA",              // Clean white
-  bgSecondary: "#F5F5F5",     // Elevated surfaces
-  bgTertiary: "#EFEFEF",      // Cards, inputs
-  
-  // Primary - Slightly darker teal for light backgrounds
-  primary: "#00A89A",         // Primary actions
-  primaryDark: "#008F82",     // Pressed states
-  primaryLight: "#00C9B7",    // Lighter variant
-  primaryMuted: "rgba(0, 168, 154, 0.12)",
-  primaryFaint: "rgba(0, 168, 154, 0.06)",
-  
-  // Success - Sage Green
-  success: "#6B8E6B",
-  successDark: "#5A7D5A",
-  successMuted: "rgba(107, 142, 107, 0.12)",
-  
-  // Accent Colors
-  intensity: "#E85A2C",       // Slightly darker for light mode
-  gold: "#D4A800",            // Slightly darker gold
-  
+  // Primary — black CTAs, active states
+  primary: "#000000",
+  primaryDark: "#000000",
+  primaryLight: "#333333",
+  primaryMuted: "rgba(0, 0, 0, 0.06)",
+  primaryFaint: "rgba(0, 0, 0, 0.03)",
+
+  // Success — completed states only
+  success: "#22C55E",
+  successDark: "#16A34A",
+  successMuted: "rgba(34, 197, 94, 0.10)",
+
+  // Functional accents (use sparingly)
+  intensity: "#000000",
+  gold: "#000000",
+
   // Semantic
-  error: "#DC2626",
-  errorMuted: "#FEE2E2",
-  warning: "#D97706",
-  warningMuted: "#FEF3C7",
-  info: "#2563EB",
-  infoMuted: "#DBEAFE",
-  
+  error: "#EF4444",
+  errorMuted: "rgba(239, 68, 68, 0.10)",
+  warning: "#F59E0B",
+  warningMuted: "rgba(245, 158, 11, 0.10)",
+  info: "#6B7280",
+  infoMuted: "rgba(107, 114, 128, 0.10)",
+
   // Text
-  text: "#171717",            // Primary text
-  textSecondary: "#525252",   // Secondary text
-  textMuted: "#A3A3A3",       // Placeholders, hints
-  textOnPrimary: "#FFFFFF",   // White text on teal buttons
-  
+  text: "#000000",
+  textSecondary: "#6B7280",
+  textMuted: "#9CA3AF",
+  textOnPrimary: "#FFFFFF",
+
   // UI Elements
-  border: "#E5E5E5",          // Subtle borders
-  borderStrong: "#D4D4D4",    // Emphasized borders
-  card: "#FFFFFF",            // Card backgrounds
-  cardAlt: "#FAFAFA",         // Alternative card
-  overlay: "rgba(0, 0, 0, 0.5)", // Modal overlays
-  
+  border: "#E5E7EB",
+  borderStrong: "#D1D5DB",
+  card: "#FFFFFF",
+  cardAlt: "#F9FAFB",
+  overlay: "rgba(0, 0, 0, 0.4)",
+
   // Interactive
-  pressed: "rgba(0, 168, 154, 0.15)",
-  selected: "rgba(0, 168, 154, 0.10)",
-  disabled: "#E5E5E5",
-  disabledText: "#A3A3A3",
-  
+  pressed: "rgba(0, 0, 0, 0.08)",
+  selected: "rgba(0, 0, 0, 0.05)",
+  disabled: "#F3F4F6",
+  disabledText: "#D1D5DB",
+
   // Input
   inputBg: "#FFFFFF",
-  inputBorder: "#E5E5E5",
-  inputBorderFocus: "#00A89A",
-  inputPlaceholder: "#A3A3A3",
-  
+  inputBorder: "#E5E7EB",
+  inputBorderFocus: "#000000",
+  inputPlaceholder: "#9CA3AF",
+
   // Tab Bar
   tabBarBg: "#FFFFFF",
-  tabBarBorder: "#E5E5E5",
-  tabBarActive: "#00A89A",
-  tabBarInactive: "#A3A3A3",
-  
+  tabBarBorder: "#F3F4F6",
+  tabBarActive: "#000000",
+  tabBarInactive: "#9CA3AF",
+
   // Progress
-  progressBg: "#E5E5E5",
-  progressFill: "#00A89A",
-  
+  progressBg: "#E5E7EB",
+  progressFill: "#000000",
+
   // Legacy compatibility aliases
   bgTop: "#FFFFFF",
-  muted: "#525252",
-  muted2: "#A3A3A3",
-  chip: "#00A89A",
-  ringBg: "#E5E5E5",
-  accent: "#00A89A",
-  accentMuted: "rgba(0, 168, 154, 0.12)",
-  selectedBg: "rgba(0, 168, 154, 0.10)",
-  pressedBg: "rgba(0, 168, 154, 0.15)",
-  hoverBg: "rgba(0, 168, 154, 0.06)",
-  shadow: "rgba(0, 0, 0, 0.08)",
-  shadowStrong: "rgba(0, 0, 0, 0.12)",
+  muted: "#6B7280",
+  muted2: "#9CA3AF",
+  chip: "#000000",
+  ringBg: "#E5E7EB",
+  accent: "#000000",
+  accentMuted: "rgba(0, 0, 0, 0.06)",
+  selectedBg: "rgba(0, 0, 0, 0.05)",
+  pressedBg: "rgba(0, 0, 0, 0.08)",
+  hoverBg: "rgba(0, 0, 0, 0.03)",
+  shadow: "rgba(0, 0, 0, 0.04)",
+  shadowStrong: "rgba(0, 0, 0, 0.08)",
 } as const;
+
+// Both aliases point to the same palette (no dark mode in v1)
+export const darkColors = colors;
+export const lightColors = colors;
 
 // =============================================================================
 // SPACING - 4px base grid
@@ -370,26 +290,19 @@ export const components = {
 // GRADIENTS - For cards, muscle groups, etc.
 // =============================================================================
 export const gradients = {
-  // Primary gradients
-  primary: ["#00C9B7", "#00A89A"] as const,
-  primarySubtle: ["rgba(0, 201, 183, 0.15)", "rgba(0, 168, 154, 0.08)"] as const,
-  
-  // Card gradients (subtle elevation effect)
-  card: ["#1C1C1C", "#242424"] as const,
-  cardHover: ["#242424", "#2A2A2A"] as const,
-  
-  // Muscle group gradients (for exercise card top bars)
-  chest: ["#00C9B7", "#00A89A"] as const,
-  back: ["#33D4C5", "#00C9B7"] as const,
-  shoulders: ["#00A89A", "#008F82"] as const,
-  arms: ["#7FA07F", "#6B8E6B"] as const,
-  legs: ["#6B8E6B", "#5A7D5A"] as const,
-  core: ["#60A5FA", "#3B82F6"] as const,
-  fullBody: ["#FFD700", "#E5C100"] as const,
-  
-  // Special
-  success: ["#7FA07F", "#6B8E6B"] as const,
-  gold: ["#FFD700", "#E5C100"] as const,
+  primary: ["#000000", "#1A1A1A"] as const,
+  primarySubtle: ["rgba(0, 0, 0, 0.04)", "rgba(0, 0, 0, 0.02)"] as const,
+  card: ["#FFFFFF", "#F9FAFB"] as const,
+  cardHover: ["#F9FAFB", "#F3F4F6"] as const,
+  chest: ["#000000", "#1A1A1A"] as const,
+  back: ["#000000", "#1A1A1A"] as const,
+  shoulders: ["#000000", "#1A1A1A"] as const,
+  arms: ["#000000", "#1A1A1A"] as const,
+  legs: ["#000000", "#1A1A1A"] as const,
+  core: ["#000000", "#1A1A1A"] as const,
+  fullBody: ["#000000", "#1A1A1A"] as const,
+  success: ["#22C55E", "#16A34A"] as const,
+  gold: ["#000000", "#1A1A1A"] as const,
 } as const;
 
 // =============================================================================
@@ -560,7 +473,7 @@ export const feelingScale = {
 // THEME OBJECTS
 // =============================================================================
 export const theme = {
-  colors: darkColors,  // Dark mode is default
+  colors,
   spacing,
   space,
   layout,
@@ -604,13 +517,13 @@ export const bodyRegions = {
 // MUSCLE GROUPS - For progress visualization
 // =============================================================================
 export const muscleGroupColors = {
-  chest: "#00C9B7",      // Primary teal
-  back: "#00A89A",       // Darker teal
-  shoulders: "#33D4C5",  // Light teal
-  arms: "#7FA07F",       // Sage green
-  legs: "#6B8E6B",       // Darker sage
-  core: "#60A5FA",       // Info blue
-  fullBody: "#FFD700",   // Gold
+  chest: "#000000",
+  back: "#1A1A1A",
+  shoulders: "#333333",
+  arms: "#4B5563",
+  legs: "#6B7280",
+  core: "#9CA3AF",
+  fullBody: "#000000",
 } as const;
 
 // =============================================================================
