@@ -149,8 +149,6 @@ export default function TabLayout() {
         name="workout"
         options={{
           title: "Workouts",
-          headerShown: true,
-          header: () => <SimpleHeader title="Workouts" />,
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon
               name="barbell"
