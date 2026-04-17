@@ -28,6 +28,7 @@ import {
   differenceInCalendarDays,
   differenceInCalendarWeeks,
   format,
+  isSameDay,
   parseISO,
   startOfWeek,
 } from "date-fns";
@@ -344,6 +345,9 @@ export default function HomeScreen() {
       />
 
       <TrialBanner />
+
+      {/* Week day strip (Cal AI style) */}
+      <WeekStrip />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -842,4 +846,73 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
+
+  // Week strip
+  weekStrip: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.base,
+  },
+  weekStripDay: { alignItems: "center", gap: 4 },
+  weekStripLabel: { fontSize: 13 },
+  weekStripLabelBold: { fontWeight: "600" },
+  weekStripCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekStripDate: { fontSize: 14 },
+  weekStripDateBold: { fontWeight: "700" },
 });
+
+function WeekStrip() {
+  const { colors } = useTheme();
+  const today = new Date();
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    []
+  );
+
+  return (
+    <View style={styles.weekStrip}>
+      {days.map((day, i) => {
+        const isToday = isSameDay(day, today);
+        return (
+          <View key={i} style={styles.weekStripDay}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.weekStripLabel,
+                { color: isToday ? colors.text : colors.textMuted },
+                isToday && styles.weekStripLabelBold,
+              ]}
+            >
+              {format(day, "EEEEE")}
+            </Text>
+            <View
+              style={[
+                styles.weekStripCircle,
+                isToday && { backgroundColor: colors.text },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.weekStripDate,
+                  { color: isToday ? colors.bg : colors.textMuted },
+                  isToday && styles.weekStripDateBold,
+                ]}
+              >
+                {format(day, "d")}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}

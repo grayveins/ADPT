@@ -15,7 +15,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#1A1A2E"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.adptfit.adpt"
