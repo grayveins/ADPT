@@ -11,6 +11,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useTheme } from "@/src/context/ThemeContext";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import {
   ActiveWorkoutProvider,
   useActiveWorkout,
@@ -601,6 +602,7 @@ export default function ActiveWorkoutScreen() {
   }, [params.exercises, workoutType, sourceType]);
 
   return (
+    <ErrorBoundary label="Workout" onReset={() => router.dismissTo("/(app)/(tabs)/workout")}>
     <ActiveWorkoutProvider
       initialExercises={initialExercises}
       initialTitle={workoutName}
@@ -609,6 +611,7 @@ export default function ActiveWorkoutScreen() {
     >
       <ActiveWorkoutInner />
     </ActiveWorkoutProvider>
+    </ErrorBoundary>
   );
 }
 

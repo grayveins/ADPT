@@ -16,6 +16,8 @@ import React, {
   type ReactNode,
 } from "react";
 import { Alert } from "react-native";
+import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { haptic, hapticPress, hapticSuccess, hapticCelebration } from "@/src/animations/feedback/haptics";
@@ -137,6 +139,46 @@ let exerciseIdCounter = 0;
 const generateExerciseId = () => `ex-${Date.now()}-${++exerciseIdCounter}`;
 
 const generateGroupId = () => `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const WORKOUT_DRAFT_KEY = "adpt:workout-draft";
+
+type WorkoutDraft = Pick<ActiveWorkoutState, "title" | "sourceType" | "sourceId" | "exercises" | "startTime" | "elapsedSeconds" | "setCompletionTimestamps">;
+
+async function saveDraft(state: ActiveWorkoutState): Promise<void> {
+  try {
+    const draft: WorkoutDraft = {
+      title: state.title,
+      sourceType: state.sourceType,
+      sourceId: state.sourceId,
+      exercises: state.exercises,
+      startTime: state.startTime,
+      elapsedSeconds: state.elapsedSeconds,
+      setCompletionTimestamps: state.setCompletionTimestamps,
+    };
+    await AsyncStorage.setItem(WORKOUT_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // Silent — don't crash a workout over a failed checkpoint
+  }
+}
+
+async function clearDraft(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(WORKOUT_DRAFT_KEY);
+  } catch {
+    // Silent
+  }
+}
+
+export async function loadDraft(): Promise<WorkoutDraft | null> {
+  try {
+    const raw = await AsyncStorage.getItem(WORKOUT_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as WorkoutDraft;
+  } catch {
+    await clearDraft();
+    return null;
+  }
+}
 
 // =============================================================================
 // REDUCER
@@ -544,6 +586,23 @@ export function ActiveWorkoutProvider({
     }
   }, [state.restTimer.active, state.restTimer.secondsLeft]);
 
+  // Checkpoint to AsyncStorage after every set change
+  const completedSetCount = useMemo(
+    () => state.exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0),
+    [state.exercises]
+  );
+  useEffect(() => {
+    if (completedSetCount > 0) saveDraft(state);
+  }, [completedSetCount]);
+
+  // Checkpoint on app background
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "background" || next === "inactive") saveDraft(state);
+    });
+    return () => sub.remove();
+  }, [state]);
+
   // Progress
   const progress = useMemo<ActiveWorkoutProgress>(() => {
     const totalSets = state.exercises.reduce((acc, ex) => acc + ex.sets.filter((s) => !s.isWarmup).length, 0);
@@ -786,7 +845,10 @@ export function ActiveWorkoutProvider({
         const { error: streakError } = await supabase.rpc("update_user_streak", { p_user_id: state.userId });
         if (streakError) console.error(streakError);
 
-        // 5. Invalidate coach cache
+        // 5. Clear draft — workout saved successfully
+        await clearDraft();
+
+        // 6. Invalidate coach cache
         await invalidateAndNotify(state.userId, "workout_complete").catch(console.error);
       } catch (e) {
         console.error("Error saving workout:", e);
@@ -825,7 +887,10 @@ export function ActiveWorkoutProvider({
             {
               text: "Discard",
               style: "destructive",
-              onPress: () => router.dismissTo("/(app)/(tabs)/workout"),
+              onPress: () => {
+                clearDraft();
+                router.dismissTo("/(app)/(tabs)/workout");
+              },
             },
           ]
         );
