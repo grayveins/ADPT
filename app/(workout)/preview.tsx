@@ -344,11 +344,6 @@ export default function WorkoutPreviewScreen() {
                   entering={FadeInDown.delay(index * 50).duration(300)}
                   style={[styles.exerciseCard, { backgroundColor: colors.card }]}
                 >
-                  {/* Thumbnail */}
-                  <View style={[styles.exerciseThumbnail, { backgroundColor: `${muscleIcon.color}20` }]}>
-                    <Ionicons name={muscleIcon.icon as any} size={24} color={muscleIcon.color} />
-                  </View>
-
                   {/* Exercise Info */}
                   <View style={styles.exerciseInfo}>
                     <Text 

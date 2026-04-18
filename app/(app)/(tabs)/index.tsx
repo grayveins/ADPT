@@ -118,14 +118,6 @@ export default function HomeScreen() {
           </Text>
         </View>
         <View style={styles.headerRight}>
-          {currentStreak > 0 && (
-            <View style={styles.streakBadge}>
-              <Ionicons name="flame" size={14} color={colors.text} />
-              <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
-                {currentStreak}
-              </Text>
-            </View>
-          )}
           <AvatarButton name={profileName} colors={colors} />
         </View>
       </View>
