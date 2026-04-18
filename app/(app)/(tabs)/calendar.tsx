@@ -152,22 +152,26 @@ export default function CalendarScreen() {
             <Pressable
               key={i}
               onPress={() => setSelectedDate(day)}
-              style={[
-                styles.dayCell,
-                isSelected && { backgroundColor: colors.text },
-              ]}
+              style={styles.dayCell}
             >
-              <Text
-                allowFontScaling={false}
+              <View
                 style={[
-                  styles.dayText,
-                  { color: inMonth ? colors.text : colors.textMuted },
-                  isToday && !isSelected && { fontWeight: "700" },
-                  isSelected && { color: colors.bg, fontWeight: "700" },
+                  styles.dayCircle,
+                  isSelected && { backgroundColor: colors.text },
                 ]}
               >
-                {format(day, "d")}
-              </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.dayText,
+                    { color: inMonth ? colors.text : colors.textMuted },
+                    isToday && !isSelected && { fontWeight: "700" },
+                    isSelected && { color: colors.bg, fontWeight: "700" },
+                  ]}
+                >
+                  {format(day, "d")}
+                </Text>
+              </View>
               {(hasSession || hasWorkout) && (
                 <View style={styles.dotRow}>
                   {hasSession && (
@@ -257,13 +261,19 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
   dayCell: {
     width: "14.28%",
-    aspectRatio: 1,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 999,
+  },
+  dayCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayText: { fontSize: 15 },
-  dotRow: { flexDirection: "row", gap: 3, marginTop: 2, position: "absolute", bottom: 4 },
+  dotRow: { flexDirection: "row", gap: 3, marginTop: 3 },
   dot: { width: 4, height: 4, borderRadius: 2 },
   eventList: { flex: 1, marginTop: spacing.base },
   dateLabel: { fontSize: 14, fontWeight: "500", marginBottom: spacing.md },
