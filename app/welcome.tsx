@@ -1,8 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
+
+const LOGO = require("@/assets/images/icon.png");
 
 export default function Welcome() {
   const { colors } = useTheme();
@@ -10,8 +12,9 @@ export default function Welcome() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
-        <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
-          Welcome
+        <Image source={LOGO} style={styles.logo} />
+        <Text allowFontScaling={false} style={[styles.brand, { color: colors.text }]}>
+          ADPT
         </Text>
       </View>
 
@@ -35,11 +38,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.base,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: "300",
-    letterSpacing: 1,
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 28,
+  },
+  brand: {
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: 6,
   },
   actions: {
     paddingHorizontal: spacing.xl,

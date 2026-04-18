@@ -1,13 +1,3 @@
-/**
- * Home Screen - "PT in Your Pocket"
- * 
- * Design Philosophy:
- * - 80% focus on today's workout
- * - Coach greeting (time-based, personalized)
- * - Minimal metrics, maximum action
- * - Pre-workout feeling check-in
- */
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -18,52 +8,25 @@ import {
   View,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { useFonts } from "expo-font";
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
-
-import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import {
   addDays,
-  differenceInCalendarDays,
-  differenceInCalendarWeeks,
   format,
   isSameDay,
-  parseISO,
   startOfWeek,
 } from "date-fns";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
-import {
-  generateWeeklyPlan,
-  type PlannedWorkout,
-  type WorkoutPlanPreferences,
-} from "@/lib/workoutPlan";
-
-// Components
-import { TabHeader } from "@/src/components/layout";
-import { ToastContainer } from "@/src/animations/celebrations";
-import { hapticPress } from "@/src/animations/feedback/haptics";
+import { spacing, radius } from "@/src/theme";
 import { useStreak } from "@/src/hooks/useStreak";
-import { layout, spacing, shadows } from "@/src/theme";
-import { ErrorState } from "@/src/components/ErrorState";
-import { HomeSkeleton } from "@/src/animations/components";
-import { useWorkoutLimit } from "@/src/hooks/useWorkoutLimit";
-import { useStrengthScore } from "@/src/hooks/useStrengthScore";
-import { useUserXP } from "@/src/hooks/useUserXP";
-import UpgradePrompt from "@/src/components/UpgradePrompt";
-import TrialBanner from "@/src/components/TrialBanner";
-import { generateSmartWorkout } from "@/lib/workout/generateSmart";
+import { useBodyStats } from "@/src/hooks/useBodyStats";
+import { useClientMacros } from "@/src/hooks/useClientMacros";
+import { useLatestPhotos } from "@/src/hooks/useLatestPhotos";
+import { MetricCard } from "@/src/components/progress/MetricCard";
+import { hapticPress } from "@/src/animations/feedback/haptics";
 
-type SessionRow = {
-  id: string;
-  title: string | null;
-  started_at: string;
-  ended_at: string | null;
-};
-
-// Time-based greeting
 const getGreeting = (): string => {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
@@ -71,228 +34,68 @@ const getGreeting = (): string => {
   return "Good evening";
 };
 
-// Coach message based on context
-const getCoachMessage = (
-  workedOutToday: boolean,
-  lastSessionDaysAgo: number | null,
-  currentStreak: number,
-  isRestDay: boolean
-): string => {
-  if (workedOutToday) {
-    return "Great work today! Rest up and recover.";
-  }
-  if (isRestDay) {
-    return "Rest day. Light movement or stretching is perfect.";
-  }
-  if (lastSessionDaysAgo === null || lastSessionDaysAgo >= 3) {
-    return "Ready to get back at it? Your body is ready.";
-  }
-  if (currentStreak >= 3) {
-    return `${currentStreak} day streak! Let's keep the momentum.`;
-  }
-  return "Your workout is ready. Let's make it count.";
-};
-
 export default function HomeScreen() {
   const { colors } = useTheme();
-  
-  const [loaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [profileName, setProfileName] = useState("there");
-  const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  
-  // Streak data
-  const { currentStreak, workedOutToday, isStreakAtRisk, refreshStreak, streakFreezeAvailable, freezeStreak } = useStreak(userId);
-
-
-  // Workout limit (free tier: 3/week) — refresh on tab focus after completing a workout
-  const { canStartWorkout, refresh: refreshWorkoutLimit } = useWorkoutLimit();
-  useFocusEffect(useCallback(() => { refreshWorkoutLimit(); }, [refreshWorkoutLimit]));
-  const [showUpgrade, setShowUpgrade] = useState(false);
-
-  // Strength Score
-  const { score: strengthScore, loading: scoreLoading } = useStrengthScore(userId);
-
-  // XP + Rank
-  const { data: xpData } = useUserXP(userId);
-
-  // Auto-generated workout preview (Fitbod-style)
-  type ExercisePreview = { name: string; sets: number; reps: string };
-  const [generatedPreview, setGeneratedPreview] = useState<ExercisePreview[] | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  // Pull-to-refresh
+  const [profileName, setProfileName] = useState("there");
   const [refreshing, setRefreshing] = useState(false);
+  const [todayWorkout, setTodayWorkout] = useState<any>(null);
 
-  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const { currentStreak } = useStreak(userId);
+  const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
+  const { data: macros } = useClientMacros(userId);
+  const { photos } = useLatestPhotos(userId);
 
-  // Fetch all data for home screen
-  const fetchData = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
-    setError(null);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+  const fetchData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.replace("/sign-in"); return; }
+    setUserId(user.id);
 
-      if (!user) {
-        router.replace("/sign-in");
-        return;
-      }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name")
+      .eq("id", user.id)
+      .single();
+    if (profile?.first_name) setProfileName(profile.first_name);
 
-      setUserId(user.id);
+    // Check for assigned workout today
+    const { data: program } = await supabase
+      .from("coaching_programs")
+      .select("id, name, program_phases(id, status, phase_workouts(id, day_number, name, exercises))")
+      .eq("client_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("first_name, onboarding_data, training_style, goal, updated_at")
-        .eq("id", user.id)
-        .single();
-
-      const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
-      const name = profile?.first_name ?? "there";
-      const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
-      const weekIndex = Math.max(
-        0,
-        differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
-      );
-
-      setProfileName(name);
-
-      setPreferences({
-        goal: onboarding.goal ?? profile?.goal ?? null,
-        workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
-        trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
-        splitPreference: onboarding.splitPreference ?? null,
-        limitations: onboarding.limitations ?? [],
-        activityLevel: onboarding.activityLevel ?? null,
-        weekIndex,
-      });
-
-      const weekStartIso = weekStart.toISOString();
-      const weekEndIso = addDays(weekStart, 7).toISOString();
-      const { data: sessionRows } = await supabase
-        .from("workout_sessions")
-        .select("id, title, started_at, ended_at")
-        .eq("user_id", user.id)
-        .gte("started_at", weekStartIso)
-        .lt("started_at", weekEndIso)
-        .order("started_at", { ascending: false });
-
-      setSessions((sessionRows ?? []) as SessionRow[]);
-      refreshStreak();
-    } catch (err) {
-      console.error("Error fetching home data:", err);
-      setError("Failed to load your data");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    if (program) {
+      const activePhase = (program as any).program_phases?.find((p: any) => p.status === "active");
+      const dayOfWeek = new Date().getDay() || 7;
+      const todayW = activePhase?.phase_workouts?.find((w: any) => w.day_number === dayOfWeek);
+      setTodayWorkout(todayW || null);
     }
-  }, [weekStart, refreshStreak]);
+  }, []);
 
-  // Pull-to-refresh handler
-  const handleRefresh = () => {
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useFocusEffect(useCallback(() => { refreshStats(); }, [refreshStats]));
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchData(true);
-  };
+    await fetchData();
+    await refreshStats();
+    setRefreshing(false);
+  }, [fetchData, refreshStats]);
 
-  useEffect(() => {
-    if (!loaded) return;
-    fetchData();
-  }, [loaded, weekStart, fetchData]);
+  const greeting = `${getGreeting()}, ${profileName}`;
 
-  // Auto-generate today's exercise preview (Fitbod-style: workout ready on open)
-  useEffect(() => {
-    if (!userId || workedOutToday) return;
-    setPreviewLoading(true);
-    generateSmartWorkout({ userId, insights: null })
-      .then((workout) => {
-        if (workout?.exercises) {
-          setGeneratedPreview(
-            workout.exercises.slice(0, 4).map((ex) => ({
-              name: ex.name,
-              sets: ex.sets.length,
-              reps: ex.targetReps,
-            }))
-          );
-        }
-      })
-      .catch(() => {})
-      .finally(() => setPreviewLoading(false));
-  }, [userId, workedOutToday]);
-
-  const sessionsByDate = useMemo(() => {
-    const map = new Map<string, SessionRow>();
-    sessions.forEach((session) => {
-      const dateKey = format(parseISO(session.started_at), "yyyy-MM-dd");
-      if (!map.has(dateKey)) map.set(dateKey, session);
-    });
-    return map;
-  }, [sessions]);
-
-  const lastSessionDaysAgo = useMemo(() => {
-    if (!sessions.length) return null;
-    const sorted = [...sessions].sort((a, b) => b.started_at.localeCompare(a.started_at));
-    const last = sorted[0];
-    if (!last) return null;
-    return Math.max(0, differenceInCalendarDays(new Date(), parseISO(last.started_at)));
-  }, [sessions]);
-
-  const adherenceScore = useMemo(() => {
-    const target = preferences?.workoutsPerWeek ?? 3;
-    if (!target) return null;
-    const completed = sessionsByDate.size;
-    return Math.min(1, completed / target);
-  }, [preferences, sessionsByDate]);
-
-  const plan = useMemo<PlannedWorkout[]>(() => {
-    if (!preferences) return [];
-    return generateWeeklyPlan(
-      { ...preferences, adherenceScore, lastSessionDaysAgo },
-      weekStart
-    );
-  }, [preferences, adherenceScore, lastSessionDaysAgo, weekStart]);
-
-  const planByDate = useMemo(() => new Map(plan.map((item) => [item.date, item])), [plan]);
-  const todayKey = format(new Date(), "yyyy-MM-dd");
-  const todayWorkout = planByDate.get(todayKey) ?? null;
-
-  const target = preferences?.workoutsPerWeek ?? 3;
-  const completed = sessionsByDate.size;
-
-  // Week view data
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, index) => {
-      const date = addDays(weekStart, index);
-      const dateKey = format(date, "yyyy-MM-dd");
-      const isCompleted = sessionsByDate.has(dateKey);
-      const isToday = dateKey === todayKey;
-      const plannedWorkout = planByDate.get(dateKey);
-      const isPlanned = plannedWorkout && !plannedWorkout.isRest;
-      return {
-        completed: isCompleted,
-        isToday,
-        isPlanned: isPlanned ?? false,
-      };
-    });
-  }, [weekStart, sessionsByDate, todayKey, planByDate]);
-
-  const openCheckin = () => {
+  const startWorkout = () => {
     hapticPress();
-    if (!canStartWorkout) {
-      setShowUpgrade(true);
-      return;
-    }
-    if (todayWorkout && !todayWorkout.isRest) {
+    if (todayWorkout) {
       router.push({
         pathname: "/(workout)/active",
         params: {
-          type: todayWorkout.type,
-          name: todayWorkout.type,
+          name: todayWorkout.name,
+          exercises: JSON.stringify(todayWorkout.exercises || []),
+          sourceType: "program",
         },
       });
     } else {
@@ -300,573 +103,143 @@ export default function HomeScreen() {
     }
   };
 
-
-
-
-
-
-
-  if (!loaded) return null;
-
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        <HomeSkeleton />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        <ErrorState 
-          message={error}
-          detail="Please check your connection and try again."
-          onRetry={() => fetchData()}
-        />
-      </View>
-    );
-  }
-
-  const isRestDay = todayWorkout?.isRest ?? false;
-  const greeting = getGreeting();
-  const coachMessage = getCoachMessage(workedOutToday, lastSessionDaysAgo, currentStreak, isRestDay);
-
-  // Compose greeting title
-  const greetingTitle = `${greeting}, ${profileName}`;
+  const weightLbs = bodyStats?.weight_kg
+    ? (bodyStats.weight_kg * 2.205).toFixed(1)
+    : "—";
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Header with greeting, streak, and avatar */}
-      <TabHeader
-        title={greetingTitle}
-        streakCount={currentStreak}
-        userName={profileName}
-      />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text allowFontScaling={false} style={[styles.greeting, { color: colors.text }]}>
+            {greeting}
+          </Text>
+        </View>
+        {currentStreak > 0 && (
+          <View style={styles.streakBadge}>
+            <Ionicons name="flame" size={14} color={colors.text} />
+            <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
+              {currentStreak}
+            </Text>
+          </View>
+        )}
+      </View>
 
-      <TrialBanner />
-
-      {/* Week day strip (Cal AI style) */}
+      {/* Week strip */}
       <WeekStrip />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
-        {/* Coach Message */}
-        <Animated.View 
-          entering={FadeInDown.delay(0).duration(400)}
-          style={styles.coachMessageSection}
-        >
-          <Text allowFontScaling={false} style={[styles.coachMessage, { color: colors.textSecondary }]}>
-            {coachMessage}
-          </Text>
-        </Animated.View>
-
-        {/* Streak at risk — compact banner */}
-        {isStreakAtRisk && currentStreak > 0 && !workedOutToday && (
-          <Animated.View entering={FadeInDown.delay(15).duration(300)}>
-            <Pressable
-              onPress={streakFreezeAvailable ? async () => {
-                hapticPress();
-                const ok = await freezeStreak();
-                if (ok) refreshStreak();
-              } : openCheckin}
-              style={[styles.streakBanner, { backgroundColor: "rgba(255, 107, 53, 0.1)" }]}
-            >
-              <Ionicons name="flame" size={16} color={colors.intensity} />
-              <Text allowFontScaling={false} style={[styles.streakBannerText, { color: colors.intensity }]}>
-                {currentStreak}-day streak at risk
+        {/* Today's Workout — only if assigned */}
+        {todayWorkout && (
+          <Pressable
+            onPress={startWorkout}
+            style={[styles.workoutCard, { backgroundColor: colors.bgSecondary }]}
+          >
+            <Text allowFontScaling={false} style={[styles.workoutLabel, { color: colors.textMuted }]}>
+              TODAY
+            </Text>
+            <Text allowFontScaling={false} style={[styles.workoutName, { color: colors.text }]}>
+              {todayWorkout.name}
+            </Text>
+            <View style={styles.workoutStart}>
+              <Text allowFontScaling={false} style={[styles.workoutStartText, { color: colors.text }]}>
+                Start Workout
               </Text>
-              <Text allowFontScaling={false} style={[styles.streakBannerCta, { color: colors.intensity }]}>
-                {streakFreezeAvailable ? "Freeze" : "Train now"}
-              </Text>
-            </Pressable>
-          </Animated.View>
+              <Ionicons name="chevron-forward" size={14} color={colors.text} />
+            </View>
+          </Pressable>
         )}
 
-        {/* Week Progress Bar */}
-        <Animated.View 
-          entering={FadeInDown.delay(50).duration(400)}
-          style={styles.weekSection}
-        >
-          {/* Week days */}
-          <View style={styles.weekStats}>
-            <Text allowFontScaling={false} style={[styles.weekStatsText, { color: colors.textMuted }]}>
-              {completed} of {target} workouts this week
+        {/* Body Metrics */}
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
+          Body Metrics
+        </Text>
+        <View style={styles.cardRow}>
+          <MetricCard
+            title="Scale Weight"
+            subtitle={bodyStats?.date ? format(new Date(bodyStats.date), "d MMM yyyy") : "No data"}
+            value={weightLbs}
+            unit="lbs"
+            onAdd={() => router.push("/(app)/log-progress" as any)}
+          />
+          <MetricCard
+            title="Body Fat"
+            subtitle={bodyStats?.date ? format(new Date(bodyStats.date), "d MMM yyyy") : "No data"}
+            value={bodyStats?.body_fat_pct != null ? `${bodyStats.body_fat_pct}` : "—"}
+            unit="%"
+            onAdd={() => router.push("/(app)/log-progress" as any)}
+          />
+        </View>
+
+        {/* Nutrition */}
+        {macros && (
+          <>
+            <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
+              Nutrition
             </Text>
-            <View style={[styles.weekProgressBar, { backgroundColor: colors.border }]}>
-              <View 
-                style={[
-                  styles.weekProgressFill, 
-                  { 
-                    width: `${Math.min(100, (completed / target) * 100)}%`, 
-                    backgroundColor: colors.primary 
-                  }
-                ]} 
+            <View style={styles.cardRow}>
+              <MetricCard
+                title="Calories"
+                subtitle="Daily target"
+                value={macros.calories != null ? `${macros.calories}` : "—"}
+                unit="kcal"
+              />
+              <MetricCard
+                title="Protein"
+                subtitle="Daily target"
+                value={macros.protein_g != null ? `${macros.protein_g}` : "—"}
+                unit="g"
               />
             </View>
-          </View>
-        </Animated.View>
-
-        {/* Strength score and mesocycle removed for minimal prototype */}
-
-        {/* TODAY'S WORKOUT - Hero Card (80% focus) */}
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
-          style={styles.heroSection}
-        >
-          {workedOutToday ? (
-            // Completed state
-            <View style={[styles.heroCard, styles.heroCardCompleted, { backgroundColor: colors.card }]}>
-              <View style={[styles.heroIconLarge, { backgroundColor: colors.success }]}>
-                <Ionicons name="checkmark" size={40} color={colors.textOnPrimary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.heroCompletedTitle, { color: colors.text }]}>
-                Workout Complete!
-              </Text>
-              <Text allowFontScaling={false} style={[styles.heroCompletedSubtitle, { color: colors.textMuted }]}>
-                Great work today. Rest and recover.
-              </Text>
-              <Pressable 
-                onPress={() => router.push("/(workout)/history")}
-                style={[styles.heroSecondaryButton, { borderColor: colors.border }]}
-              >
-                <Text allowFontScaling={false} style={[styles.heroSecondaryButtonText, { color: colors.text }]}>
-                  View Session
-                </Text>
-              </Pressable>
+            <View style={styles.cardRow}>
+              <MetricCard
+                title="Fat"
+                subtitle="Daily target"
+                value={macros.fat_g != null ? `${macros.fat_g}` : "—"}
+                unit="g"
+              />
+              <MetricCard
+                title="Carbs"
+                subtitle="Daily target"
+                value={macros.carbs_g != null ? `${macros.carbs_g}` : "—"}
+                unit="g"
+              />
             </View>
-          ) : isRestDay ? (
-            // Rest day state
-            <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
-              <View style={[styles.heroIconLarge, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="leaf" size={40} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.heroTitle, { color: colors.text }]}>
-                Rest Day
-              </Text>
-              <Text allowFontScaling={false} style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                Recovery is where progress happens. Light stretching or a walk is perfect.
-              </Text>
-              <Pressable 
-                onPress={() => router.push("/(app)/(tabs)/workout")}
-                style={[styles.heroSecondaryButton, { borderColor: colors.border }]}
-              >
-                <Text allowFontScaling={false} style={[styles.heroSecondaryButtonText, { color: colors.text }]}>
-                  Browse Workouts
-                </Text>
-              </Pressable>
+          </>
+        )}
+
+        {/* Photos */}
+        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
+          Photos
+        </Text>
+        <View style={[styles.photosCard, { backgroundColor: colors.bgSecondary }]}>
+          {photos.length > 0 ? (
+            <View style={styles.photoRow}>
+              {photos.map((p) => (
+                <View key={p.id} style={[styles.photoThumb, { backgroundColor: colors.border }]}>
+                  <Text allowFontScaling={false} style={[styles.photoType, { color: colors.textMuted }]}>
+                    {p.photo_type}
+                  </Text>
+                </View>
+              ))}
             </View>
           ) : (
-            // Active workout state — Fitbod-style with exercise preview
-            <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
-              {/* Header row: type badge + meta */}
-              <View style={styles.heroHeaderRow}>
-                <View style={[styles.heroTypeBadge, { backgroundColor: colors.primaryMuted }]}>
-                  <Ionicons name="sparkles" size={12} color={colors.primary} />
-                  <Text allowFontScaling={false} style={[styles.heroTypeBadgeText, { color: colors.primary }]}>
-                    {todayWorkout?.type ?? "Full Body"}
-                  </Text>
-                </View>
-                {todayWorkout && (
-                  <Text allowFontScaling={false} style={[styles.heroMetaText, { color: colors.textMuted }]}>
-                    ~{todayWorkout.durationMinutes} min
-                  </Text>
-                )}
-              </View>
-
-              <Text allowFontScaling={false} style={[styles.heroTitle, { color: colors.text }]}>
-                Today&apos;s Workout
-              </Text>
-
-              {/* Exercise preview list */}
-              {previewLoading && !generatedPreview && (
-                <View style={styles.exercisePreview}>
-                  {[1, 2, 3, 4].map((i) => (
-                    <View key={i} style={[styles.exercisePreviewRow, i < 4 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
-                      <View style={{ width: 120 + (i * 20), height: 14, backgroundColor: colors.card, borderRadius: 4 }} />
-                      <View style={{ width: 40, height: 14, backgroundColor: colors.card, borderRadius: 4 }} />
-                    </View>
-                  ))}
-                </View>
-              )}
-              {generatedPreview && generatedPreview.length > 0 && (
-                <View style={styles.exercisePreview}>
-                  {generatedPreview.map((ex, i) => (
-                    <View key={i} style={[styles.exercisePreviewRow, i < generatedPreview.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
-                      <Text allowFontScaling={false} style={[styles.exercisePreviewName, { color: colors.text }]} numberOfLines={1}>
-                        {ex.name}
-                      </Text>
-                      <Text allowFontScaling={false} style={[styles.exercisePreviewSets, { color: colors.textMuted }]}>
-                        {ex.sets} x {ex.reps}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Start Button */}
-              <Pressable
-                onPress={openCheckin}
-                style={({ pressed }) => [
-                  styles.heroButton,
-                  { backgroundColor: colors.primary },
-                  pressed && styles.heroButtonPressed
-                ]}
-              >
-                <Text allowFontScaling={false} style={[styles.heroButtonText, { color: colors.textOnPrimary }]}>
-                  Start Workout
-                </Text>
-                <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
-              </Pressable>
-            </View>
+            <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
+              No check-in photos yet
+            </Text>
           )}
-        </Animated.View>
-
+        </View>
       </ScrollView>
-
-      <ToastContainer />
-      <UpgradePrompt
-        visible={showUpgrade}
-        onClose={() => setShowUpgrade(false)}
-        feature="workouts"
-        strengthScore={strengthScore?.totalScore}
-        rankName={xpData?.rank?.name}
-        rankColor={xpData?.rank?.color}
-        workoutsCompleted={sessions.length}
-      />
-    </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scrollContent: {
-    paddingHorizontal: layout.screenPaddingHorizontal,
-    paddingTop: spacing.sm,
-    paddingBottom: 100,
-  },
-
-  // Coach Message
-  coachMessageSection: {
-    marginBottom: spacing.lg,
-  },
-  coachMessage: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
-  },
-
-  // Streak at risk banner
-  streakBanner: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: spacing.md,
-  },
-  streakBannerText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  streakBannerCta: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-
-  // Limitation Card
-  limitationCard: {
-    borderRadius: 16,
-    padding: spacing.base,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-  },
-  limitationHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  limitationIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  limitationTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
-  limitationBody: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 20,
-    marginBottom: spacing.sm,
-  },
-  limitationFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  limitationFooterText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-
-  // Week Section
-  weekSection: {
-    marginBottom: layout.sectionGap,
-  },
-  weekStats: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  weekStatsText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-  },
-  weekProgressBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  weekProgressFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-
-  // Strength Score Card
-  scoreSection: {
-    marginBottom: layout.sectionGap,
-  },
-  scoreCard: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    padding: spacing.base,
-    borderRadius: 16,
-    gap: spacing.base,
-    ...shadows.card,
-  },
-  scoreInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  scoreTitle: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.8,
-  },
-  scoreViewMore: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 2,
-    marginTop: 4,
-  },
-  scoreViewText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  scoreNext: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-
-  // Hero Card (Today's Workout)
-  heroSection: {
-    marginBottom: layout.sectionGap,
-  },
-  heroCard: {
-    borderRadius: 20,
-    padding: spacing.xl,
-    alignItems: "center",
-    ...shadows.card,
-  },
-  heroCardCompleted: {
-    paddingVertical: spacing.xxl,
-  },
-  heroIconLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.base,
-  },
-  heroHeaderRow: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
-    marginBottom: spacing.sm,
-  },
-  heroTypeBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  heroTypeBadgeText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: spacing.sm,
-  },
-  // Exercise preview (Fitbod-style)
-  exercisePreview: {
-    marginBottom: spacing.md,
-  },
-  exercisePreviewRow: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
-    paddingVertical: 9,
-  },
-  exercisePreviewName: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    flex: 1,
-  },
-  exercisePreviewSets: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginLeft: 12,
-  },
-  heroSubtitle: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 280,
-    marginBottom: spacing.lg,
-  },
-  heroCompletedTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
-    marginBottom: spacing.sm,
-  },
-  heroCompletedSubtitle: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  heroMeta: {
-    flexDirection: "row",
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  heroMetaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  heroMetaText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
-
-  // Hero Button
-  heroButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    width: "100%",
-    height: 56,
-    borderRadius: 28,
-  },
-  heroButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  heroButtonText: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
-  },
-  heroSecondaryButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  heroSecondaryButtonText: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-
-  // Quick Actions
-  quickActionsSection: {
-    gap: layout.cardGap,
-  },
-  quickAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.base,
-    borderRadius: 14,
-    gap: spacing.md,
-    ...shadows.sm,
-  },
-  quickActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickActionText: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-
-  // Week strip
-  weekStrip: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.base,
-  },
-  weekStripDay: { alignItems: "center", gap: 4 },
-  weekStripLabel: { fontSize: 13 },
-  weekStripLabelBold: { fontWeight: "600" },
-  weekStripCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  weekStripDate: { fontSize: 14 },
-  weekStripDateBold: { fontWeight: "700" },
-});
 
 const WEEKS_TO_SHOW = 12;
 
@@ -884,19 +257,14 @@ function WeekStrip() {
 
   const scrollToToday = useCallback(() => {
     if (containerWidth > 0 && scrollRef.current) {
-      const weekWidth = containerWidth;
-      const offset = (WEEKS_TO_SHOW - 1) * weekWidth;
-      scrollRef.current.scrollTo({ x: offset, animated: false });
+      scrollRef.current.scrollTo({ x: (WEEKS_TO_SHOW - 1) * containerWidth, animated: false });
     }
   }, [containerWidth]);
 
   useEffect(() => { scrollToToday(); }, [scrollToToday]);
 
   return (
-    <View
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      style={{ overflow: "hidden" }}
-    >
+    <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)} style={styles.weekStripWrap}>
       {containerWidth > 0 && (
         <ScrollView
           ref={scrollRef}
@@ -907,34 +275,21 @@ function WeekStrip() {
           contentContainerStyle={{ width: containerWidth * WEEKS_TO_SHOW }}
         >
           {Array.from({ length: WEEKS_TO_SHOW }, (_, weekIdx) => (
-            <View key={weekIdx} style={[styles.weekStrip, { width: containerWidth }]}>
+            <View key={weekIdx} style={[styles.weekRow, { width: containerWidth }]}>
               {allDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day, i) => {
                 const isToday = isSameDay(day, today);
                 return (
-                  <View key={i} style={styles.weekStripDay}>
+                  <View key={i} style={styles.weekDay}>
                     <Text
                       allowFontScaling={false}
-                      style={[
-                        styles.weekStripLabel,
-                        { color: isToday ? colors.text : colors.textMuted },
-                        isToday && styles.weekStripLabelBold,
-                      ]}
+                      style={[styles.weekDayLabel, { color: isToday ? colors.text : colors.textMuted }]}
                     >
                       {format(day, "EEEEE")}
                     </Text>
-                    <View
-                      style={[
-                        styles.weekStripCircle,
-                        isToday && { backgroundColor: colors.text },
-                      ]}
-                    >
+                    <View style={[styles.weekDayCircle, isToday && { backgroundColor: colors.text }]}>
                       <Text
                         allowFontScaling={false}
-                        style={[
-                          styles.weekStripDate,
-                          { color: isToday ? colors.bg : colors.textMuted },
-                          isToday && styles.weekStripDateBold,
-                        ]}
+                        style={[styles.weekDayDate, { color: isToday ? colors.bg : colors.textMuted }]}
                       >
                         {format(day, "d")}
                       </Text>
@@ -949,3 +304,46 @@ function WeekStrip() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  greeting: { fontSize: 22, fontWeight: "600" },
+  streakBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  streakText: { fontSize: 15, fontWeight: "600" },
+
+  weekStripWrap: { overflow: "hidden", marginBottom: spacing.sm },
+  weekRow: { flexDirection: "row", justifyContent: "space-around", paddingHorizontal: spacing.lg },
+  weekDay: { alignItems: "center", gap: 4 },
+  weekDayLabel: { fontSize: 13, fontWeight: "500" },
+  weekDayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  weekDayDate: { fontSize: 14, fontWeight: "600" },
+
+  scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+
+  workoutCard: { padding: spacing.base, borderRadius: radius.lg, marginBottom: spacing.xl },
+  workoutLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
+  workoutName: { fontSize: 18, fontWeight: "600", marginTop: 2 },
+  workoutStart: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.md },
+  workoutStartText: { fontSize: 14, fontWeight: "600" },
+
+  sectionTitle: { fontSize: 18, fontWeight: "700", marginBottom: spacing.md, marginTop: spacing.sm },
+
+  cardRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
+
+  photosCard: { borderRadius: radius.lg, padding: spacing.base, marginBottom: spacing.lg },
+  photoRow: { flexDirection: "row", gap: spacing.sm },
+  photoThumb: {
+    width: 80, height: 100, borderRadius: radius.sm,
+    alignItems: "center", justifyContent: "center",
+  },
+  photoType: { fontSize: 11, textTransform: "capitalize" },
+  emptyText: { fontSize: 14, textAlign: "center", paddingVertical: spacing.lg },
+});
