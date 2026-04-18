@@ -17,6 +17,7 @@ import {
 } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, radius } from "@/src/theme";
@@ -111,19 +112,22 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text allowFontScaling={false} style={[styles.greeting, { color: colors.text }]}>
             {greeting}
           </Text>
         </View>
-        {currentStreak > 0 && (
-          <View style={styles.streakBadge}>
-            <Ionicons name="flame" size={14} color={colors.text} />
-            <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
-              {currentStreak}
-            </Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          {currentStreak > 0 && (
+            <View style={styles.streakBadge}>
+              <Ionicons name="flame" size={14} color={colors.text} />
+              <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
+                {currentStreak}
+              </Text>
+            </View>
+          )}
+          <AvatarButton name={profileName} colors={colors} />
+        </View>
       </View>
 
       {/* Week strip */}
@@ -305,6 +309,21 @@ function WeekStrip() {
   );
 }
 
+function AvatarButton({ name, colors }: { name: string; colors: any }) {
+  const navigation = useNavigation();
+  const initial = (name || "?").charAt(0).toUpperCase();
+  return (
+    <Pressable
+      onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+      style={[styles.avatar, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
+    >
+      <Text allowFontScaling={false} style={[styles.avatarText, { color: colors.text }]}>
+        {initial}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
@@ -312,12 +331,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.base,
+    paddingBottom: spacing.md,
   },
+  headerLeft: { flex: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   greeting: { fontSize: 22, fontWeight: "600" },
   streakBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
   streakText: { fontSize: 15, fontWeight: "600" },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { fontSize: 15, fontWeight: "600" },
 
   weekStripWrap: { overflow: "hidden", marginBottom: spacing.sm },
   weekRow: { flexDirection: "row", justifyContent: "space-around", paddingHorizontal: spacing.lg },
