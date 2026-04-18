@@ -367,21 +367,6 @@ export default function WorkoutPreviewScreen() {
                       )}
                     </View>
 
-                    {/* Previous Performance */}
-                    <View style={styles.previousPerformance}>
-                      {exercise.isNew ? (
-                        <View style={styles.newBadge}>
-                          <Ionicons name="sparkles" size={12} color={colors.gold} />
-                          <Text allowFontScaling={false} style={[styles.newText, { color: colors.gold }]}>
-                            New exercise
-                          </Text>
-                        </View>
-                      ) : exercise.lastWeight ? (
-                        <Text allowFontScaling={false} style={[styles.previousText, { color: colors.textMuted }]}>
-                          Last: {exercise.lastWeight} lbs × {exercise.lastReps}
-                        </Text>
-                      ) : null}
-                    </View>
 
                     {/* Notes */}
                     {exercise.notes && (
