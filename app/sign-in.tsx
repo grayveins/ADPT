@@ -28,8 +28,7 @@ export default function SignIn() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { Alert.alert("Error", error.message); return; }
-      const userId = data.user?.id;
-      if (!userId) { Alert.alert("Error", "User not found."); return; }
+      if (!data.user?.id) { Alert.alert("Error", "User not found."); return; }
       router.replace("/(app)/(tabs)" as any);
     } catch (e: any) {
       Alert.alert("Error", e.message);
@@ -56,54 +55,58 @@ export default function SignIn() {
 
           <View style={styles.spacer} />
 
-          {/* Header */}
+          {/* Title */}
           <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
-            Sign In
+            Welcome
           </Text>
 
           {/* Form */}
           <View style={styles.form}>
-            <TextInput
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              placeholderTextColor={colors.inputPlaceholder}
-              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-            />
-            <TextInput
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="password"
-              placeholderTextColor={colors.inputPlaceholder}
-              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-            />
+            <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} />
+              <TextInput
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, { color: colors.text }]}
+              />
+            </View>
+
+            <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
+              <Ionicons name="key-outline" size={20} color={colors.textMuted} />
+              <TextInput
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="password"
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, { color: colors.text }]}
+              />
+            </View>
+
             <Pressable
               onPress={onLogin}
               disabled={loading}
               style={[styles.btn, { backgroundColor: colors.text }, loading && styles.btnDisabled]}
             >
               <Text allowFontScaling={false} style={[styles.btnText, { color: colors.bg }]}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? "Signing in..." : "SIGN IN"}
+              </Text>
+            </Pressable>
+
+            <Pressable style={styles.forgotWrap}>
+              <Text allowFontScaling={false} style={[styles.forgotText, { color: colors.textMuted }]}>
+                Forgot Password?
               </Text>
             </Pressable>
           </View>
 
           <View style={styles.spacer} />
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Pressable onPress={() => router.replace("/sign-up")}>
-              <Text allowFontScaling={false} style={[styles.footerText, { color: colors.textMuted }]}>
-                Don't have an account?{" "}
-                <Text style={{ color: colors.text, fontWeight: "600" }}>Sign Up</Text>
-              </Text>
-            </Pressable>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -113,27 +116,32 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: spacing.xl },
+  scroll: { flexGrow: 1, paddingHorizontal: 32 },
   spacer: { flex: 1 },
   backBtn: { width: 40, height: 40, justifyContent: "center", marginTop: spacing.sm },
-  title: { fontSize: 28, fontWeight: "700", marginBottom: spacing.xl },
-  form: { gap: 14 },
+  title: { fontSize: 34, fontWeight: "300", marginBottom: 32, letterSpacing: 1 },
+  form: { gap: 0 },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    paddingVertical: 14,
+  },
   input: {
-    height: 52,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    paddingHorizontal: spacing.base,
+    flex: 1,
     fontSize: 16,
+    paddingVertical: 2,
   },
   btn: {
-    height: 56,
-    borderRadius: radius.md,
+    height: 48,
+    borderRadius: radius.xl,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.sm,
+    marginTop: 28,
   },
   btnDisabled: { opacity: 0.5 },
-  btnText: { fontSize: 17, fontWeight: "600" },
-  footer: { alignItems: "center", paddingBottom: spacing.lg },
-  footerText: { fontSize: 14 },
+  btnText: { fontSize: 14, fontWeight: "600", letterSpacing: 1 },
+  forgotWrap: { alignItems: "center", marginTop: 16 },
+  forgotText: { fontSize: 14 },
 });

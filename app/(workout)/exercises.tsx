@@ -49,7 +49,7 @@ const muscleGroupConfig: Record<string, { muscle: string; gradient: readonly [st
   "Legs":      { muscle: "quads",     gradient: gradients.legs,      color: muscleGroupColors.legs,      icon: "walk" },
   "Core":      { muscle: "core",      gradient: gradients.core,      color: muscleGroupColors.core,      icon: "radio-button-on" },
   "Full Body": { muscle: "full body", gradient: gradients.fullBody,  color: muscleGroupColors.fullBody,  icon: "body" },
-  "Cardio":    { muscle: "chest",     gradient: ["#FF6B35", "#E55A2B"] as const, color: "#FF6B35",        icon: "heart" },
+  "Cardio":    { muscle: "chest",     gradient: ["#000000", "#1A1A1A"] as const, color: "#000000",        icon: "heart" },
 };
 
 export default function ExercisesScreen() {

@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { format } from "date-fns";
 
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { hapticPress } from "@/src/animations/feedback/haptics";
@@ -102,7 +103,7 @@ export default function WorkoutScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
@@ -253,7 +254,7 @@ export default function WorkoutScreen() {
           />
         </Animated.View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

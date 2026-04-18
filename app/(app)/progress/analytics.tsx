@@ -48,8 +48,8 @@ const { width: SW } = Dimensions.get("window");
 const KEY_LIFTS = ["Bench Press", "Squat", "Deadlift", "Overhead Press"];
 
 const MUSCLE_COLORS: Record<string, string> = {
-  Chest: "#00C9B7", Back: "#33D4C5", Shoulders: "#00A89A",
-  Arms: "#7FA07F", Legs: "#6B8E6B", Core: "#60A5FA",
+  Chest: "#000000", Back: "#1A1A1A", Shoulders: "#333333",
+  Arms: "#4B5563", Legs: "#6B7280", Core: "#9CA3AF",
 };
 
 const TIME_RANGES: { label: string; value: TimeRange }[] = [

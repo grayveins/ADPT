@@ -51,18 +51,18 @@ type PreviousSet = {
 
 // Muscle group icons mapping
 const MUSCLE_ICONS: Record<string, { icon: string; color: string }> = {
-  chest: { icon: "fitness", color: "#00C9B7" },
-  back: { icon: "body", color: "#33D4C5" },
-  shoulders: { icon: "barbell", color: "#00A89A" },
-  arms: { icon: "hand-left", color: "#7FA07F" },
-  biceps: { icon: "hand-left", color: "#7FA07F" },
-  triceps: { icon: "hand-right", color: "#6B8E6B" },
-  legs: { icon: "walk", color: "#60A5FA" },
-  quads: { icon: "walk", color: "#60A5FA" },
-  hamstrings: { icon: "walk", color: "#5B95E5" },
-  glutes: { icon: "walk", color: "#4B85D5" },
-  core: { icon: "body", color: "#F59E0B" },
-  abs: { icon: "body", color: "#F59E0B" },
+  chest: { icon: "fitness", color: "#9CA3AF" },
+  back: { icon: "body", color: "#9CA3AF" },
+  shoulders: { icon: "barbell", color: "#9CA3AF" },
+  arms: { icon: "hand-left", color: "#9CA3AF" },
+  biceps: { icon: "hand-left", color: "#9CA3AF" },
+  triceps: { icon: "hand-right", color: "#9CA3AF" },
+  legs: { icon: "walk", color: "#9CA3AF" },
+  quads: { icon: "walk", color: "#9CA3AF" },
+  hamstrings: { icon: "walk", color: "#9CA3AF" },
+  glutes: { icon: "walk", color: "#9CA3AF" },
+  core: { icon: "body", color: "#9CA3AF" },
+  abs: { icon: "body", color: "#9CA3AF" },
 };
 
 const getMuscleIcon = (muscleGroup?: string) => {

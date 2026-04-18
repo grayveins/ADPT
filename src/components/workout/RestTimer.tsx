@@ -26,9 +26,9 @@ import { haptic } from "@/src/animations/feedback/haptics";
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // Color stops for the timer gradient
-const COLOR_GREEN = "#4CAF50";
-const COLOR_YELLOW = "#FFC107";
-const COLOR_RED = "#FF6B35";
+const COLOR_GREEN = "#9CA3AF";
+const COLOR_YELLOW = "#6B7280";
+const COLOR_RED = "#000000";
 
 type RestTimerProps = {
   duration: number; // seconds

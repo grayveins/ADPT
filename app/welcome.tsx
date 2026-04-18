@@ -1,10 +1,8 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
-
-const LOGO = require("@/assets/images/icon.png");
 
 export default function Welcome() {
   const { colors } = useTheme();
@@ -12,28 +10,18 @@ export default function Welcome() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
-        <Image source={LOGO} style={styles.logo} />
-        <Text allowFontScaling={false} style={[styles.brand, { color: colors.text }]}>
-          ADPT
+        <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
+          Welcome
         </Text>
       </View>
 
       <View style={styles.actions}>
         <Pressable
-          onPress={() => router.push("/sign-up")}
+          onPress={() => router.push("/sign-in")}
           style={[styles.primaryButton, { backgroundColor: colors.text }]}
         >
           <Text allowFontScaling={false} style={[styles.primaryText, { color: colors.bg }]}>
-            Get Started
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.push("/sign-in")}
-          style={styles.secondaryButton}
-        >
-          <Text allowFontScaling={false} style={[styles.secondaryText, { color: colors.text }]}>
-            Sign In
+            SIGN IN
           </Text>
         </Pressable>
       </View>
@@ -48,39 +36,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    marginBottom: spacing.base,
-  },
-  brand: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: 4,
+  title: {
+    fontSize: 34,
+    fontWeight: "300",
+    letterSpacing: 1,
   },
   actions: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 48,
     gap: spacing.md,
   },
   primaryButton: {
-    height: 56,
-    borderRadius: radius.md,
+    height: 52,
+    borderRadius: radius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   primaryText: {
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryText: {
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
+    letterSpacing: 1,
   },
 });

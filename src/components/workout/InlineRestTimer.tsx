@@ -24,9 +24,9 @@ export function InlineRestTimer() {
     if (!restTimer.active) return colors.text;
     const totalEstimate = restTimer.secondsLeft + 10; // rough estimate
     const pct = restTimer.secondsLeft / Math.max(totalEstimate, 60);
-    if (pct > 0.5) return "#4CAF50"; // green
-    if (pct > 0.2) return "#FFC107"; // yellow
-    return "#FF6B35"; // red/orange
+    if (pct > 0.5) return "#9CA3AF";
+    if (pct > 0.2) return "#6B7280";
+    return "#000000";
   }, [restTimer.secondsLeft, restTimer.active, colors.text]);
 
   if (!restTimer.active) return null;

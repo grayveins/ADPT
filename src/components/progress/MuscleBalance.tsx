@@ -25,12 +25,12 @@ type MuscleBalanceProps = {
 
 // Muscle group colors - distinctive but cohesive
 const muscleColors: Record<string, string> = {
-  Chest: "#00C9B7",      // Primary teal
-  Back: "#33D4C5",       // Light teal
-  Shoulders: "#00A89A",  // Dark teal
-  Arms: "#7FA07F",       // Sage green
-  Legs: "#6B8E6B",       // Dark sage
-  Core: "#60A5FA",       // Info blue
+  Chest: "#000000",
+  Back: "#1A1A1A",
+  Shoulders: "#333333",
+  Arms: "#4B5563",
+  Legs: "#6B7280",
+  Core: "#9CA3AF",
 };
 
 export const MuscleBalance: React.FC<MuscleBalanceProps> = ({ 
