@@ -237,14 +237,6 @@ export default function ExercisesScreen() {
                     }}
                     style={[styles.muscleCard, { backgroundColor: colors.card }]}
                   >
-                    {/* Gradient accent bar */}
-                    <LinearGradient
-                      colors={[...config.gradient]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.muscleCardGradient}
-                    />
-
                     <View style={styles.muscleCardContent}>
                       {/* Text left */}
                       <View style={styles.muscleCardText}>

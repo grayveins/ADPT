@@ -22,7 +22,7 @@ import { generateWorkoutOnTheFly } from "@/lib/workout/generateOnTheFly";
 import { usePRs } from "@/src/hooks/usePRs";
 import { usePreviousWorkout } from "@/src/hooks/usePreviousWorkout";
 import { useXPAward } from "@/src/hooks/useXPAward";
-import { generateWorkoutRationale } from "@/lib/workout/engine/rationale";
+// rationale removed for minimal prototype
 import {
   WorkoutHeader,
   ExerciseCardNew,
@@ -31,10 +31,9 @@ import {
   ExerciseNotes,
   SaveAsTemplateSheet,
   PostWorkoutCheckin,
-  CoachRationale,
 } from "@/src/components/workout";
 import type { PostWorkoutData } from "@/src/components/workout";
-import { useActiveLimitations } from "@/src/hooks/useActiveLimitations";
+// useActiveLimitations removed — causes PGRST errors without migrations applied
 import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
 import type { BodyRegion } from "@/src/theme";
 import { format } from "date-fns";
@@ -118,33 +117,11 @@ function ActiveWorkoutInner() {
   const [isFirstWorkout, setIsFirstWorkout] = useState(false);
   const [showCheckin, setShowCheckin] = useState(false);
 
-  // Active limitations for post-workout checkin
-  const {
-    limitations,
-    reportLimitation,
-    recordFeedback,
-  } = useActiveLimitations(state.userId);
+  const limitations: any[] = [];
+  const reportLimitation = async (_region: any) => {};
+  const recordFeedback = async (_id: any, _note: string, _fb: any) => {};
 
-  // Weekly summary for completion screen
   const { data: weeklySummary } = useWeeklySummary(state.userId);
-
-  // Generate coach rationale for "here's why" transparency
-  const rationaleItems = useMemo(() => {
-    const limitationInputs = limitations.map(l => ({
-      area: l.area ?? "unknown",
-      severity: l.status === "active" ? "moderate" : "mild",
-    }));
-    return generateWorkoutRationale({
-      goal: userGoal,
-      experience: "intermediate",
-      limitations: limitationInputs,
-      weekPhase: "accumulation",
-      weekNumber: 1,
-      exerciseCount: state.exercises.length,
-      excludedCount: 0,
-      totalVolume: 0,
-    });
-  }, [limitations, state.exercises.length, userGoal]);
 
   // Detect first workout and profile name
   useEffect(() => {
@@ -388,15 +365,6 @@ function ActiveWorkoutInner() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       <WorkoutHeader />
-
-      {rationaleItems.length > 0 && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <CoachRationale
-            items={rationaleItems}
-            limitationAreas={limitations.map(l => l.area).filter(Boolean) as string[]}
-          />
-        </View>
-      )}
 
       <DraggableExerciseList renderExercise={renderExercise} />
 
