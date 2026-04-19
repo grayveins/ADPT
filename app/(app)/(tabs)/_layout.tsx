@@ -20,7 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { layout, spacing } from "@/src/theme";
-import { FloatingActionButton } from "@/src/components/FloatingActionButton";
+// FAB disabled for now — focus on shipping
 // Coach chat removed — no top fitness app uses AI chat (Fitbod, Gravl, MacroFactor all skip it)
 
 /** Tab icon with spring scale on focus change */
@@ -185,7 +185,6 @@ export default function TabLayout() {
       <Tabs.Screen name="social" options={{ href: null }} />
       <Tabs.Screen name="checkin" options={{ href: null }} />
     </Tabs>
-    <FloatingActionButton />
     </>
   );
 }
