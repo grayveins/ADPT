@@ -1,11 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { Text, Pressable, StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-} from "react-native-reanimated";
+import React, { useState } from "react";
+import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,21 +7,16 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 type Action = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
 };
 
-const DURATION = 180;
-
 export function FloatingActionButton() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
-  const progress = useSharedValue(0);
 
   const actions: Action[] = [
     {
@@ -47,63 +36,39 @@ export function FloatingActionButton() {
     },
   ];
 
-  const toggle = useCallback(() => {
-    hapticPress();
-    const next = !open;
-    setOpen(next);
-    progress.value = withTiming(next ? 1 : 0, { duration: DURATION });
-  }, [open]);
-
-  const handleAction = useCallback((action: Action) => {
-    hapticPress();
+  const handleAction = (action: Action) => {
     setOpen(false);
-    progress.value = withTiming(0, { duration: 120 });
-    setTimeout(() => action.onPress(), 130);
-  }, []);
-
-  const fabRotation = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
-  }));
-
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: progress.value * 0.25,
-    pointerEvents: progress.value > 0.1 ? "auto" as const : "none" as const,
-  }));
-
-  const menuStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    pointerEvents: progress.value > 0.1 ? "auto" as const : "none" as const,
-  }));
-
-  const bottomOffset = 90 + insets.bottom;
+    hapticPress();
+    action.onPress();
+  };
 
   return (
     <>
-      <AnimatedPressable onPress={toggle} style={[styles.overlay, overlayStyle]} />
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
+          <View style={[styles.menu, { bottom: 90 + insets.bottom }]}>
+            {actions.map((action, i) => (
+              <Pressable
+                key={i}
+                onPress={() => handleAction(action)}
+                style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <Ionicons name={action.icon} size={18} color={colors.text} />
+                <Text allowFontScaling={false} style={[styles.menuLabel, { color: colors.text }]}>
+                  {action.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
-      <Animated.View style={[styles.menuWrap, { bottom: bottomOffset + 64 }, menuStyle]}>
-        {actions.map((action, i) => (
-          <Pressable
-            key={i}
-            onPress={() => handleAction(action)}
-            style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <Ionicons name={action.icon} size={18} color={colors.text} />
-            <Text allowFontScaling={false} style={[styles.menuLabel, { color: colors.text }]}>
-              {action.label}
-            </Text>
-          </Pressable>
-        ))}
-      </Animated.View>
-
-      <AnimatedPressable
-        onPress={toggle}
-        style={[styles.fab, { bottom: bottomOffset, backgroundColor: colors.text }]}
+      <Pressable
+        onPress={() => { hapticPress(); setOpen(true); }}
+        style={[styles.fab, { bottom: 90 + insets.bottom, backgroundColor: colors.text }]}
       >
-        <Animated.View style={fabRotation}>
-          <Ionicons name="add" size={28} color={colors.bg} />
-        </Animated.View>
-      </AnimatedPressable>
+        <Ionicons name="add" size={28} color={colors.bg} />
+      </Pressable>
     </>
   );
 }
@@ -125,15 +90,14 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000",
-    zIndex: 99,
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    justifyContent: "flex-end",
   },
-  menuWrap: {
+  menu: {
     position: "absolute",
     right: spacing.lg,
     gap: 6,
-    zIndex: 101,
   },
   menuItem: {
     flexDirection: "row",
