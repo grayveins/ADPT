@@ -745,26 +745,8 @@ export const ExerciseInfo: React.FC<ExerciseInfoProps> = ({
         )}
       </View>
 
-      {/* Video + Muscle Images */}
+      {/* Muscle Images */}
       <View style={styles.mediaSection}>
-        {/* Video */}
-        <View style={styles.videoWrapper}>
-          {demoVideo ? (
-            <YouTubeVideoPlayer
-              videoId={demoVideo.youtubeVideoId}
-              startTime={demoVideo.startTime}
-            />
-          ) : (
-            <View style={[styles.videoPlaceholder, { backgroundColor: colors.bgSecondary }]}>
-              <View style={[styles.playButton, { backgroundColor: colors.primary }]}>
-                <Ionicons name="play" size={24} color={colors.textOnPrimary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
-                Demo video coming soon
-              </Text>
-            </View>
-          )}
-        </View>
 
         {/* Muscle Image */}
         <View style={styles.muscleWrapper}>
