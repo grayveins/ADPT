@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
+// animations removed for clean minimal feel
 import { format } from "date-fns";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -123,7 +123,7 @@ export default function WorkoutScreen() {
       >
         {/* Today's Assigned Workout */}
         {todayWorkout ? (
-          <Animated.View entering={FadeInDown.duration(300)}>
+          <View>
             <Pressable
               onPress={startTodayWorkout}
               style={[styles.todayCard, { backgroundColor: colors.bgSecondary }]}
@@ -152,9 +152,9 @@ export default function WorkoutScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.text} />
               </View>
             </Pressable>
-          </Animated.View>
+          </View>
         ) : (
-          <Animated.View entering={FadeInDown.duration(300)}>
+          <View>
             <View style={[styles.todayCard, { backgroundColor: colors.bgSecondary }]}>
               <Text allowFontScaling={false} style={[styles.todayLabel, { color: colors.textMuted }]}>
                 TODAY
@@ -166,11 +166,11 @@ export default function WorkoutScreen() {
                 Start an empty workout or pick from your library
               </Text>
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Workout Library */}
-        <Animated.View entering={FadeInDown.delay(60).duration(300)}>
+        <View>
           <Pressable
             onPress={() => setLibraryExpanded(!libraryExpanded)}
             style={styles.sectionHeader}
@@ -226,10 +226,10 @@ export default function WorkoutScreen() {
               </View>
             ) : null
           )}
-        </Animated.View>
+        </View>
 
         {/* More */}
-        <Animated.View entering={FadeInDown.delay(120).duration(300)}>
+        <View>
           <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.md }]}>
             More
           </Text>
@@ -252,7 +252,7 @@ export default function WorkoutScreen() {
             onPress={() => router.push("/(workout)/exercises")}
             colors={colors}
           />
-        </Animated.View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
