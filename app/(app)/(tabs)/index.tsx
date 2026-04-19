@@ -132,26 +132,33 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
-        {/* Today's Workout — only if assigned */}
-        {todayWorkout && (
-          <Pressable
-            onPress={startWorkout}
-            style={[styles.workoutCard, { backgroundColor: colors.bgSecondary }]}
-          >
-            <Text allowFontScaling={false} style={[styles.workoutLabel, { color: colors.textMuted }]}>
-              TODAY
+        {/* Today's Workout */}
+        <Pressable
+          onPress={startWorkout}
+          style={[styles.workoutCard, { backgroundColor: colors.bgSecondary }]}
+        >
+          <Text allowFontScaling={false} style={[styles.workoutLabel, { color: colors.textMuted }]}>
+            {todayWorkout ? "TODAY" : "WORKOUT"}
+          </Text>
+          <Text allowFontScaling={false} style={[styles.workoutName, { color: colors.text }]}>
+            {todayWorkout ? todayWorkout.name : "Start a Workout"}
+          </Text>
+          {todayWorkout?.exercises?.length > 0 && (
+            <Text
+              allowFontScaling={false}
+              numberOfLines={1}
+              style={[styles.workoutExercises, { color: colors.textMuted }]}
+            >
+              {(todayWorkout.exercises as any[]).map((e: any) => e.name || e.exercise_name).join(", ")}
             </Text>
-            <Text allowFontScaling={false} style={[styles.workoutName, { color: colors.text }]}>
-              {todayWorkout.name}
+          )}
+          <View style={styles.workoutStart}>
+            <Text allowFontScaling={false} style={[styles.workoutStartText, { color: colors.text }]}>
+              {todayWorkout ? "Start Workout" : "Choose Workout"}
             </Text>
-            <View style={styles.workoutStart}>
-              <Text allowFontScaling={false} style={[styles.workoutStartText, { color: colors.text }]}>
-                Start Workout
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.text} />
-            </View>
-          </Pressable>
-        )}
+            <Ionicons name="chevron-forward" size={14} color={colors.text} />
+          </View>
+        </Pressable>
 
         {/* Body Metrics */}
         <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
@@ -353,6 +360,7 @@ const styles = StyleSheet.create({
   workoutCard: { padding: spacing.base, borderRadius: radius.lg, marginBottom: spacing.xl },
   workoutLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
   workoutName: { fontSize: 18, fontWeight: "600", marginTop: 2 },
+  workoutExercises: { fontSize: 13, marginTop: 4 },
   workoutStart: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.md },
   workoutStartText: { fontSize: 14, fontWeight: "600" },
 
