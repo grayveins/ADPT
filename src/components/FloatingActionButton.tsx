@@ -1,5 +1,14 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  interpolate,
+  Extrapolation,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,16 +16,21 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 type Action = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
 };
 
+const SPRING = { damping: 14, stiffness: 160 };
+
 export function FloatingActionButton() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const progress = useSharedValue(0);
 
   const actions: Action[] = [
     {
@@ -36,41 +50,83 @@ export function FloatingActionButton() {
     },
   ];
 
-  const handleAction = (action: Action) => {
-    setOpen(false);
+  const toggle = useCallback(() => {
     hapticPress();
-    setTimeout(() => action.onPress(), 150);
-  };
+    const next = !open;
+    setOpen(next);
+    progress.value = withSpring(next ? 1 : 0, SPRING);
+  }, [open]);
+
+  const handleAction = useCallback((action: Action) => {
+    hapticPress();
+    setOpen(false);
+    progress.value = withSpring(0, SPRING);
+    setTimeout(() => action.onPress(), 200);
+  }, []);
+
+  const fabRotation = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
+  }));
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    pointerEvents: progress.value > 0.1 ? "auto" as const : "none" as const,
+  }));
+
+  const bottomOffset = 90 + insets.bottom;
 
   return (
     <>
-      {/* Menu overlay */}
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
-          <View style={[styles.menu, { bottom: 90 + insets.bottom }]}>
-            {actions.map((action, i) => (
-              <Pressable
-                key={i}
-                onPress={() => handleAction(action)}
-                style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <Ionicons name={action.icon} size={20} color={colors.text} />
-                <Text allowFontScaling={false} style={[styles.menuLabel, { color: colors.text }]}>
-                  {action.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+      {/* Backdrop */}
+      <AnimatedPressable
+        onPress={toggle}
+        style={[styles.overlay, overlayStyle]}
+      />
+
+      {/* Menu items (staggered) */}
+      {actions.map((action, i) => {
+        const reverseIdx = actions.length - 1 - i;
+        const itemStyle = useAnimatedStyle(() => {
+          const translateY = interpolate(
+            progress.value,
+            [0, 1],
+            [20, 0],
+            Extrapolation.CLAMP,
+          );
+          const opacity = withDelay(
+            reverseIdx * 30,
+            withTiming(progress.value > 0.5 ? 1 : 0, { duration: 150 })
+          );
+          return { opacity, transform: [{ translateY }] };
+        });
+
+        return (
+          <AnimatedPressable
+            key={i}
+            onPress={() => handleAction(action)}
+            style={[
+              styles.menuItem,
+              { backgroundColor: colors.card, borderColor: colors.border, bottom: bottomOffset + 68 + i * 52 },
+              itemStyle,
+            ]}
+          >
+            <Ionicons name={action.icon} size={18} color={colors.text} />
+            <Text allowFontScaling={false} style={[styles.menuLabel, { color: colors.text }]}>
+              {action.label}
+            </Text>
+          </AnimatedPressable>
+        );
+      })}
 
       {/* FAB */}
-      <Pressable
-        onPress={() => { hapticPress(); setOpen(!open); }}
-        style={[styles.fab, { bottom: 90 + insets.bottom, backgroundColor: colors.text }]}
+      <AnimatedPressable
+        onPress={toggle}
+        style={[styles.fab, { bottom: bottomOffset, backgroundColor: colors.text }]}
       >
-        <Ionicons name={open ? "close" : "add"} size={28} color={colors.bg} />
-      </Pressable>
+        <Animated.View style={fabRotation}>
+          <Ionicons name="add" size={28} color={colors.bg} />
+        </Animated.View>
+      </AnimatedPressable>
     </>
   );
 }
@@ -92,27 +148,26 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  menu: {
-    position: "absolute",
-    right: spacing.lg,
-    gap: spacing.sm,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    zIndex: 99,
   },
   menuItem: {
+    position: "absolute",
+    right: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingHorizontal: spacing.base,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
     elevation: 2,
+    zIndex: 101,
   },
-  menuLabel: { fontSize: 15, fontWeight: "500" },
+  menuLabel: { fontSize: 14, fontWeight: "500" },
 });
