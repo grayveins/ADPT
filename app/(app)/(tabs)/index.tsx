@@ -17,7 +17,7 @@ import {
 } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, type DrawerNavigationProp } from "@react-navigation/native";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, radius } from "@/src/theme";
@@ -309,21 +309,21 @@ function WeekStrip() {
 }
 
 function AvatarButton({ name, colors }: { name: string; colors: any }) {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const initial = (name || "?").charAt(0).toUpperCase();
+
+  const openDrawer = () => {
+    // Try every known way to open the drawer
+    try { navigation.openDrawer?.(); return; } catch {}
+    try { navigation.getParent()?.openDrawer?.(); return; } catch {}
+    try { navigation.getParent()?.getParent()?.openDrawer?.(); return; } catch {}
+    // Last resort: settings screen
+    router.push("/settings");
+  };
+
   return (
     <Pressable
-      onPress={() => {
-        try {
-          const parent = navigation.getParent();
-          if (parent) {
-            parent.dispatch({ type: "OPEN_DRAWER" });
-          }
-        } catch {
-          // Fallback: try direct dispatch
-          navigation.dispatch({ type: "OPEN_DRAWER" });
-        }
-      }}
+      onPress={openDrawer}
       style={[styles.avatar, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
     >
       <Text allowFontScaling={false} style={[styles.avatarText, { color: colors.text }]}>
