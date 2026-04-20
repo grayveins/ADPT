@@ -313,7 +313,7 @@ function AvatarButton({ name, colors }: { name: string; colors: any }) {
   const initial = (name || "?").charAt(0).toUpperCase();
   return (
     <Pressable
-      onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+      onPress={() => navigation.getParent()?.dispatch(DrawerActions.openDrawer())}
       style={[styles.avatar, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
     >
       <Text allowFontScaling={false} style={[styles.avatarText, { color: colors.text }]}>
