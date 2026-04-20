@@ -17,7 +17,7 @@ import {
 } from "date-fns";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DrawerActions, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, radius } from "@/src/theme";
@@ -313,7 +313,17 @@ function AvatarButton({ name, colors }: { name: string; colors: any }) {
   const initial = (name || "?").charAt(0).toUpperCase();
   return (
     <Pressable
-      onPress={() => navigation.getParent()?.dispatch(DrawerActions.openDrawer())}
+      onPress={() => {
+        try {
+          const parent = navigation.getParent();
+          if (parent) {
+            parent.dispatch({ type: "OPEN_DRAWER" });
+          }
+        } catch {
+          // Fallback: try direct dispatch
+          navigation.dispatch({ type: "OPEN_DRAWER" });
+        }
+      }}
       style={[styles.avatar, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}
     >
       <Text allowFontScaling={false} style={[styles.avatarText, { color: colors.text }]}>
