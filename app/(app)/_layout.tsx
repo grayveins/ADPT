@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Drawer } from "expo-router/drawer";
 import {
   View,
-  TouchableOpacity,
+  Pressable,
   Text,
   Alert,
   ActivityIndicator,
@@ -29,16 +29,15 @@ type MenuItemProps = {
 function MenuItem({ icon, label, onPress, color }: MenuItemProps) {
   const { colors } = useTheme();
   const textColor = color ?? colors.text;
-  
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
       style={styles.menuItem}
-      activeOpacity={0.7}
     >
       <Ionicons name={icon} size={22} color={textColor} />
       <Text style={[styles.menuItemText, { color: textColor }]}>{label}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
