@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Drawer } from "expo-router/drawer";
 import {
   View,
-  Pressable,
+  TouchableOpacity,
   Text,
   Alert,
   ActivityIndicator,
@@ -31,13 +31,14 @@ function MenuItem({ icon, label, onPress, color }: MenuItemProps) {
   const textColor = color ?? colors.text;
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
       style={styles.menuItem}
+      activeOpacity={0.7}
     >
       <Ionicons name={icon} size={22} color={textColor} />
       <Text style={[styles.menuItemText, { color: textColor }]}>{label}</Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -102,15 +103,14 @@ function CustomDrawerContent(props: any) {
 
   const onSignOut = async () => {
     try {
-      await supabase.auth.signOut();
       closeDrawer();
-      // Dismiss all stacked routes first, then replace to prevent swipe-back
-      while (router.canGoBack()) {
-        router.back();
-      }
-      router.replace("/sign-in");
+      await supabase.auth.signOut();
+      setTimeout(() => {
+        router.replace("/sign-in");
+      }, 300);
     } catch (error) {
       console.error("Error signing out:", error);
+      router.replace("/sign-in");
     }
   };
 
