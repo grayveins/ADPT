@@ -69,7 +69,9 @@ export default function HomeScreen() {
       .maybeSingle();
 
     if (program) {
-      const activePhase = (program as any).program_phases?.find((p: any) => p.status === "active");
+      const sortedPhases = ((program as any).program_phases ?? [])
+        .sort((a: any, b: any) => (a.phase_number ?? 0) - (b.phase_number ?? 0));
+      const activePhase = sortedPhases.find((p: any) => p.status === "active") || sortedPhases[0];
       const dayOfWeek = new Date().getDay() || 7;
       const todayW = activePhase?.phase_workouts?.find((w: any) => w.day_number === dayOfWeek);
       setTodayWorkout(todayW || null);

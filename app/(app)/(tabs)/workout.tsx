@@ -58,9 +58,12 @@ export default function WorkoutScreen() {
 
     setProgramName(program.name);
 
-    const activePhase = (program as any).program_phases
-      ?.sort((a: any, b: any) => a.phase_number - b.phase_number)
-      ?.find((p: any) => p.status === "active");
+    const sortedPhases = (program as any).program_phases
+      ?.sort((a: any, b: any) => a.phase_number - b.phase_number) ?? [];
+
+    // Find active phase, fall back to first phase (upcoming phases should still show)
+    const activePhase = sortedPhases.find((p: any) => p.status === "active")
+      || sortedPhases[0];
 
     if (!activePhase) {
       setPhaseName(null);
