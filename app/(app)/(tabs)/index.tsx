@@ -229,8 +229,8 @@ export default function HomeScreen() {
         </ScrollView>
         {/* Daily tasks */}
         <View style={styles.taskList}>
-          {/* Assigned workout */}
-          {selectedDayWorkout ? (
+          {/* Assigned workout — only show if one exists */}
+          {selectedDayWorkout && (
             <Pressable onPress={startWorkout} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
               <View style={[styles.taskDot, {
                 backgroundColor: selectedDayCompleted ? colors.success : "transparent",
@@ -248,16 +248,19 @@ export default function HomeScreen() {
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
-          ) : (
+          )}
+
+          {/* Completed workout (if no assigned but has a logged session) */}
+          {!selectedDayWorkout && selectedDayCompleted && (
             <View style={[styles.taskRow, { borderBottomColor: colors.border }]}>
-              <View style={[styles.taskDot, { borderColor: colors.textMuted }]} />
+              <View style={[styles.taskDot, { backgroundColor: colors.success, borderColor: colors.success }]}>
+                <Ionicons name="checkmark" size={12} color="#fff" />
+              </View>
               <View style={styles.taskInfo}>
-                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.textMuted }]}>
-                  Rest Day
+                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
+                  {selectedDayCompleted.title || "Workout"}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
-                  No workout scheduled
-                </Text>
+                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>Completed</Text>
               </View>
             </View>
           )}
@@ -277,32 +280,6 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
-
-          {/* Body stats task (today only) */}
-          {isToday && (
-            <Pressable onPress={() => router.push("/(app)/log-progress" as any)} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
-              <View style={[styles.taskDot, {
-                backgroundColor: bodyStats?.date && isSameDay(new Date(bodyStats.date), today) ? colors.success : "transparent",
-                borderColor: bodyStats?.date && isSameDay(new Date(bodyStats.date), today) ? colors.success : colors.textMuted,
-              }]}>
-                {bodyStats?.date && isSameDay(new Date(bodyStats.date), today) && (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                )}
-              </View>
-              <View style={styles.taskInfo}>
-                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
-                  Track Body Stats
-                </Text>
-                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
-                  {bodyStats?.date && isSameDay(new Date(bodyStats.date), today)
-                    ? `${weightLbs} lbs logged today`
-                    : "Weight, body fat %"
-                  }
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </Pressable>
-          )}
         </View>
 
         {/* My Progress section */}
@@ -315,14 +292,14 @@ export default function HomeScreen() {
             subtitle={bodyStats?.date ? format(new Date(bodyStats.date), "d MMM yyyy") : "No data"}
             value={weightLbs}
             unit="lbs"
-            onAdd={() => router.push("/(app)/log-progress" as any)}
+            onAdd={() => router.push({ pathname: "/(app)/log-progress", params: { date: format(selectedDate, "yyyy-MM-dd") } } as any)}
           />
           <MetricCard
             title="Body Fat"
             subtitle={bodyStats?.date ? format(new Date(bodyStats.date), "d MMM yyyy") : "No data"}
             value={bodyStats?.body_fat_pct != null ? `${bodyStats.body_fat_pct}` : "—"}
             unit="%"
-            onAdd={() => router.push("/(app)/log-progress" as any)}
+            onAdd={() => router.push({ pathname: "/(app)/log-progress", params: { date: format(selectedDate, "yyyy-MM-dd") } } as any)}
           />
         </View>
       </ScrollView>
