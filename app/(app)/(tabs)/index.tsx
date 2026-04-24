@@ -174,61 +174,59 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Horizontal day selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dayStrip}
-        ref={(ref) => {
-          // Auto-scroll to selected day on mount
-          if (ref) setTimeout(() => ref.scrollTo({ x: 10 * 52, animated: false }), 50);
-        }}
-      >
-        {days.map((day, i) => {
-          const isSelected = isSameDay(day, selectedDate);
-          const isDayToday = isSameDay(day, today);
-          const dateStr = format(day, "yyyy-MM-dd");
-          const hasCompletion = completedDates.has(dateStr);
-
-          return (
-            <Pressable
-              key={i}
-              onPress={() => { hapticPress(); setSelectedDate(day); }}
-              style={[
-                styles.dayChip,
-                isSelected && { backgroundColor: colors.text },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.dayNum,
-                  { color: isSelected ? colors.bg : colors.text },
-                  isDayToday && !isSelected && { fontWeight: "700" },
-                ]}
-              >
-                {format(day, "d")}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.dayLabel, { color: isSelected ? colors.bg : colors.textMuted }]}
-              >
-                {format(day, "EEE")}
-              </Text>
-              {hasCompletion && (
-                <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.text }]} />
-              )}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      {/* Daily content */}
+      {/* Main content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
       >
+        {/* Day selector inside scroll — no gap */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dayStrip}
+          ref={(ref) => {
+            if (ref) setTimeout(() => ref.scrollTo({ x: 10 * 52, animated: false }), 50);
+          }}
+        >
+          {days.map((day, i) => {
+            const isSelected = isSameDay(day, selectedDate);
+            const isDayToday = isSameDay(day, today);
+            const dateStr = format(day, "yyyy-MM-dd");
+            const hasCompletion = completedDates.has(dateStr);
+
+            return (
+              <Pressable
+                key={i}
+                onPress={() => { hapticPress(); setSelectedDate(day); }}
+                style={[
+                  styles.dayChip,
+                  isSelected && { backgroundColor: colors.text },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.dayNum,
+                    { color: isSelected ? colors.bg : colors.text },
+                    isDayToday && !isSelected && { fontWeight: "700" },
+                  ]}
+                >
+                  {format(day, "d")}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.dayLabel, { color: isSelected ? colors.bg : colors.textMuted }]}
+                >
+                  {format(day, "EEE")}
+                </Text>
+                {hasCompletion && (
+                  <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.text }]} />
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
         {/* Daily tasks */}
         <View style={styles.taskList}>
           {/* Assigned workout */}
@@ -374,7 +372,7 @@ const styles = StyleSheet.create({
   dateLabel: { fontSize: 16, fontWeight: "600" },
   todayLink: { fontSize: 14, fontWeight: "600" },
 
-  dayStrip: { paddingHorizontal: spacing.lg, gap: 4, paddingBottom: spacing.md },
+  dayStrip: { paddingHorizontal: spacing.lg, gap: 4, paddingBottom: spacing.sm },
   dayChip: {
     width: 48,
     height: 56,
@@ -388,7 +386,7 @@ const styles = StyleSheet.create({
 
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
 
-  taskList: { marginBottom: spacing.xl },
+  taskList: { marginBottom: spacing.lg },
   taskRow: {
     flexDirection: "row",
     alignItems: "center",
