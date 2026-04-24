@@ -790,7 +790,6 @@ export function ActiveWorkoutProvider({
           muscle_group: exercise.muscles[0] || null,
           order_index: index,
           notes: exercise.notes || null,
-          group_id: exercise.groupId || null,
         }));
 
         const { data: exerciseRows, error: exerciseError } = await supabase
