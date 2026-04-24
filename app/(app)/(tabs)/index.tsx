@@ -372,9 +372,10 @@ const styles = StyleSheet.create({
   dateLabel: { fontSize: 16, fontWeight: "600" },
   todayLink: { fontSize: 14, fontWeight: "600" },
 
-  dayStrip: { paddingHorizontal: spacing.lg, gap: 4, paddingBottom: spacing.sm },
+  dayStrip: { paddingHorizontal: spacing.sm, gap: 0, paddingBottom: spacing.sm },
   dayChip: {
-    width: 48,
+    flex: 1,
+    minWidth: 52,
     height: 56,
     borderRadius: 12,
     alignItems: "center",
