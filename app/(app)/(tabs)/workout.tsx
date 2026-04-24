@@ -97,14 +97,15 @@ export default function WorkoutScreen() {
     router.push({ pathname: "/(workout)/active", params: { name: "Workout", sourceType: "empty" } });
   };
 
-  const startWorkout = (workout: PhaseWorkout) => {
+  const openWorkoutDetail = (workout: PhaseWorkout) => {
     hapticPress();
     router.push({
-      pathname: "/(workout)/active",
+      pathname: "/(workout)/program-detail",
       params: {
         name: workout.name,
         exercises: JSON.stringify(workout.exercises || []),
-        sourceType: "program",
+        phaseName: phaseName || "",
+        dayNumber: String(workout.day_number),
       },
     });
   };
@@ -131,7 +132,7 @@ export default function WorkoutScreen() {
         {/* Today's Workout */}
         {todayWorkout ? (
           <Pressable
-            onPress={() => startWorkout(todayWorkout)}
+            onPress={() => openWorkoutDetail(todayWorkout)}
             style={[styles.todayCard, { backgroundColor: colors.text }]}
           >
             <Text allowFontScaling={false} style={[styles.todayLabel, { color: colors.bgSecondary }]}>
@@ -186,7 +187,7 @@ export default function WorkoutScreen() {
               return (
                 <Pressable
                   key={workout.id}
-                  onPress={() => startWorkout(workout)}
+                  onPress={() => openWorkoutDetail(workout)}
                   style={[styles.workoutCard, { backgroundColor: colors.bgSecondary }]}
                 >
                   <View style={styles.workoutInfo}>

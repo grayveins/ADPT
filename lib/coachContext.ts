@@ -9,7 +9,9 @@
  */
 
 import { supabase } from './supabase';
-import { generateWeeklyPlan, PlannedWorkout } from './workoutPlan';
+// workoutPlan removed — coaching programs replace auto-generated plans
+type PlannedWorkout = { type: string; isRest: boolean; date: string };
+const generateWeeklyPlan = (..._args: any[]): PlannedWorkout[] => [];
 import { format, differenceInDays, parseISO, isToday } from 'date-fns';
 
 // ============================================================================
