@@ -377,14 +377,14 @@ const styles = StyleSheet.create({
   dayStrip: { paddingHorizontal: spacing.lg, gap: 4, paddingBottom: spacing.md },
   dayChip: {
     width: 48,
-    paddingVertical: 8,
-    borderRadius: radius.md,
+    height: 56,
+    borderRadius: 12,
     alignItems: "center",
-    gap: 2,
+    justifyContent: "center",
   },
   dayNum: { fontSize: 16, fontWeight: "600" },
-  dayLabel: { fontSize: 11 },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+  dayLabel: { fontSize: 11, marginTop: 1 },
+  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2, position: "absolute", bottom: 4 },
 
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
 
