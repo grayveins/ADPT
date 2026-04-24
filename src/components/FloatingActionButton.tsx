@@ -27,7 +27,7 @@ export function FloatingActionButton() {
     {
       icon: "barbell-outline",
       label: "Start Workout",
-      onPress: () => router.push({ pathname: "/(workout)/active", params: { name: "Workout", sourceType: "empty" } }),
+      onPress: () => router.push("/(app)/(tabs)/workout" as any),
     },
     {
       icon: "camera-outline",
@@ -46,7 +46,7 @@ export function FloatingActionButton() {
     <>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
-          <View style={[styles.menu, { bottom: 90 + insets.bottom }]}>
+          <View style={[styles.menu, { bottom: 155 + insets.bottom }]}>
             {actions.map((action, i) => (
               <Pressable
                 key={i}

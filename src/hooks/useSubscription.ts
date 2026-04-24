@@ -15,6 +15,6 @@ export function useSubscription() {
   };
 }
 
-export function useFeatureAccess() {
-  return { canAccess: true, reason: null };
+export function useFeatureAccess(_feature?: string) {
+  return { canAccess: true, hasAccess: true, reason: null, limit: 9999 };
 }

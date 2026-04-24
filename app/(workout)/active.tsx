@@ -116,6 +116,7 @@ function ActiveWorkoutInner() {
   const [userGoal, setUserGoal] = useState("general_fitness");
   const [isFirstWorkout, setIsFirstWorkout] = useState(false);
   const [showCheckin, setShowCheckin] = useState(false);
+  const [finishing, setFinishing] = useState(false);
 
   const limitations: any[] = [];
   const reportLimitation = async (_region: any) => {};
@@ -266,22 +267,21 @@ function ActiveWorkoutInner() {
 
   // Final finish flow — called after checkin completes
   const completeFinishFlow = useCallback(async () => {
+    if (finishing) return; // Prevent double-tap spam
+    setFinishing(true);
+
     try {
       await actions.finishWorkout();
     } catch {
-      return; // Error already shown to user
+      setFinishing(false);
+      return;
     }
 
-    // Award XP (fire and forget — don't block navigation on failure)
     awardWorkoutXP(Date.now().toString(), workoutStats.prs.length).catch(() => {});
 
-    // Show save-as-template prompt, or navigate away
-    if (state.sourceType !== "template") {
-      setShowSaveTemplate(true);
-    } else {
-      router.dismissTo("/(app)/(tabs)/workout");
-    }
-  }, [actions, state.sourceType, awardWorkoutXP, workoutStats.prs.length]);
+    // Navigate home — no save-as-template for coaching programs
+    router.dismissTo("/(app)/(tabs)/workout");
+  }, [finishing, actions, awardWorkoutXP, workoutStats.prs.length]);
 
   // Handle checkin data submission
   const handleCheckinComplete = useCallback(async (data: PostWorkoutData) => {
