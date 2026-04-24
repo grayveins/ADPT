@@ -296,7 +296,10 @@ function ActiveWorkoutInner() {
         await recordFeedback(limitation.id, "", feedback);
       }
     }
-  }, [limitations, reportLimitation, recordFeedback]);
+    // Continue to finish flow after checkin
+    setShowCheckin(false);
+    await completeFinishFlow();
+  }, [limitations, reportLimitation, recordFeedback, completeFinishFlow]);
 
   // Handle checkin dismiss (auto-dismiss after confirmation or skip)
   const handleCheckinSkip = useCallback(async () => {
