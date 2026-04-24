@@ -4,24 +4,38 @@
  */
 
 import React, { useState } from "react";
-import { View, Text, Pressable, TextInput, StyleSheet } from "react-native";
+import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useActiveWorkout } from "@/src/context/ActiveWorkoutContext";
 
-export function WorkoutHeader() {
+type WorkoutHeaderProps = {
+  onFinish?: () => void;
+  saving?: boolean;
+};
+
+export function WorkoutHeader({ onFinish, saving }: WorkoutHeaderProps) {
   const { colors } = useTheme();
   const { state, actions, progress, formatTime } = useActiveWorkout();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   const isComplete = progress.completedSets === progress.totalSets && progress.totalSets > 0;
 
+  const handleDone = () => {
+    if (saving) return;
+    if (onFinish) {
+      onFinish();
+    } else {
+      actions.discardWorkout();
+    }
+  };
+
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}>
       {/* Top row: close / title / done */}
       <View style={styles.topRow}>
-        <Pressable onPress={actions.discardWorkout} style={styles.button}>
-          <Ionicons name="close" size={24} color={colors.text} />
+        <Pressable onPress={saving ? undefined : actions.discardWorkout} style={styles.button} disabled={saving}>
+          <Ionicons name="close" size={24} color={saving ? colors.textMuted : colors.text} />
         </Pressable>
 
         <View style={styles.center}>
@@ -34,7 +48,6 @@ export function WorkoutHeader() {
               autoFocus
               style={[styles.titleInput, { color: colors.text, borderBottomColor: colors.primary }]}
               allowFontScaling={false}
-              keyboardAppearance="dark"
             />
           ) : (
             <Pressable onPress={() => setIsEditingTitle(true)}>
@@ -51,13 +64,14 @@ export function WorkoutHeader() {
           </View>
         </View>
 
-        <Pressable
-          onPress={isComplete ? () => actions.finishWorkout() : actions.discardWorkout}
-          style={styles.button}
-        >
-          <Text allowFontScaling={false} style={[styles.doneText, { color: colors.primary }]}>
-            {isComplete ? "Done" : "End"}
-          </Text>
+        <Pressable onPress={handleDone} style={styles.button} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text allowFontScaling={false} style={[styles.doneText, { color: colors.primary }]}>
+              {isComplete ? "Done" : "End"}
+            </Text>
+          )}
         </Pressable>
       </View>
 
@@ -81,34 +95,35 @@ export function WorkoutHeader() {
 
 const styles = StyleSheet.create({
   container: {
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 8,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   button: {
-    width: 44,
+    width: 48,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   center: {
+    flex: 1,
     alignItems: "center",
   },
   title: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    fontWeight: "600",
   },
   titleInput: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
-    borderBottomWidth: 1,
-    paddingBottom: 2,
+    fontSize: 16,
+    fontWeight: "600",
     textAlign: "center",
+    borderBottomWidth: 1,
+    paddingVertical: 2,
     minWidth: 120,
   },
   timerRow: {
@@ -118,19 +133,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   timer: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    fontWeight: "500",
   },
   doneText: {
     fontSize: 16,
-    fontFamily: "Inter_500Medium",
+    fontWeight: "600",
   },
   progressContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    gap: 4,
   },
   progressBar: {
-    height: 4,
+    height: 3,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -140,7 +155,6 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 6,
+    textAlign: "center",
   },
 });

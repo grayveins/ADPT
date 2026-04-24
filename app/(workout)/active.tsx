@@ -367,7 +367,14 @@ function ActiveWorkoutInner() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
-      <WorkoutHeader />
+      <WorkoutHeader
+        saving={finishing}
+        onFinish={() => {
+          if (finishing) return;
+          setFinishing(true);
+          completeFinishFlow();
+        }}
+      />
 
       <DraggableExerciseList renderExercise={renderExercise} />
 
