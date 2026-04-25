@@ -61,8 +61,8 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
     transform: [{ scale: scale.value }],
   }));
 
-  const prevText = previousWeight && previousReps
-    ? `${previousWeight} lbs x ${previousReps}`
+  const prevText = (previousWeight && previousReps)
+    ? `${String(previousWeight)} × ${String(previousReps)}`
     : "—";
 
   return (
@@ -96,7 +96,7 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
       <TextInput
         value={weight}
         onChangeText={onWeightChange}
-        placeholder={previousWeight || "—"}
+        placeholder={previousWeight ? String(previousWeight) : "—"}
         placeholderTextColor={colors.inputPlaceholder}
         keyboardType="numeric"
         style={[
@@ -116,7 +116,7 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
       <TextInput
         value={reps}
         onChangeText={onRepsChange}
-        placeholder={previousReps || "—"}
+        placeholder={previousReps ? String(previousReps) : "—"}
         placeholderTextColor={colors.inputPlaceholder}
         keyboardType="numeric"
         style={[

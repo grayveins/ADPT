@@ -71,13 +71,13 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
             allowFontScaling={false}
             style={[styles.meta, { color: colors.textMuted }]}
           >
-            Set {completedSets} of {totalSets} · {targetReps} reps · RIR {targetRIR}
+            {`Set ${completedSets} of ${totalSets} · ${targetReps || "8-12"} reps · RIR ${targetRIR ?? 2}`}
           </Text>
         </View>
-        {currentPRWeight && (
+        {currentPRWeight != null && currentPRWeight > 0 && (
           <View style={[styles.prBadge, { borderColor: colors.border }]}>
             <Text allowFontScaling={false} style={[styles.prText, { color: colors.text }]}>
-              {currentPRWeight} lbs
+              {`PR: ${currentPRWeight} lbs`}
             </Text>
           </View>
         )}
