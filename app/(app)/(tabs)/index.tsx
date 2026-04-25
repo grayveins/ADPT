@@ -186,7 +186,11 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.dayStrip}
           ref={(ref) => {
-            if (ref) setTimeout(() => ref.scrollTo({ x: 10 * 52, animated: false }), 50);
+            if (ref) {
+              const selectedIdx = days.findIndex(d => isSameDay(d, selectedDate));
+              const offset = Math.max(0, selectedIdx * 52 - 120);
+              setTimeout(() => ref.scrollTo({ x: offset, animated: false }), 50);
+            }
           }}
         >
           {days.map((day, i) => {

@@ -159,7 +159,7 @@ export default function ExercisesScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
         <Pressable
           onPress={() => setMuscleFilter(null)}
-          style={[styles.filterChip, !muscleFilter && { backgroundColor: colors.text }]}
+          style={[styles.filterChip, !muscleFilter && { backgroundColor: colors.text, borderColor: colors.text }]}
         >
           <Text allowFontScaling={false} style={[styles.filterText, { color: muscleFilter ? colors.textMuted : colors.bg }]}>
             All
@@ -169,7 +169,7 @@ export default function ExercisesScreen() {
           <Pressable
             key={m}
             onPress={() => setMuscleFilter(muscleFilter === m ? null : m)}
-            style={[styles.filterChip, muscleFilter === m && { backgroundColor: colors.text }]}
+            style={[styles.filterChip, muscleFilter === m && { backgroundColor: colors.text, borderColor: colors.text }]}
           >
             <Text
               allowFontScaling={false}
@@ -229,14 +229,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   searchInput: { flex: 1, fontSize: 15 },
-  filterScroll: { maxHeight: 40, marginTop: spacing.sm },
-  filterContent: { paddingHorizontal: spacing.lg, gap: 6 },
+  filterScroll: { marginTop: spacing.sm, marginBottom: spacing.sm },
+  filterContent: { paddingHorizontal: spacing.lg, gap: 6, alignItems: "center" },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  filterText: { fontSize: 12, fontWeight: "500", textTransform: "capitalize" },
+  filterText: { fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
   list: { paddingBottom: 100 },
   exerciseRow: {
     flexDirection: "row",

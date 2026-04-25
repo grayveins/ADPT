@@ -153,19 +153,7 @@ export default function WorkoutScreen() {
               <Ionicons name="play" size={16} color={colors.bg} />
             </View>
           </Pressable>
-        ) : (
-          <Pressable
-            onPress={startEmptyWorkout}
-            style={[styles.todayCard, { backgroundColor: colors.bgSecondary }]}
-          >
-            <Text allowFontScaling={false} style={[styles.todayLabel, { color: colors.textMuted }]}>
-              NO WORKOUT SCHEDULED
-            </Text>
-            <Text allowFontScaling={false} style={[styles.todayName, { color: colors.text }]}>
-              Start an Empty Workout
-            </Text>
-          </Pressable>
-        )}
+        ) : null}
 
         {/* Program Workouts */}
         {programName && workouts.length > 0 && (
