@@ -23,10 +23,16 @@ import { useExercises, type DBExercise } from "@/src/hooks/useExercises";
 import { spacing, radius } from "@/src/theme";
 
 const MUSCLE_GROUPS = [
-  "chest", "back", "shoulders", "biceps", "triceps",
+  "chest", "lats", "middle back", "shoulders", "biceps", "triceps",
   "quadriceps", "hamstrings", "glutes", "calves",
-  "abdominals", "lats", "traps", "forearms",
+  "abdominals", "traps", "forearms", "lower back",
 ];
+
+const MUSCLE_LABELS: Record<string, string> = {
+  "lats": "Back (Lats)",
+  "middle back": "Back (Mid)",
+  "lower back": "Lower Back",
+};
 
 export default function ExercisesScreen() {
   const { colors } = useTheme();
@@ -175,7 +181,7 @@ export default function ExercisesScreen() {
               allowFontScaling={false}
               style={[styles.filterText, { color: muscleFilter === m ? colors.bg : colors.textMuted }]}
             >
-              {m}
+              {MUSCLE_LABELS[m] || m}
             </Text>
           </Pressable>
         ))}
@@ -186,7 +192,8 @@ export default function ExercisesScreen() {
         data={exercises}
         keyExtractor={(e) => e.id}
         renderItem={renderExercise}
-        contentContainerStyle={styles.list}
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.list, exercises.length === 0 && { flex: 1, justifyContent: "center" }]}
         ListEmptyComponent={
           <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
             {loading ? "Loading exercises..." : "No exercises found"}
