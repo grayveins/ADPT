@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export type DBExercise = {
@@ -17,37 +17,40 @@ export type DBExercise = {
 };
 
 export function useExercises() {
-  const [exercises, setExercises] = useState<DBExercise[]>([]);
+  const [allExercises, setAllExercises] = useState<DBExercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
-
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    let q = supabase
-      .from("exercises")
-      .select("id, name, category, equipment, level, force, mechanic, primary_muscles, secondary_muscles, instructions, coaching_cues, common_mistakes")
-      .eq("is_public", true)
-      .order("name")
-      .limit(100);
-
-    if (search.trim()) {
-      q = q.ilike("name", `%${search.trim()}%`);
-    }
-
-    if (muscleFilter) {
-      q = q.contains("primary_muscles", [muscleFilter]);
-    }
-
-    const { data } = await q;
-    if (data) setExercises(data as DBExercise[]);
-    setLoading(false);
-  }, [search, muscleFilter]);
+  const [muscleFilter, setMuscleFilter] = useState<string[] | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(fetch, 200);
-    return () => clearTimeout(timer);
-  }, [fetch]);
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("exercises")
+        .select("id, name, category, equipment, level, force, mechanic, primary_muscles, secondary_muscles, instructions, coaching_cues, common_mistakes")
+        .eq("is_public", true)
+        .order("name")
+        .limit(500);
+      if (!cancelled) {
+        if (data) setAllExercises(data as DBExercise[]);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  return { exercises, loading, search, setSearch, muscleFilter, setMuscleFilter, refresh: fetch };
+  const exercises = useMemo(() => {
+    let result = allExercises;
+    if (muscleFilter && muscleFilter.length > 0) {
+      const allowed = new Set(muscleFilter);
+      result = result.filter((e) => e.primary_muscles?.some((m) => allowed.has(m)));
+    }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter((e) => e.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [allExercises, search, muscleFilter]);
+
+  return { exercises, loading, search, setSearch, muscleFilter, setMuscleFilter };
 }

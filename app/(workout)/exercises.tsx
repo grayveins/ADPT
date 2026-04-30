@@ -22,17 +22,67 @@ import { useActiveWorkoutSafe } from "@/src/context/ActiveWorkoutContext";
 import { useExercises, type DBExercise } from "@/src/hooks/useExercises";
 import { spacing, radius } from "@/src/theme";
 
-const MUSCLE_GROUPS = [
-  "chest", "lats", "middle back", "shoulders", "biceps", "triceps",
-  "quadriceps", "hamstrings", "glutes", "calves",
-  "abdominals", "traps", "forearms", "lower back",
+const MUSCLE_GROUPS: { id: string; label: string; muscles: string[] }[] = [
+  { id: "chest", label: "Chest", muscles: ["chest"] },
+  { id: "back", label: "Back", muscles: ["lats", "middle back", "lower back", "traps"] },
+  { id: "shoulders", label: "Shoulders", muscles: ["shoulders"] },
+  { id: "arms", label: "Arms", muscles: ["biceps", "triceps", "forearms"] },
+  { id: "core", label: "Core", muscles: ["abdominals"] },
+  { id: "legs", label: "Legs", muscles: ["quadriceps", "hamstrings", "glutes", "calves"] },
 ];
 
-const MUSCLE_LABELS: Record<string, string> = {
-  "lats": "Back (Lats)",
-  "middle back": "Back (Mid)",
-  "lower back": "Lower Back",
+type RowProps = {
+  ex: DBExercise;
+  isSelected: boolean;
+  isExpanded: boolean;
+  isAddMode: boolean;
+  onPress: (ex: DBExercise) => void;
+  onToggleExpand: (id: string) => void;
 };
+
+const ExerciseRow = React.memo(function ExerciseRow({ ex, isSelected, isExpanded, isAddMode, onPress, onToggleExpand }: RowProps) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => onPress(ex)}
+      onLongPress={() => onToggleExpand(ex.id)}
+      style={[styles.exerciseRow, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primaryMuted }]}
+    >
+      <View style={styles.exerciseMain}>
+        <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
+          {ex.name}
+        </Text>
+        <View style={styles.tagRow}>
+          {ex.equipment && (
+            <Text allowFontScaling={false} style={[styles.tag, { color: colors.textMuted }]}>
+              {ex.equipment}
+            </Text>
+          )}
+          {ex.primary_muscles?.map((m) => (
+            <Text key={m} allowFontScaling={false} style={[styles.tag, { color: colors.textSecondary }]}>
+              {m}
+            </Text>
+          ))}
+        </View>
+        {isExpanded && ex.coaching_cues && ex.coaching_cues.length > 0 && (
+          <View style={styles.cuesSection}>
+            {ex.coaching_cues.map((cue, i) => (
+              <Text key={i} allowFontScaling={false} style={[styles.cueText, { color: colors.textSecondary }]}>
+                • {cue}
+              </Text>
+            ))}
+          </View>
+        )}
+      </View>
+      {!isAddMode && (
+        <View style={[styles.checkbox, isSelected && { backgroundColor: colors.text }]}>
+          {isSelected && <Ionicons name="checkmark" size={14} color={colors.bg} />}
+        </View>
+      )}
+      {isAddMode && <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />}
+    </Pressable>
+  );
+});
 
 export default function ExercisesScreen() {
   const { colors } = useTheme();
@@ -85,50 +135,20 @@ export default function ExercisesScreen() {
     });
   }, [selected, exercises]);
 
-  const renderExercise = useCallback(({ item: ex }: { item: DBExercise }) => {
-    const isSelected = selected.has(ex.name);
-    const isExpanded = expandedId === ex.id;
-    return (
-      <Pressable
-        onPress={() => toggleExercise(ex)}
-        onLongPress={() => setExpandedId(isExpanded ? null : ex.id)}
-        style={[styles.exerciseRow, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.primaryMuted }]}
-      >
-        <View style={styles.exerciseMain}>
-          <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
-            {ex.name}
-          </Text>
-          <View style={styles.tagRow}>
-            {ex.equipment && (
-              <Text allowFontScaling={false} style={[styles.tag, { color: colors.textMuted }]}>
-                {ex.equipment}
-              </Text>
-            )}
-            {ex.primary_muscles?.map((m) => (
-              <Text key={m} allowFontScaling={false} style={[styles.tag, { color: colors.textSecondary }]}>
-                {m}
-              </Text>
-            ))}
-          </View>
-          {isExpanded && ex.coaching_cues && ex.coaching_cues.length > 0 && (
-            <View style={styles.cuesSection}>
-              {ex.coaching_cues.map((cue, i) => (
-                <Text key={i} allowFontScaling={false} style={[styles.cueText, { color: colors.textSecondary }]}>
-                  • {cue}
-                </Text>
-              ))}
-            </View>
-          )}
-        </View>
-        {!isAddMode && (
-          <View style={[styles.checkbox, isSelected && { backgroundColor: colors.text }]}>
-            {isSelected && <Ionicons name="checkmark" size={14} color={colors.bg} />}
-          </View>
-        )}
-        {isAddMode && <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />}
-      </Pressable>
-    );
-  }, [selected, expandedId, isAddMode, colors, toggleExercise]);
+  const onToggleExpand = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const renderExercise = useCallback(({ item: ex }: { item: DBExercise }) => (
+    <ExerciseRow
+      ex={ex}
+      isSelected={selected.has(ex.name)}
+      isExpanded={expandedId === ex.id}
+      isAddMode={isAddMode}
+      onPress={toggleExercise}
+      onToggleExpand={onToggleExpand}
+    />
+  ), [selected, expandedId, isAddMode, toggleExercise, onToggleExpand]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
@@ -162,7 +182,12 @@ export default function ExercisesScreen() {
       </View>
 
       {/* Muscle group filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContent}
+      >
         <Pressable
           onPress={() => setMuscleFilter(null)}
           style={[styles.filterChip, !muscleFilter && { backgroundColor: colors.text, borderColor: colors.text }]}
@@ -171,20 +196,23 @@ export default function ExercisesScreen() {
             All
           </Text>
         </Pressable>
-        {MUSCLE_GROUPS.map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => setMuscleFilter(muscleFilter === m ? null : m)}
-            style={[styles.filterChip, muscleFilter === m && { backgroundColor: colors.text, borderColor: colors.text }]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.filterText, { color: muscleFilter === m ? colors.bg : colors.textMuted }]}
+        {MUSCLE_GROUPS.map((g) => {
+          const isActive = muscleFilter?.[0] === g.muscles[0] && muscleFilter?.length === g.muscles.length;
+          return (
+            <Pressable
+              key={g.id}
+              onPress={() => setMuscleFilter(isActive ? null : g.muscles)}
+              style={[styles.filterChip, isActive && { backgroundColor: colors.text, borderColor: colors.text }]}
             >
-              {MUSCLE_LABELS[m] || m}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                allowFontScaling={false}
+                style={[styles.filterText, { color: isActive ? colors.bg : colors.textMuted }]}
+              >
+                {g.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {/* Exercise list */}
@@ -192,8 +220,10 @@ export default function ExercisesScreen() {
         data={exercises}
         keyExtractor={(e) => e.id}
         renderItem={renderExercise}
-        style={{ flex: 1 }}
-        contentContainerStyle={[styles.list, exercises.length === 0 && { flex: 1, justifyContent: "center" }]}
+        style={styles.listFlex}
+        contentContainerStyle={styles.list}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
         ListEmptyComponent={
           <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
             {loading ? "Loading exercises..." : "No exercises found"}
@@ -236,16 +266,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   searchInput: { flex: 1, fontSize: 15 },
-  filterScroll: { marginTop: spacing.sm, marginBottom: spacing.sm },
-  filterContent: { paddingHorizontal: spacing.lg, gap: 6, alignItems: "center" },
+  filterScroll: { marginTop: spacing.md, marginBottom: spacing.sm, flexGrow: 0 },
+  filterContent: { paddingHorizontal: spacing.lg, paddingVertical: 10, gap: 6 },
   filterChip: {
+    height: 36,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    justifyContent: "center",
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  filterText: { fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
+  filterText: { fontSize: 13, lineHeight: 16, fontWeight: "500", textTransform: "capitalize" },
+  listFlex: { flex: 1 },
   list: { paddingBottom: 100 },
   exerciseRow: {
     flexDirection: "row",
