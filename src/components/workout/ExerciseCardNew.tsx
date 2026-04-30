@@ -101,11 +101,11 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
         <Text allowFontScaling={false} style={[styles.colLabel, styles.prevCol, { color: colors.textMuted }]}>
           Previous
         </Text>
-        <Text allowFontScaling={false} style={[styles.colLabel, styles.weightCol, { color: colors.textMuted }]}>
-          Lb
-        </Text>
         <Text allowFontScaling={false} style={[styles.colLabel, styles.repsCol, { color: colors.textMuted }]}>
           Reps
+        </Text>
+        <Text allowFontScaling={false} style={[styles.colLabel, styles.weightCol, { color: colors.textMuted }]}>
+          Lb
         </Text>
         <View style={styles.doneCol} />
       </View>
