@@ -213,6 +213,21 @@ feelingScale.strong = 💪 "+10% weights"
 - Ensure route strings align with file paths.
 - Avoid editing lockfiles unless dependency changes are required.
 
+## House rules (Sprint 1+)
+- **No schema changes without a migration.** Every table/column change must have a
+  corresponding file in `supabase/migrations/`. Never modify hosted Supabase directly.
+- **No redefining DB types.** Use the generated `types/database.ts` — don't create
+  inline type aliases that duplicate column definitions.
+- **Error boundaries required** on top-level layouts and the active workout screen.
+  New top-level routes must be wrapped in `<ErrorBoundary>`.
+- **PRs under ~400 lines of diff.** If heading past 500, split.
+- **Stop and ask on ambiguity.** Don't guess on schema, auth, or destructive changes.
+- **`api/` is deleted.** Mobile talks directly to Supabase. Don't recreate a Fastify
+  server unless the product requires server-side logic beyond edge functions.
+- **`adpt/` is deleted.** It was a stale duplicate. Don't recreate.
+- **Design direction:** light mode default, blue primary, MacroFactor + Hevy minimalism.
+  Use `useTheme()` — never hardcode colors.
+
 ## Useful references
 - `README.md` for Expo start instructions.
 - `app.json` for app metadata and typed routes.

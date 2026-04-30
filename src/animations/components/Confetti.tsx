@@ -11,9 +11,8 @@ import Animated, {
   withTiming,
   withDelay,
   Easing,
-  runOnJS,
 } from "react-native-reanimated";
-import { CONFETTI, PARTICLE_COLORS, Z_INDEX, TIMING } from "../constants";
+import { CONFETTI, PARTICLE_COLORS, Z_INDEX } from "../constants";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -86,6 +85,7 @@ const ConfettiParticle: React.FC<{
       particle.delay + duration * 0.6,
       withTiming(0, { duration: duration * 0.4 })
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({

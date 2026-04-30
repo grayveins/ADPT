@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useTheme } from "@/src/context/ThemeContext";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { spacing } from "@/src/theme";
 import Constants from "expo-constants";
 
@@ -28,7 +29,7 @@ type MenuItemProps = {
 function MenuItem({ icon, label, onPress, color }: MenuItemProps) {
   const { colors } = useTheme();
   const textColor = color ?? colors.text;
-  
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -102,11 +103,14 @@ function CustomDrawerContent(props: any) {
 
   const onSignOut = async () => {
     try {
-      await supabase.auth.signOut();
       closeDrawer();
-      router.replace("/sign-in");
+      await supabase.auth.signOut();
+      setTimeout(() => {
+        router.replace("/sign-in");
+      }, 300);
     } catch (error) {
       console.error("Error signing out:", error);
+      router.replace("/sign-in");
     }
   };
 
@@ -143,7 +147,7 @@ function CustomDrawerContent(props: any) {
       </View>
 
       {/* Bottom Section */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { borderTopColor: colors.border }]}>
         <MenuItem icon="log-out-outline" label="Sign Out" onPress={onSignOut} color={colors.error} />
         
         {/* App Version */}
@@ -159,6 +163,7 @@ export default function AuthenticatedLayout() {
   const { colors } = useTheme();
 
   return (
+    <ErrorBoundary label="Home">
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Drawer
         screenOptions={{
@@ -185,14 +190,9 @@ export default function AuthenticatedLayout() {
             drawerItemStyle: { display: "none" },
           }}
         />
-        <Drawer.Screen
-          name="workout"
-          options={{
-            drawerItemStyle: { display: "none" },
-          }}
-        />
       </Drawer>
     </View>
+    </ErrorBoundary>
   );
 }
 
@@ -255,7 +255,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingBottom: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#333",
     paddingTop: spacing.base,
   },
   versionText: {

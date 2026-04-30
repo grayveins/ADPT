@@ -27,6 +27,9 @@ export function usePreviousWorkout(userId: string | null, exerciseNames: string[
   const [previousData, setPreviousData] = useState<PreviousWorkoutMap>(new Map());
   const [loading, setLoading] = useState(true);
 
+  // Stable string key to avoid array identity issues in dep array
+  const exerciseNamesKey = exerciseNames.join(",");
+
   // Fetch previous workout data for specified exercises
   const fetchPreviousData = useCallback(async () => {
     if (!userId || exerciseNames.length === 0) {
@@ -120,7 +123,8 @@ export function usePreviousWorkout(userId: string | null, exerciseNames: string[
     } finally {
       setLoading(false);
     }
-  }, [userId, exerciseNames.join(",")]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, exerciseNamesKey]);
 
   useEffect(() => {
     fetchPreviousData();

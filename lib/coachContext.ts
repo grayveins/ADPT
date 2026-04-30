@@ -9,7 +9,9 @@
  */
 
 import { supabase } from './supabase';
-import { generateWeeklyPlan, PlannedWorkout } from './workoutPlan';
+// workoutPlan removed — coaching programs replace auto-generated plans
+type PlannedWorkout = { type: string; isRest: boolean; date: string };
+const generateWeeklyPlan = (..._args: any[]): PlannedWorkout[] => [];
 import { format, differenceInDays, parseISO, isToday } from 'date-fns';
 
 // ============================================================================
@@ -149,19 +151,19 @@ export function createAction(type: ActionType): Action {
       return {
         type,
         label: 'Start Workout',
-        route: '/(app)/workout/log',
+        route: '/(workout)/active',
       };
     case 'start_first_workout':
       return {
         type,
         label: 'Start First Workout',
-        route: '/(app)/workout/log',
+        route: '/(workout)/active',
       };
     case 'view_session':
       return {
         type,
         label: 'View Session',
-        route: '/(app)/progress',
+        route: '/(app)/(tabs)/progress',
       };
     case 'recovery_tips':
       return {
@@ -172,7 +174,7 @@ export function createAction(type: ActionType): Action {
       return {
         type,
         label: 'Go Lighter Today',
-        route: '/(app)/workout/log',
+        route: '/(workout)/active',
         params: { adjustIntensity: 'lower' },
       };
     case 'pain_better':
@@ -198,7 +200,7 @@ export async function buildCoachContext(userId: string): Promise<CoachContext> {
   try {
     // Call the database function that aggregates all context
     const { data: dbContext, error: contextError } = await supabase
-      .rpc('get_coach_context', { p_user_id: userId });
+      .rpc('get_coach_context_fast', { p_user_id: userId });
 
     if (contextError) {
       console.error('Error fetching coach context:', contextError);

@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, Dimensions } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,8 +15,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { darkColors, theme } from "@/src/theme";
 import { SPRING_CONFIG, Z_INDEX, TIMING } from "../constants";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Encouraging messages for different contexts
 const MESSAGES = {
@@ -70,6 +68,7 @@ export const Toast: React.FC<ToastProps> = ({
         withTiming(0, { duration: TIMING.fast })
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({

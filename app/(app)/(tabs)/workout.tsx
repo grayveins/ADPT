@@ -1,717 +1,300 @@
-/**
- * Workout Tab
- * Hub for workout program, start workout, and exercise logging
- * Cal AI meets Trainerize/Fitbod style
- */
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  ActivityIndicator,
+  View,
+  Text,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  View,
 } from "react-native";
-
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import {
-  addDays,
-  differenceInCalendarWeeks,
-  format,
-  parseISO,
-  startOfWeek,
-} from "date-fns";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
-import { layout, spacing } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
-import {
-  generateWeeklyPlan,
-  type PlannedWorkout,
-  type WorkoutPlanPreferences,
-} from "@/lib/workoutPlan";
-import { ToastContainer } from "@/src/animations/celebrations";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { spacing, radius } from "@/src/theme";
 
-type SessionRow = {
+type PhaseWorkout = {
   id: string;
-  title: string | null;
-  started_at: string;
-  ended_at: string | null;
+  day_number: number;
+  name: string;
+  exercises: any[];
 };
 
 export default function WorkoutScreen() {
   const { colors } = useTheme();
-  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [preferences, setPreferences] = useState<WorkoutPlanPreferences | null>(null);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-
-  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
-  const todayKey = format(new Date(), "yyyy-MM-dd");
-
-  // Fetch workout data
-  const fetchData = async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.replace("/sign-in");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("onboarding_data, training_style, goal, updated_at")
-        .eq("id", user.id)
-        .single();
-
-      const onboarding = (profile?.onboarding_data ?? {}) as Record<string, any>;
-      const anchor = profile?.updated_at ? new Date(profile.updated_at) : new Date();
-      const weekIndex = Math.max(
-        0,
-        differenceInCalendarWeeks(new Date(), anchor, { weekStartsOn: 1 })
-      );
-
-      setPreferences({
-        goal: onboarding.goal ?? profile?.goal ?? null,
-        workoutsPerWeek: onboarding.workoutsPerWeek ?? 3,
-        trainingStyle: onboarding.trainingStyle ?? profile?.training_style ?? null,
-        splitPreference: onboarding.splitPreference ?? null,
-        limitations: onboarding.limitations ?? [],
-        activityLevel: onboarding.activityLevel ?? null,
-        weekIndex,
-      });
-
-      const weekStartIso = weekStart.toISOString();
-      const weekEndIso = addDays(weekStart, 7).toISOString();
-      const { data: sessionRows } = await supabase
-        .from("workout_sessions")
-        .select("id, title, started_at, ended_at")
-        .eq("user_id", user.id)
-        .gte("started_at", weekStartIso)
-        .lt("started_at", weekEndIso)
-        .order("started_at", { ascending: false });
-
-      setSessions((sessionRows ?? []) as SessionRow[]);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Pull-to-refresh handler
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchData(true);
-  };
+  const [programName, setProgramName] = useState<string | null>(null);
+  const [phaseName, setPhaseName] = useState<string | null>(null);
+  const [workouts, setWorkouts] = useState<PhaseWorkout[]>([]);
+  const [todayWorkout, setTodayWorkout] = useState<PhaseWorkout | null>(null);
 
   useEffect(() => {
-    fetchData();
-  }, [weekStart]);
-
-  const sessionsByDate = useMemo(() => {
-    const map = new Map<string, SessionRow>();
-    sessions.forEach((session) => {
-      const dateKey = format(parseISO(session.started_at), "yyyy-MM-dd");
-      if (!map.has(dateKey)) map.set(dateKey, session);
-    });
-    return map;
-  }, [sessions]);
-
-  const plan = useMemo<PlannedWorkout[]>(() => {
-    if (!preferences) return [];
-    return generateWeeklyPlan(
-      { ...preferences, adherenceScore: null, lastSessionDaysAgo: null },
-      weekStart
-    );
-  }, [preferences, weekStart]);
-
-  const planByDate = useMemo(() => new Map(plan.map((item) => [item.date, item])), [plan]);
-  const todayWorkout = planByDate.get(todayKey) ?? null;
-
-  const startWorkout = useCallback((workout: PlannedWorkout) => {
-    hapticPress();
-    router.push({
-      pathname: "/(app)/workout/active",
-      params: { type: workout.type, name: workout.type }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
     });
   }, []);
 
-  const programName = preferences?.trainingStyle?.replace(/_/g, " ") || "Custom Program";
-  const currentWeek = (preferences?.weekIndex ?? 0) + 1;
+  const fetchProgram = useCallback(async () => {
+    if (!userId) return;
+    const { data: program } = await supabase
+      .from("coaching_programs")
+      .select("id, name, program_phases(id, name, phase_number, status, phase_workouts(id, day_number, name, exercises))")
+      .eq("client_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </View>
+    if (!program) {
+      setProgramName(null);
+      setPhaseName(null);
+      setWorkouts([]);
+      setTodayWorkout(null);
+      return;
+    }
+
+    setProgramName(program.name);
+
+    const sortedPhases = (program as any).program_phases
+      ?.sort((a: any, b: any) => a.phase_number - b.phase_number) ?? [];
+
+    // Find active phase, fall back to first phase (upcoming phases should still show)
+    const activePhase = sortedPhases.find((p: any) => p.status === "active")
+      || sortedPhases[0];
+
+    if (!activePhase) {
+      setPhaseName(null);
+      setWorkouts([]);
+      setTodayWorkout(null);
+      return;
+    }
+
+    setPhaseName(activePhase.name);
+    const phaseWorkouts = (activePhase.phase_workouts ?? []).sort(
+      (a: any, b: any) => a.day_number - b.day_number
     );
-  }
+    setWorkouts(phaseWorkouts);
+
+    const dayOfWeek = new Date().getDay() || 7;
+    const todayW = phaseWorkouts.find((w: any) => w.day_number === dayOfWeek);
+    setTodayWorkout(todayW || null);
+  }, [userId]);
+
+  const lastFetchedAt = useRef(0);
+  useEffect(() => {
+    if (userId) {
+      fetchProgram();
+      lastFetchedAt.current = Date.now();
+    }
+  }, [userId, fetchProgram]);
+  useFocusEffect(useCallback(() => {
+    if (userId && Date.now() - lastFetchedAt.current > 30_000) {
+      fetchProgram();
+      lastFetchedAt.current = Date.now();
+    }
+  }, [userId, fetchProgram]));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchProgram();
+    lastFetchedAt.current = Date.now();
+    setRefreshing(false);
+  }, [fetchProgram]);
+
+  const startEmptyWorkout = () => {
+    hapticPress();
+    router.push({ pathname: "/(workout)/active", params: { name: "Workout", sourceType: "empty" } });
+  };
+
+  const openWorkoutDetail = (workout: PhaseWorkout) => {
+    hapticPress();
+    router.push({
+      pathname: "/(workout)/program-detail",
+      params: {
+        name: workout.name,
+        exercises: JSON.stringify(workout.exercises || []),
+        phaseName: phaseName || "",
+        dayNumber: String(workout.day_number),
+      },
+    });
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
+          Workouts
+        </Text>
+        <Pressable onPress={startEmptyWorkout} hitSlop={8}>
+          <Ionicons name="add" size={26} color={colors.text} />
+        </Pressable>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
-        {/* Program Card */}
-        <Animated.View 
-          entering={FadeInDown.delay(0).duration(300)}
-          style={styles.section}
-        >
-          <View style={[styles.programCard, { backgroundColor: colors.card }]}>
-            <View style={styles.programHeader}>
-              <View style={styles.programBadge}>
-                <Ionicons name="trophy" size={16} color={colors.gold} />
-              </View>
-              <View style={styles.programInfo}>
-                <Text allowFontScaling={false} style={[styles.programName, { color: colors.text }]}>
-                  {programName}
-                </Text>
-                <Text allowFontScaling={false} style={[styles.programWeek, { color: colors.textMuted }]}>
-                  Week {currentWeek} of 8
-                </Text>
-              </View>
-              <Pressable style={styles.programSettings}>
-                <Ionicons name="settings-outline" size={20} color={colors.textMuted} />
-              </Pressable>
-            </View>
-            
-            {/* Week Progress */}
-            <View style={styles.weekProgress}>
-              <View style={[styles.weekProgressBar, { backgroundColor: colors.border }]}>
-                <View 
-                  style={[
-                    styles.weekProgressFill, 
-                    { width: `${(currentWeek / 8) * 100}%`, backgroundColor: colors.primary }
-                  ]} 
-                />
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Today's Workout (if not rest) */}
-        {todayWorkout && !todayWorkout.isRest && (
-          <Animated.View 
-            entering={FadeInDown.delay(50).duration(300)}
-            style={styles.section}
+        {/* Today's Workout */}
+        {todayWorkout ? (
+          <Pressable
+            onPress={() => openWorkoutDetail(todayWorkout)}
+            style={[styles.todayCard, { backgroundColor: colors.text }]}
           >
-            <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
-              Today
+            <Text allowFontScaling={false} style={[styles.todayLabel, { color: colors.bgSecondary }]}>
+              TODAY
             </Text>
-            <Pressable
-              onPress={() => startWorkout(todayWorkout)}
-              style={({ pressed }) => [
-                styles.todayWorkoutCard,
-                { backgroundColor: colors.card, borderColor: colors.primary },
-                pressed && styles.cardPressed,
-              ]}
-            >
-              <View style={styles.workoutCardHeader}>
-                <View style={[styles.workoutIcon, { backgroundColor: colors.selected }]}>
-                  <Ionicons name="barbell" size={28} color={colors.primary} />
-                </View>
-                <View style={styles.workoutInfo}>
-                  <Text allowFontScaling={false} style={[styles.workoutType, { color: colors.text }]}>
-                    {todayWorkout.type}
-                  </Text>
-                  <Text allowFontScaling={false} style={[styles.workoutFocus, { color: colors.textMuted }]}>
-                    {todayWorkout.focus}
-                  </Text>
-                </View>
-                <View style={[styles.startButton, { backgroundColor: colors.primary }]}>
-                  <Text allowFontScaling={false} style={[styles.startButtonText, { color: colors.textOnPrimary }]}>
-                    START
-                  </Text>
-                  <Ionicons name="play" size={18} color={colors.textOnPrimary} />
-                </View>
-              </View>
-              <View style={styles.workoutMeta}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={14} color={colors.textMuted} />
-                  <Text allowFontScaling={false} style={[styles.metaText, { color: colors.textMuted }]}>
-                    ~{todayWorkout.durationMinutes} min
-                  </Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Ionicons name="fitness-outline" size={14} color={colors.textMuted} />
-                  <Text allowFontScaling={false} style={[styles.metaText, { color: colors.textMuted }]}>
-                    5-6 exercises
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          </Animated.View>
-        )}
-
-        {/* Rest Day Card */}
-        {todayWorkout?.isRest && (
-          <Animated.View 
-            entering={FadeInDown.delay(50).duration(300)}
-            style={styles.section}
-          >
-            <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
-              Today
+            <Text allowFontScaling={false} style={[styles.todayName, { color: colors.bg }]}>
+              {todayWorkout.name}
             </Text>
-            <View style={[styles.restCard, { backgroundColor: colors.card }]}>
-              <View style={[styles.restIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="moon" size={24} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.restTitle, { color: colors.text }]}>
-                Rest Day
+            {todayWorkout.exercises?.length > 0 && (
+              <Text allowFontScaling={false} numberOfLines={1} style={[styles.todayExercises, { color: colors.bgSecondary }]}>
+                {todayWorkout.exercises.map((e: any) => e.name || e.exercise_name).join(", ")}
               </Text>
-              <Text allowFontScaling={false} style={[styles.restSubtitle, { color: colors.textMuted }]}>
-                Recovery is part of the process
+            )}
+            <View style={styles.todayStart}>
+              <Text allowFontScaling={false} style={[styles.todayStartText, { color: colors.bg }]}>
+                Start Workout
               </Text>
+              <Ionicons name="play" size={16} color={colors.bg} />
             </View>
-          </Animated.View>
-        )}
+          </Pressable>
+        ) : null}
 
-        {/* This Week's Plan */}
-        <Animated.View 
-          entering={FadeInDown.delay(100).duration(300)}
-          style={styles.section}
-        >
-          <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
-            This Week
-          </Text>
-          <View style={[styles.weekPlan, { backgroundColor: colors.card }]}>
-            {plan.map((workout, index) => {
-              const isCompleted = sessionsByDate.has(workout.date);
-              const isToday = workout.date === todayKey;
-              const isPast = new Date(workout.date) < new Date(todayKey);
-              
+        {/* Program Workouts */}
+        {programName && workouts.length > 0 && (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
+                {programName}
+              </Text>
+              {phaseName && (
+                <Text allowFontScaling={false} style={[styles.phaseLabel, { color: colors.textMuted }]}>
+                  {phaseName}
+                </Text>
+              )}
+            </View>
+
+            {workouts.map((workout) => {
+              const exerciseCount = workout.exercises?.length || 0;
+              const totalSets = (workout.exercises || []).reduce((s: number, e: any) => s + (e.sets || 0), 0);
               return (
                 <Pressable
-                  key={workout.date}
-                  onPress={() => !workout.isRest && startWorkout(workout)}
-                  disabled={workout.isRest}
-                  style={({ pressed }) => [
-                    styles.dayRow,
-                    { borderBottomColor: colors.border },
-                    isToday && { backgroundColor: colors.selected },
-                    isCompleted && styles.dayRowCompleted,
-                    pressed && !workout.isRest && styles.dayRowPressed,
-                  ]}
+                  key={workout.id}
+                  onPress={() => openWorkoutDetail(workout)}
+                  style={[styles.workoutCard, { backgroundColor: colors.bgSecondary }]}
                 >
-                  <View style={styles.dayInfo}>
-                    <Text 
-                      allowFontScaling={false} 
-                      style={[
-                        styles.dayName,
-                        { color: colors.textMuted },
-                        isToday && { color: colors.primary },
-                        isCompleted && { color: colors.primary },
-                      ]}
-                    >
-                      {format(new Date(workout.date), "EEE")}
-                    </Text>
-                    <Text 
-                      allowFontScaling={false} 
-                      style={[
-                        styles.dayDate,
-                        { color: colors.text },
-                        isToday && { color: colors.primary },
-                      ]}
-                    >
-                      {format(new Date(workout.date), "d")}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.dayContent}>
-                    {workout.isRest ? (
-                      <Text allowFontScaling={false} style={[styles.restLabel, { color: colors.textMuted }]}>
-                        Rest
+                  <View style={styles.workoutInfo}>
+                    <View style={styles.workoutDayRow}>
+                      <Text allowFontScaling={false} style={[styles.workoutDay, { color: colors.textMuted }]}>
+                        Day {workout.day_number}
                       </Text>
-                    ) : (
-                      <>
-                        <Text 
-                          allowFontScaling={false} 
-                          style={[
-                            styles.workoutLabel,
-                            { color: colors.text },
-                            isCompleted && { textDecorationLine: "line-through", color: colors.textMuted },
-                          ]}
-                        >
-                          {workout.type}
-                        </Text>
-                        <Text allowFontScaling={false} style={[styles.workoutDuration, { color: colors.textMuted }]}>
-                          {workout.durationMinutes} min
-                        </Text>
-                      </>
+                      <Text allowFontScaling={false} style={[styles.workoutName, { color: colors.text }]}>
+                        {workout.name}
+                      </Text>
+                    </View>
+                    {exerciseCount > 0 && (
+                      <Text allowFontScaling={false} numberOfLines={1} style={[styles.workoutMeta, { color: colors.textMuted }]}>
+                        {exerciseCount} exercises · {totalSets} sets
+                      </Text>
                     )}
                   </View>
-
-                  <View style={styles.dayStatus}>
-                    {isCompleted ? (
-                      <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
-                        <Ionicons name="checkmark" size={14} color={colors.textOnPrimary} />
-                      </View>
-                    ) : isToday && !workout.isRest ? (
-                      <Ionicons name="arrow-forward" size={18} color={colors.primary} />
-                    ) : isPast && !workout.isRest ? (
-                      <View style={[styles.missedCircle, { backgroundColor: colors.border }]}>
-                        <Ionicons name="close" size={12} color={colors.textMuted} />
-                      </View>
-                    ) : null}
-                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </Pressable>
               );
             })}
           </View>
-        </Animated.View>
+        )}
 
-        {/* Quick Actions */}
-        <Animated.View 
-          entering={FadeInDown.delay(150).duration(300)}
-          style={styles.section}
-        >
-          <View style={styles.quickActionsGrid}>
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/programs");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="bookmark" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                My Programs
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/generate");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryMuted }]}>
-                <Ionicons name="sparkles" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                AI Program
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/exercises");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="list" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                Exercises
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                router.push("/(app)/workout/history");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="time" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                History
-              </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.quickAction, { backgroundColor: colors.card }]}
-              onPress={() => {
-                hapticPress();
-                // Start a new blank workout
-                router.push({
-                  pathname: "/(app)/workout/active",
-                  params: { type: "Custom", name: "Custom Workout" }
-                });
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.selected }]}>
-                <Ionicons name="add" size={20} color={colors.primary} />
-              </View>
-              <Text allowFontScaling={false} style={[styles.quickActionText, { color: colors.text }]}>
-                Quick Start
-              </Text>
-            </Pressable>
-          </View>
-        </Animated.View>
+        {/* More */}
+        <View style={styles.moreSection}>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
+            More
+          </Text>
+          <MoreRow icon="add-outline" label="Empty Workout" onPress={startEmptyWorkout} colors={colors} />
+          <MoreRow icon="time-outline" label="Workout History" onPress={() => router.push("/(workout)/history")} colors={colors} />
+          <MoreRow icon="barbell-outline" label="Exercise Library" onPress={() => router.push("/(workout)/exercises")} colors={colors} />
+        </View>
       </ScrollView>
+    </SafeAreaView>
+  );
+}
 
-      <ToastContainer />
-    </View>
+function MoreRow({ icon, label, onPress, colors }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  colors: any;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.moreRow}>
+      <Ionicons name={icon} size={18} color={colors.text} />
+      <Text allowFontScaling={false} style={[styles.moreLabel, { color: colors.text }]}>
+        {label}
+      </Text>
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scrollContent: {
-    paddingHorizontal: layout.screenPaddingHorizontal,
-    paddingTop: spacing.sm,
-    paddingBottom: 100,
-  },
-  section: {
-    marginBottom: layout.sectionGap,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: spacing.md,
-  },
-  // Program Card
-  programCard: {
-    borderRadius: 16,
-    padding: spacing.base,
-  },
-  programHeader: {
+  container: { flex: 1 },
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  programBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  programInfo: {
-    flex: 1,
-  },
-  programName: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "capitalize",
-  },
-  programWeek: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  programSettings: {
-    padding: spacing.sm,
-  },
-  weekProgress: {
-    gap: spacing.xs,
-  },
-  weekProgressBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  weekProgressFill: {
-    height: "100%",
-  },
-  // Today's Workout Card
-  todayWorkoutCard: {
-    borderRadius: 16,
-    padding: spacing.base,
-    borderWidth: 1,
-  },
-  cardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  workoutCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  workoutIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  workoutInfo: {
-    flex: 1,
-  },
-  workoutType: {
-    fontSize: 20,
-    fontFamily: "Inter_600SemiBold",
-  },
-  workoutFocus: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  startButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 24,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
-  startButtonText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+  headerTitle: { fontSize: 28, fontWeight: "700" },
+  scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+
+  todayCard: {
+    padding: spacing.xl,
+    borderRadius: radius.lg,
+    marginBottom: spacing.xl,
   },
-  workoutMeta: {
-    flexDirection: "row",
-    gap: spacing.base,
-  },
-  metaItem: {
+  todayLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
+  todayName: { fontSize: 20, fontWeight: "700", marginTop: 4 },
+  todayExercises: { fontSize: 13, marginTop: 6, opacity: 0.7 },
+  todayStart: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    marginTop: spacing.md,
   },
-  metaText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  // Rest Card
-  restCard: {
-    borderRadius: 16,
-    padding: spacing.xl,
-    alignItems: "center",
-  },
-  restIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-  },
-  restTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
-  restSubtitle: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    marginTop: 4,
-  },
-  // Week Plan
-  weekPlan: {
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  dayRow: {
+  todayStartText: { fontSize: 15, fontWeight: "600" },
+
+  sectionHeader: { marginBottom: spacing.md },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  phaseLabel: { fontSize: 13, marginTop: 2 },
+
+  workoutCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.base,
-    borderBottomWidth: 1,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
   },
-  dayRowCompleted: {
-    opacity: 0.7,
-  },
-  dayRowPressed: {
-    opacity: 0.8,
-  },
-  dayInfo: {
-    width: 48,
-    alignItems: "center",
-  },
-  dayName: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textTransform: "uppercase",
-  },
-  dayDate: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
-  dayContent: {
-    flex: 1,
-    paddingLeft: spacing.md,
-  },
-  restLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-  },
-  workoutLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  workoutDuration: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  dayStatus: {
-    width: 32,
-    alignItems: "center",
-  },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  missedCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Quick Actions
-  quickActionsGrid: {
+  workoutInfo: { flex: 1, gap: 2 },
+  workoutDayRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  workoutDay: { fontSize: 12, fontWeight: "500" },
+  workoutName: { fontSize: 15, fontWeight: "600" },
+  workoutMeta: { fontSize: 12 },
+
+  moreSection: { marginTop: spacing.xl },
+  moreRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: layout.cardGap,
-  },
-  quickAction: {
-    width: "47%",
-    borderRadius: 12,
-    padding: spacing.base,
     alignItems: "center",
-    gap: spacing.sm,
+    paddingVertical: 14,
+    gap: spacing.md,
   },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickActionText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-  },
+  moreLabel: { flex: 1, fontSize: 15 },
 });

@@ -3,24 +3,19 @@
  * 
  * Expandable exercise info card showing:
  * - Form cues / tips
- * - Target muscles
- * - Video placeholder (for future)
+ * - Target muscles with body visualization
+ * - YouTube demo video
  * - Common mistakes to avoid
  */
 
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Image } from "react-native";
-import Animated, { 
-  FadeIn, 
-  FadeOut,
-  useAnimatedStyle, 
-  withTiming,
-  useSharedValue,
-} from "react-native-reanimated";
+import React, { useState, useCallback, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-
 import { useTheme } from "@/src/context/ThemeContext";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { MuscleGroupDisplay } from "@/src/components/MuscleImage";
+import { defaultExercises, type ExerciseDemo } from "@/lib/exercises";
 
 // Exercise data - beginner-friendly instructions
 const EXERCISE_DATA: Record<string, ExerciseDetails> = {
@@ -646,6 +641,49 @@ type ExerciseInfoProps = {
   onClose?: () => void;
 };
 
+import { EXERCISE_BY_NAME } from "@/lib/workout/exercises/library";
+
+/**
+ * Get video info for an exercise — reads directly from the exercise library.
+ * No more hardcoded name→ID map.
+ */
+function getExerciseVideo(exerciseName: string): { videoId: string; startTime: number } | null {
+  const exercise = EXERCISE_BY_NAME[exerciseName];
+  if (exercise?.youtubeVideoId) {
+    return {
+      videoId: exercise.youtubeVideoId,
+      startTime: exercise.videoStartTime ?? 0,
+    };
+  }
+  // Fallback: try the old defaultExercises demo lookup
+  const nameNormalized = exerciseName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  const fallback = defaultExercises.find(
+    e => e.id === nameNormalized || e.name.toLowerCase() === exerciseName.toLowerCase()
+  );
+  if (fallback?.demo?.youtubeVideoId) {
+    return { videoId: fallback.demo.youtubeVideoId, startTime: fallback.demo.startTime ?? 0 };
+  }
+  return null;
+}
+
+function YouTubeVideoPlayer({
+  videoId,
+}: {
+  videoId: string;
+  startTime?: number;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[styles.videoPlaceholder, { backgroundColor: colors.bgSecondary }]}>
+      <Ionicons name="play-circle-outline" size={32} color={colors.textMuted} />
+      <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
+        Video: {videoId}
+      </Text>
+    </View>
+  );
+}
+
 export const ExerciseInfo: React.FC<ExerciseInfoProps> = ({ 
   exerciseName,
   onClose,
@@ -654,6 +692,7 @@ export const ExerciseInfo: React.FC<ExerciseInfoProps> = ({
   const [activeTab, setActiveTab] = useState<"form" | "mistakes">("form");
   
   const details = EXERCISE_DATA[exerciseName];
+  const video = getExerciseVideo(exerciseName);
   
   if (!details) {
     return (
@@ -706,14 +745,18 @@ export const ExerciseInfo: React.FC<ExerciseInfoProps> = ({
         )}
       </View>
 
-      {/* Video Placeholder */}
-      <View style={[styles.videoPlaceholder, { backgroundColor: colors.bgSecondary }]}>
-        <View style={[styles.playButton, { backgroundColor: colors.primary }]}>
-          <Ionicons name="play" size={24} color={colors.textOnPrimary} />
+      {/* Muscle Images */}
+      <View style={styles.mediaSection}>
+
+        {/* Muscle Image */}
+        <View style={styles.muscleWrapper}>
+          <MuscleGroupDisplay
+            primaryMuscles={details.primaryMuscles}
+            secondaryMuscles={details.secondaryMuscles}
+            primarySize={120}
+            secondarySize={50}
+          />
         </View>
-        <Text allowFontScaling={false} style={[styles.videoText, { color: colors.textMuted }]}>
-          Demo video coming soon
-        </Text>
       </View>
 
       {/* Tabs */}
@@ -851,12 +894,46 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  // Video & Muscle Layout
+  mediaSection: {
+    flexDirection: "row",
+    marginBottom: 16,
+    gap: 12,
+  },
+  videoWrapper: {
+    flex: 1,
+  },
+  muscleWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoContainer: {
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  videoLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+    borderRadius: 12,
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
   videoPlaceholder: {
-    height: 140,
+    height: 160,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
   },
   playButton: {
     width: 48,

@@ -56,18 +56,20 @@ export function Input({
   secureTextEntry,
   ...textInputProps
 }: InputProps) {
-  const { colors, radius, typography, components, space } = useTheme();
+  const { colors, radius, typography, components } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
   
   const handleFocus = useCallback((e: any) => {
     setIsFocused(true);
     textInputProps.onFocus?.(e);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textInputProps.onFocus]);
-  
+
   const handleBlur = useCallback((e: any) => {
     setIsFocused(false);
     textInputProps.onBlur?.(e);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textInputProps.onBlur]);
   
   const toggleSecure = () => {

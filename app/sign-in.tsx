@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,14 +13,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
+import { spacing, radius } from "@/src/theme";
 
 export default function SignIn() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,75 +26,44 @@ export default function SignIn() {
   const onLogin = async () => {
     setLoading(true);
     try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        Alert.alert("Login error", signInError.message);
-        return;
-      }
-
-      const userId = signInData.user?.id;
-      if (!userId) {
-        Alert.alert("Error", "User not found after login.");
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("onboarding_complete")
-        .eq("id", userId)
-        .single();
-
-      if (profileError && profileError.code !== "PGRST116") {
-        Alert.alert("Error fetching profile", profileError.message);
-        return;
-      }
-
-      const onboardingComplete = profile?.onboarding_complete ?? false;
-      router.replace((onboardingComplete ? "/(app)/(tabs)" : "/onboarding/editorial") as any);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { Alert.alert("Error", error.message); return; }
+      if (!data.user?.id) { Alert.alert("Error", "User not found."); return; }
+      router.replace("/(app)/(tabs)" as any);
     } catch (e: any) {
-      Alert.alert("Login failed", e.message);
+      Alert.alert("Error", e.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={styles.flex}
         behavior={Platform.select({ ios: "padding", android: "height" })}
-        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="fitness" size={32} color={colors.textOnPrimary} />
-            </View>
-            <Text allowFontScaling={false} style={styles.logoText}>
-              ADPT
-            </Text>
-          </View>
+          {/* Back */}
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color={colors.text} />
+          </Pressable>
 
-          <View style={styles.header}>
-            <Text allowFontScaling={false} style={styles.title}>
-              Welcome back
-            </Text>
-            <Text allowFontScaling={false} style={styles.subtitle}>
-              Log in to continue your training
-            </Text>
-          </View>
+          <View style={styles.spacer} />
 
+          {/* Title */}
+          <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
+            Welcome
+          </Text>
+
+          {/* Form */}
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+            <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} />
               <TextInput
                 placeholder="Email"
                 value={email}
@@ -105,13 +72,12 @@ export default function SignIn() {
                 keyboardType="email-address"
                 textContentType="emailAddress"
                 placeholderTextColor={colors.textMuted}
-                style={styles.input}
-                keyboardAppearance="light"
+                style={[styles.input, { color: colors.text }]}
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+            <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
+              <Ionicons name="key-outline" size={20} color={colors.textMuted} />
               <TextInput
                 placeholder="Password"
                 value={password}
@@ -119,131 +85,63 @@ export default function SignIn() {
                 secureTextEntry
                 textContentType="password"
                 placeholderTextColor={colors.textMuted}
-                style={styles.input}
-                keyboardAppearance="light"
+                style={[styles.input, { color: colors.text }]}
               />
             </View>
 
-            <TouchableOpacity
+            <Pressable
               onPress={onLogin}
               disabled={loading}
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.btn, { backgroundColor: colors.text }, loading && styles.btnDisabled]}
             >
-              <Text allowFontScaling={false} style={styles.buttonText}>
-                {loading ? "Logging in..." : "Log in"}
+              <Text allowFontScaling={false} style={[styles.btnText, { color: colors.bg }]}>
+                {loading ? "Signing in..." : "SIGN IN"}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
+
+            <Pressable style={styles.forgotWrap}>
+              <Text allowFontScaling={false} style={[styles.forgotText, { color: colors.textMuted }]}>
+                Forgot Password?
+              </Text>
+            </Pressable>
           </View>
 
-          <TouchableOpacity onPress={() => router.replace("/sign-up")} style={styles.footer}>
-            <Text allowFontScaling={false} style={styles.footerText}>
-              Don&apos;t have an account?{" "}
-              <Text style={styles.footerLink}>Sign up</Text>
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.spacer} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
-  StyleSheet.create({
-    safe: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    keyboardView: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      justifyContent: "center",
-      paddingHorizontal: 24,
-      paddingVertical: 40,
-    },
-    logoContainer: {
-      alignItems: "center",
-      marginBottom: 40,
-    },
-    logoCircle: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: colors.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
-    logoText: {
-      color: colors.text,
-      fontSize: 28,
-      fontFamily: "Inter_600SemiBold",
-      letterSpacing: 2,
-    },
-    header: {
-      alignItems: "center",
-      marginBottom: 32,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 28,
-      fontFamily: "Inter_600SemiBold",
-    },
-    subtitle: {
-      color: colors.textMuted,
-      fontSize: 15,
-      fontFamily: "Inter_400Regular",
-      marginTop: 8,
-    },
-    form: {
-      gap: 16,
-    },
-    inputContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 16,
-    },
-    inputIcon: {
-      marginRight: 12,
-    },
-    input: {
-      flex: 1,
-      color: colors.text,
-      fontSize: 16,
-      fontFamily: "Inter_400Regular",
-      paddingVertical: 16,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: 12,
-      paddingVertical: 16,
-      alignItems: "center",
-      marginTop: 8,
-    },
-    buttonDisabled: {
-      opacity: 0.6,
-    },
-    buttonText: {
-      color: colors.textOnPrimary,
-      fontSize: 16,
-      fontFamily: "Inter_600SemiBold",
-    },
-    footer: {
-      marginTop: 32,
-      alignItems: "center",
-    },
-    footerText: {
-      color: colors.textMuted,
-      fontSize: 14,
-      fontFamily: "Inter_400Regular",
-    },
-    footerLink: {
-      color: colors.primary,
-      fontFamily: "Inter_600SemiBold",
-    },
-  });
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 32 },
+  spacer: { flex: 1 },
+  backBtn: { width: 40, height: 40, justifyContent: "center", marginTop: spacing.sm },
+  title: { fontSize: 34, fontWeight: "300", marginBottom: 32, letterSpacing: 1 },
+  form: { gap: 0 },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    paddingVertical: 14,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 2,
+  },
+  btn: {
+    height: 48,
+    borderRadius: radius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 28,
+  },
+  btnDisabled: { opacity: 0.5 },
+  btnText: { fontSize: 14, fontWeight: "600", letterSpacing: 1 },
+  forgotWrap: { alignItems: "center", marginTop: 16 },
+  forgotText: { fontSize: 14 },
+});

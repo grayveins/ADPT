@@ -9,19 +9,16 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedProps,
-  withSpring,
   withTiming,
   withSequence,
   interpolate,
-  runOnJS,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { useTheme } from "@/src/context/ThemeContext";
-import { SPRING_CONFIG, TIMING } from "../constants";
+import { TIMING } from "../constants";
 import { hapticSuccess } from "../feedback/haptics";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 type AnimatedCheckboxProps = {
   checked: boolean;
@@ -45,21 +42,22 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
 
   useEffect(() => {
     if (checked) {
-      // Animate to checked state
+      // Animate to checked state — Hevy-style crisp snap, no bouncy overshoot
       progress.value = withTiming(1, { duration: TIMING.fast });
       scale.value = withSequence(
-        withSpring(1.15, SPRING_CONFIG.bouncy),
-        withSpring(1, SPRING_CONFIG.snappy)
+        withTiming(1.08, { duration: 80 }),
+        withTiming(1, { duration: 100 })
       );
-      // Glow effect
+      // Subtle glow
       glowOpacity.value = withSequence(
-        withTiming(0.6, { duration: TIMING.fast }),
-        withTiming(0, { duration: TIMING.normal })
+        withTiming(0.4, { duration: 80 }),
+        withTiming(0, { duration: 200 })
       );
     } else {
       progress.value = withTiming(0, { duration: TIMING.fast });
       scale.value = 1;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checked]);
 
   const handlePress = () => {
@@ -91,14 +89,6 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({
     return {
       strokeDashoffset,
       opacity: progress.value,
-    };
-  });
-
-  // Circle fill animation
-  const circleProps = useAnimatedProps(() => {
-    const fillOpacity = interpolate(progress.value, [0, 1], [0, 1]);
-    return {
-      fillOpacity,
     };
   });
 

@@ -1,58 +1,47 @@
 /**
- * Progress Screen - Clean, Visual Design
+ * Progress Screen - Minimal, Clean Design
  * 
- * Features:
- * - GitHub-style workout heatmap
- * - Big number PRs with visual progress
- * - Streak fire animation
- * - Muscle group balance wheel
+ * Simple view with:
+ * - Streak hero (motivation)
+ * - PR teaser (achievement)
+ * - Activity heatmap (consistency)
+ * - Active modifications (conditional - safety)
+ * - Subtle link to detailed analytics
  */
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
-  ActivityIndicator,
   RefreshControl,
   Pressable,
-  Dimensions,
 } from "react-native";
 
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { format, parseISO, subDays, subMonths, startOfWeek, addDays } from "date-fns";
-import Svg, { Circle, G, Text as SvgText } from "react-native-svg";
+import { parseISO, subDays, subMonths } from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { layout, spacing, shadows } from "@/src/theme";
+import { layout, spacing } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { useStreak } from "@/src/hooks/useStreak";
-import { WeeklyHeatmap, type LiftProgress } from "@/src/components/progress";
-import { defaultExercises } from "@/lib/exercises";
+import { useStrengthScore } from "@/src/hooks/useStrengthScore";
+import { useUserXP } from "@/src/hooks/useUserXP";
+import { RankBadge } from "@/src/components/RankBadge";
+import { WeeklyHeatmap, StrengthScoreCard } from "@/src/components/progress";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { ProgressSkeleton } from "@/src/animations/components";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-// Key lifts to track
+// Key lifts to track for PR teaser
 const KEY_LIFTS = ["Bench Press", "Squat", "Deadlift", "Overhead Press"];
 
-// Map exercises to muscle groups
-const exerciseToMuscle: Record<string, string> = {};
-defaultExercises.forEach((ex) => {
-  exerciseToMuscle[ex.name] = ex.category;
-});
-
-// Muscle group colors for the wheel
-const MUSCLE_COLORS: Record<string, string> = {
-  Chest: "#00C9B7",
-  Back: "#33D4C5",
-  Shoulders: "#00A89A",
-  Arms: "#7FA07F",
-  Legs: "#6B8E6B",
-  Core: "#60A5FA",
+type RecentPR = {
+  name: string;
+  weight: number;
+  improvement: number | null; // null = no badge shown (no old data to compare)
 };
 
 export default function ProgressScreen() {
@@ -63,13 +52,16 @@ export default function ProgressScreen() {
   
   // Data
   const [workoutDates, setWorkoutDates] = useState<Date[]>([]);
-  const [liftPRs, setLiftPRs] = useState<LiftProgress[]>([]);
-  const [prTrends, setPRTrends] = useState<Record<string, number>>({}); // Change vs 30 days ago
-  const [muscleVolume, setMuscleVolume] = useState<Record<string, number>>({});
-  const [totalVolume, setTotalVolume] = useState(0);
+  const [recentPRs, setRecentPRs] = useState<RecentPR[]>([]);
   
   // Streak
   const { currentStreak, longestStreak, loading: streakLoading, refreshStreak } = useStreak(userId);
+  
+  // Strength Score
+  const { score: strengthScore, loading: scoreLoading, refreshScore } = useStrengthScore(userId);
+
+  // XP + Rank
+  const { data: xpData, refresh: refreshXP } = useUserXP(userId);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -92,7 +84,7 @@ export default function ProgressScreen() {
       const dates = (sessions || []).map((s) => parseISO(s.started_at));
       setWorkoutDates(dates);
       
-      // Fetch sets data for PRs and muscle balance
+      // Fetch sets data for PR teaser (most recently improved)
       const { data: setsData } = await supabase
         .from("workout_sets")
         .select(`
@@ -106,74 +98,64 @@ export default function ProgressScreen() {
         .eq("workout_exercises.workout_sessions.user_id", user.id)
         .eq("is_warmup", false);
       
-      // Calculate PRs for key lifts (current and 30 days ago for trends)
-      const liftMaxes = new Map<string, { current: number; reps: number }>();
-      const liftMaxes30DaysAgo = new Map<string, number>();
+      // Calculate PRs and find most recently improved
       const thirtyDaysAgo = subMonths(new Date(), 1);
+      const liftData = new Map<string, { 
+        currentMax: number; 
+        oldMax: number; 
+        lastImprovedAt: Date | null;
+      }>();
       
-      // Calculate muscle volume
-      const muscleVol: Record<string, number> = {};
-      let total = 0;
+      // Initialize lift data
+      KEY_LIFTS.forEach((lift) => {
+        liftData.set(lift, { currentMax: 0, oldMax: 0, lastImprovedAt: null });
+      });
       
+      // First pass: find max weights for each lift (current and 30+ days ago)
       (setsData || []).forEach((set: any) => {
         const exerciseName = set.workout_exercises?.exercise_name;
         const sessionDate = set.workout_exercises?.workout_sessions?.started_at;
         const weight = set.weight_lbs || 0;
-        const reps = set.reps || 0;
         
-        if (!exerciseName || weight === 0) return;
+        if (!exerciseName || weight === 0 || !KEY_LIFTS.includes(exerciseName)) return;
+        if (!sessionDate) return;
+
+        const data = liftData.get(exerciseName)!;
+        const setDate = parseISO(sessionDate);
         
-        // Track PRs
-        if (KEY_LIFTS.includes(exerciseName)) {
-          const existing = liftMaxes.get(exerciseName);
-          if (!existing || weight > existing.current) {
-            liftMaxes.set(exerciseName, { current: weight, reps });
-          }
-          
-          // Track max weight from 30+ days ago for trend comparison
-          if (sessionDate && parseISO(sessionDate) < thirtyDaysAgo) {
-            const existing30 = liftMaxes30DaysAgo.get(exerciseName);
-            if (!existing30 || weight > existing30) {
-              liftMaxes30DaysAgo.set(exerciseName, weight);
-            }
-          }
+        // Track current max
+        if (weight > data.currentMax) {
+          data.currentMax = weight;
+          data.lastImprovedAt = setDate;
         }
         
-        // Track muscle volume
-        const muscle = exerciseToMuscle[exerciseName];
-        if (muscle && muscle !== "Full Body" && muscle !== "Cardio") {
-          const vol = weight * reps;
-          muscleVol[muscle] = (muscleVol[muscle] || 0) + vol;
-          total += vol;
+        // Track max from 30+ days ago for trend comparison
+        if (setDate < thirtyDaysAgo && weight > data.oldMax) {
+          data.oldMax = weight;
         }
       });
       
-      // Convert to array
-      const prs: LiftProgress[] = KEY_LIFTS.map((lift) => {
-        const data = liftMaxes.get(lift);
-        return {
-          name: lift,
-          currentMax: data?.current || 0,
-          startingMax: 0, // We'd need historical data for this
-          unit: "lbs" as const,
-        };
-      }).filter((l) => l.currentMax > 0);
+      // Build PRs list - show all PRs, with optional improvement badge
+      const allPRs: RecentPR[] = [];
       
-      // Calculate trends (current - 30 days ago)
-      const trends: Record<string, number> = {};
-      prs.forEach((pr) => {
-        const oldMax = liftMaxes30DaysAgo.get(pr.name);
-        if (oldMax && oldMax > 0) {
-          trends[pr.name] = pr.currentMax - oldMax;
+      liftData.forEach((data, name) => {
+        if (data.currentMax > 0) {
+          // Only show improvement if we have old data AND there's actual improvement
+          const hasImprovement = data.oldMax > 0 && data.currentMax > data.oldMax;
+          allPRs.push({
+            name,
+            weight: data.currentMax,
+            improvement: hasImprovement ? data.currentMax - data.oldMax : null,
+          });
         }
       });
       
-      setLiftPRs(prs);
-      setPRTrends(trends);
-      setMuscleVolume(muscleVol);
-      setTotalVolume(total);
+      // Sort by highest weight and take top 2
+      allPRs.sort((a, b) => b.weight - a.weight);
+      setRecentPRs(allPRs.slice(0, 2));
       
       refreshStreak();
+      refreshScore();
       
     } catch (error) {
       console.error("Error fetching progress:", error);
@@ -181,30 +163,16 @@ export default function ProgressScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshStreak]);
+  }, [refreshStreak, refreshScore]);
   
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Calculate muscle percentages for wheel
-  const musclePercentages = useMemo(() => {
-    if (totalVolume === 0) return [];
-    return Object.entries(muscleVolume)
-      .map(([muscle, vol]) => ({
-        muscle,
-        percent: (vol / totalVolume) * 100,
-        color: MUSCLE_COLORS[muscle] || colors.primary,
-      }))
-      .sort((a, b) => b.percent - a.percent);
-  }, [muscleVolume, totalVolume, colors.primary]);
-
-  if (loading || streakLoading) {
+  if (loading || streakLoading || scoreLoading) {
     return (
       <View style={[styles.safe, { backgroundColor: colors.bg }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ProgressSkeleton />
       </View>
     );
   }
@@ -223,9 +191,40 @@ export default function ProgressScreen() {
           />
         }
       >
+        {/* Strength Score */}
+        {strengthScore && (
+          <Animated.View entering={FadeInDown.delay(0).duration(300)}>
+            <StrengthScoreCard
+              score={strengthScore}
+              onLiftPress={(liftName) => {
+                hapticPress();
+                router.push(`/progress/${encodeURIComponent(liftName)}`);
+              }}
+              onMilestonesPress={() => {
+                hapticPress();
+                router.push("/progress/milestones");
+              }}
+            />
+          </Animated.View>
+        )}
+
+        {/* Rank + XP Progress */}
+        {xpData && xpData.totalXP > 0 && (
+          <Animated.View entering={FadeInDown.delay(30).duration(300)}>
+            <RankBadge
+              variant="full"
+              rank={xpData.rank}
+              level={xpData.level}
+              totalXP={xpData.totalXP}
+              levelProgress={xpData.levelProgress}
+              xpToNextLevel={xpData.xpToNextLevel}
+            />
+          </Animated.View>
+        )}
+
         {/* Streak Hero */}
-        <Animated.View 
-          entering={FadeInDown.delay(0).duration(300)}
+        <Animated.View
+          entering={FadeInDown.delay(50).duration(300)}
           style={[styles.streakHero, { backgroundColor: colors.card }]}
         >
           <View style={styles.streakIconContainer}>
@@ -251,9 +250,76 @@ export default function ProgressScreen() {
           )}
         </Animated.View>
 
+        {/* PR Teaser Card */}
+        {recentPRs.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(300)}
+            style={[styles.card, { backgroundColor: colors.card }]}
+          >
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                router.push("/progress/prs");
+              }}
+            >
+              <View style={styles.prTeaserHeader}>
+                <View style={styles.prTeaserTitleRow}>
+                  <View style={[styles.prTeaserIcon, { backgroundColor: colors.gold + "20" }]}>
+                    <Ionicons name="trophy" size={18} color={colors.gold} />
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>
+                    Personal Records
+                  </Text>
+                </View>
+                <View style={styles.viewAllLink}>
+                  <Text allowFontScaling={false} style={[styles.viewAllText, { color: colors.primary }]}>
+                    View All
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                </View>
+              </View>
+            </Pressable>
+            
+            <View style={styles.prTeaserList}>
+              {recentPRs.map((pr, index) => (
+                <Pressable
+                  key={pr.name}
+                  onPress={() => {
+                    hapticPress();
+                    router.push(`/progress/${encodeURIComponent(pr.name)}`);
+                  }}
+                  style={({ pressed }) => [
+                    styles.prTeaserItem,
+                    index < recentPRs.length - 1 && [styles.prTeaserItemBorder, { borderColor: colors.border }],
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text allowFontScaling={false} style={[styles.prTeaserName, { color: colors.text }]}>
+                    {pr.name}
+                  </Text>
+                  <View style={styles.prTeaserRight}>
+                    <Text allowFontScaling={false} style={[styles.prTeaserWeight, { color: colors.text }]}>
+                      {pr.weight}
+                      <Text style={[styles.prTeaserUnit, { color: colors.textMuted }]}> lbs</Text>
+                    </Text>
+                    {pr.improvement !== null && (
+                      <View style={[styles.prTeaserTrend, { backgroundColor: colors.success + "15" }]}>
+                        <Ionicons name="trending-up" size={12} color={colors.success} />
+                        <Text allowFontScaling={false} style={[styles.prTeaserImprovement, { color: colors.success }]}>
+                          +{pr.improvement}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
         {/* Workout Heatmap */}
-        <Animated.View 
-          entering={FadeInDown.delay(50).duration(300)}
+        <Animated.View
+          entering={FadeInDown.delay(150).duration(300)}
           style={[styles.card, { backgroundColor: colors.card }]}
         >
           <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
@@ -262,158 +328,32 @@ export default function ProgressScreen() {
           <WeeklyHeatmap workoutDates={workoutDates} weeks={12} />
         </Animated.View>
 
-        {/* View Analytics Button - Always visible */}
-        <Animated.View 
-          entering={FadeInDown.delay(100).duration(300)}
-          style={styles.analyticsButtonContainer}
+        {/* Analytics Link */}
+        <Animated.View
+          entering={FadeInDown.delay(250).duration(300)}
+          style={styles.analyticsLinkContainer}
         >
           <Pressable
             onPress={() => {
               hapticPress();
               router.push("/progress/analytics");
             }}
-            style={[styles.analyticsButton, { backgroundColor: colors.card }]}
+            style={({ pressed }) => [
+              styles.analyticsLink,
+              pressed && { opacity: 0.6 },
+            ]}
           >
-            <Ionicons name="analytics-outline" size={20} color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.analyticsButtonText, { color: colors.text }]}>
+            <Text allowFontScaling={false} style={[styles.analyticsLinkText, { color: colors.textMuted }]}>
               View Detailed Analytics
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
           </Pressable>
         </Animated.View>
 
-        {/* Personal Records */}
-        {liftPRs.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(100).duration(300)}>
-            <View style={styles.sectionHeader}>
-              <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
-                Personal Records
-              </Text>
-              <Pressable
-                onPress={() => {
-                  hapticPress();
-                  router.push("/progress/analytics");
-                }}
-                style={styles.viewAllButton}
-              >
-                <Text allowFontScaling={false} style={[styles.viewAllText, { color: colors.primary }]}>
-                  View All
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-              </Pressable>
-            </View>
-            <View style={styles.prGrid}>
-              {liftPRs.map((pr, i) => {
-                const trend = prTrends[pr.name];
-                const hasTrend = trend !== undefined && trend !== 0;
-                const isPositive = trend > 0;
-                
-                return (
-                  <Animated.View
-                    key={pr.name}
-                    entering={FadeInDown.delay(150 + i * 30).duration(300)}
-                  >
-                    <Pressable
-                      onPress={() => {
-                        hapticPress();
-                        router.push(`/progress/${encodeURIComponent(pr.name)}`);
-                      }}
-                      style={({ pressed }) => [
-                        styles.prCard,
-                        { backgroundColor: colors.card },
-                        shadows.sm,
-                        pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                      ]}
-                    >
-                      <View style={[styles.prBadge, { backgroundColor: colors.gold }]}>
-                        <Ionicons name="trophy" size={12} color={colors.bg} />
-                      </View>
-                      <Text allowFontScaling={false} style={[styles.prName, { color: colors.textMuted }]}>
-                        {pr.name.replace(" Press", "")}
-                      </Text>
-                      <View style={styles.prValueRow}>
-                        <Text allowFontScaling={false} style={[styles.prValue, { color: colors.text }]}>
-                          {pr.currentMax}
-                        </Text>
-                        <Text allowFontScaling={false} style={[styles.prUnit, { color: colors.textMuted }]}>
-                          lbs
-                        </Text>
-                      </View>
-                      {/* Trend Arrow */}
-                      {hasTrend && (
-                        <View style={styles.trendContainer}>
-                          <Ionicons
-                            name={isPositive ? "trending-up" : "trending-down"}
-                            size={12}
-                            color={isPositive ? colors.success : colors.error}
-                          />
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.trendText,
-                              { color: isPositive ? colors.success : colors.error },
-                            ]}
-                          >
-                            {isPositive ? "+" : ""}{trend}
-                          </Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Muscle Balance */}
-        {musclePercentages.length > 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(150).duration(300)}
-            style={[styles.card, { backgroundColor: colors.card }]}
-          >
-            <Text allowFontScaling={false} style={[styles.cardTitle, { color: colors.text }]}>
-              Muscle Balance
-            </Text>
-            <Text allowFontScaling={false} style={[styles.cardSubtitle, { color: colors.textMuted }]}>
-              Volume distribution across muscle groups
-            </Text>
-            
-            <View style={styles.muscleList}>
-              {musclePercentages.slice(0, 6).map((item, i) => (
-                <View key={item.muscle} style={styles.muscleRow}>
-                  <View style={styles.muscleLabel}>
-                    <View style={[styles.muscleDot, { backgroundColor: item.color }]} />
-                    <Text allowFontScaling={false} style={[styles.muscleName, { color: colors.text }]}>
-                      {item.muscle}
-                    </Text>
-                  </View>
-                  <View style={styles.muscleBarContainer}>
-                    <View style={[styles.muscleBarBg, { backgroundColor: colors.border }]}>
-                      <View 
-                        style={[
-                          styles.muscleBarFill, 
-                          { 
-                            width: `${item.percent}%`, 
-                            backgroundColor: item.color 
-                          }
-                        ]} 
-                      />
-                    </View>
-                    <Text allowFontScaling={false} style={[styles.musclePercent, { color: colors.textMuted }]}>
-                      {item.percent.toFixed(0)}%
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
         {/* Empty State */}
-        {liftPRs.length === 0 && workoutDates.length === 0 && (
-          <Animated.View 
-            entering={FadeInDown.delay(150).duration(300)}
+        {workoutDates.length === 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(300)}
             style={[styles.emptyCard, { backgroundColor: colors.card }]}
           >
             <View style={[styles.emptyIcon, { backgroundColor: colors.primaryMuted }]}>
@@ -508,25 +448,27 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     marginBottom: spacing.xs,
   },
-  cardSubtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginBottom: spacing.base,
-  },
   
-  // Section
-  sectionHeader: {
+  // PR Teaser
+  prTeaserHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: spacing.sm,
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
+  prTeaserTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
-  viewAllButton: {
+  prTeaserIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewAllLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
@@ -535,122 +477,153 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_500Medium",
   },
-  
-  // Analytics Button
-  analyticsButtonContainer: {
-    marginBottom: spacing.base,
+  prTeaserList: {
+    gap: 0,
   },
-  analyticsButton: {
+  prTeaserItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.base,
-    borderRadius: 16,
-    gap: spacing.md,
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
   },
-  analyticsButtonText: {
-    flex: 1,
+  prTeaserItemBorder: {
+    borderBottomWidth: 1,
+  },
+  prTeaserName: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
-  
-  // PR Grid
-  prGrid: {
+  prTeaserRight: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  prTeaserWeight: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
+  },
+  prTeaserUnit: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  prTeaserTrend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  prTeaserImprovement: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  
+  // Subtle Analytics Link
+  analyticsLinkContainer: {
+    alignItems: "center",
+    marginTop: spacing.sm,
     marginBottom: spacing.base,
   },
-  prCard: {
-    width: (SCREEN_WIDTH - 50) / 2,
-    borderRadius: 16,
-    padding: spacing.base,
-    position: "relative",
-  },
-  prBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  prName: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    marginBottom: spacing.sm,
-  },
-  prValueRow: {
+  analyticsLink: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  prValue: {
-    fontSize: 32,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: -1,
-  },
-  prUnit: {
+  analyticsLinkText: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
   },
-  trendContainer: {
+  
+  // Active Modifications / Limitations
+  limitationsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  limitationsIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  limitationsSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginBottom: spacing.base,
+  },
+  limitationsList: {
+    gap: spacing.md,
+  },
+  limitationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  limitationInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  limitationArea: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  limitationMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  limitationMetaText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  limitationDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+  },
+  monitoringBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
     marginTop: spacing.xs,
   },
-  trendText: {
+  monitoringText: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
   },
-  
-  // Muscle Balance
-  muscleList: {
-    gap: spacing.md,
-  },
-  muscleRow: {
+  resolveButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
   },
-  muscleLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    width: 90,
-  },
-  muscleDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  muscleName: {
+  resolveText: {
     fontSize: 13,
     fontFamily: "Inter_500Medium",
   },
-  muscleBarContainer: {
-    flex: 1,
+  disclaimer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.sm,
+    marginTop: spacing.base,
+    padding: spacing.md,
+    borderRadius: 8,
   },
-  muscleBarBg: {
+  disclaimerText: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  muscleBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  musclePercent: {
     fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    width: 32,
-    textAlign: "right",
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
   },
   
   // Empty State

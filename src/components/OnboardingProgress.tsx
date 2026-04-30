@@ -5,10 +5,7 @@
 
 import React from "react";
 import { StyleSheet, View, Text } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { darkColors, theme } from "@/src/theme";
 
 type Section = {
@@ -45,8 +42,6 @@ export const OnboardingProgress: React.FC<OnboardingProgressProps> = ({
     }
     screenCount += SECTIONS[i].screens;
   }
-
-  const overallProgress = currentScreen / totalScreens;
 
   return (
     <View style={styles.container}>

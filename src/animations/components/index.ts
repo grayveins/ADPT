@@ -11,3 +11,4 @@ export { Confetti, MicroConfetti, CelebrationConfetti } from "./Confetti";
 export { StaggeredList, StaggeredItem } from "./StaggeredList";
 export { BreathingView } from "./BreathingView";
 export { FlickeringIcon } from "./FlickeringIcon";
+export { Skeleton, HomeSkeleton, ProgressSkeleton, HistorySkeleton, WorkoutSkeleton } from "./SkeletonLoader";

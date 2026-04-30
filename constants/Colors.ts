@@ -1,73 +1,33 @@
 import { Platform } from "react-native";
 
 /**
- * ADPT Color System v3 - Teal/Cyan Theme
- * 
- * Design Philosophy: "PT in Your Pocket"
- * - Dark mode default (gym-readable, professional)
- * - Teal/Cyan primary for trust + energy
- * - Sage green for success/completed states
- * - Gender-neutral, scientific, minimal
- * 
- * This file provides the legacy Colors API for backward compatibility.
+ * ADPT Color System v4 — Minimal Black & White
+ *
+ * Both light and dark point to the same palette (no dark mode in v1).
  * New code should import from src/theme.ts directly.
  */
 
+const palette = {
+  text: "#000000",
+  background: "#FFFFFF",
+  tint: "#000000",
+  icon: "#9CA3AF",
+  card: "#FFFFFF",
+  surface: "#F5F5F5",
+  border: "#E5E7EB",
+  muted: "#6B7280",
+  accentMuted: "rgba(0, 0, 0, 0.06)",
+  accentText: "#FFFFFF",
+  error: "#EF4444",
+  success: "#22C55E",
+  warning: "#F59E0B",
+  intensity: "#000000",
+  gold: "#000000",
+};
+
 export const Colors = {
-  light: {
-    // Text
-    text: "#171717",           // Primary text
-    // Backgrounds
-    background: "#FAFAFA",     // Clean white
-    // Primary accent - Teal (darker for light mode)
-    tint: "#00A89A",           // Primary actions, CTAs
-    // Icons & muted elements
-    icon: "#A3A3A3",           // Neutral gray icons
-    // Cards & surfaces
-    card: "#FFFFFF",           // Pure white cards
-    surface: "#F5F5F5",        // Secondary background
-    // Borders
-    border: "#E5E5E5",         // Subtle border
-    // Muted text
-    muted: "#525252",          // Secondary text
-    // Accent variants
-    accentMuted: "rgba(0, 168, 154, 0.12)", // Teal at 12%
-    accentText: "#FFFFFF",     // Text on primary
-    // Semantic colors
-    error: "#DC2626",          // Red for errors
-    success: "#6B8E6B",        // Sage green for success
-    warning: "#D97706",        // Orange for warnings
-    // Additional semantic
-    intensity: "#E85A2C",      // Rest timer, urgency
-    gold: "#D4A800",           // PRs, achievements
-  },
-  dark: {
-    // Text
-    text: "#F5F5F5",           // Primary text
-    // Backgrounds
-    background: "#0A0A0A",     // Near-black
-    // Primary accent - Teal (brighter for dark mode)
-    tint: "#00C9B7",           // Primary actions
-    // Icons
-    icon: "#737373",           // Neutral gray icons
-    // Cards & surfaces
-    card: "#1C1C1C",           // Dark card
-    surface: "#141414",        // Secondary background
-    // Borders
-    border: "#2A2A2A",         // Dark border
-    // Muted text
-    muted: "#A3A3A3",          // Secondary text
-    // Accent variants
-    accentMuted: "rgba(0, 201, 183, 0.15)", // Teal at 15%
-    accentText: "#0A0A0A",     // Dark text on teal
-    // Semantic colors
-    error: "#F87171",          // Lighter red for dark mode
-    success: "#7FA07F",        // Lighter sage for dark mode
-    warning: "#FBBF24",        // Brighter yellow for dark mode
-    // Additional semantic
-    intensity: "#FF6B35",      // Rest timer, urgency
-    gold: "#FFD700",           // PRs, achievements
-  },
+  light: palette,
+  dark: palette,
 };
 
 export type AppColors = {
@@ -96,40 +56,31 @@ export type AppColors = {
   gold: string;
 };
 
-export const createAppColors = (scheme: "light" | "dark"): AppColors => {
-  const palette = Colors[scheme];
-  const isLight = scheme === "light";
-  
-  return {
-    // Legacy mappings
-    background: palette.background,
-    surface: palette.surface,
-    card: palette.card,
-    border: palette.border,
-    textPrimary: palette.text,
-    textSecondary: palette.muted,
-    accent: palette.tint,
-    accentMuted: palette.accentMuted,
-    buttonText: palette.accentText,
-    icon: palette.icon,
-    success: palette.success,
-    warning: palette.warning,
-    error: palette.error,
-    // Extended colors
-    primary: palette.tint,
-    primaryMuted: isLight ? "rgba(0, 168, 154, 0.12)" : "rgba(0, 201, 183, 0.15)",
-    bgSecondary: palette.surface,
-    bgTertiary: isLight ? "#EFEFEF" : "#1C1C1C",
-    selectedBg: isLight ? "rgba(0, 168, 154, 0.10)" : "rgba(0, 201, 183, 0.12)",
-    pressedBg: isLight ? "rgba(0, 168, 154, 0.15)" : "rgba(0, 201, 183, 0.18)",
-    // Semantic accents
-    intensity: palette.intensity,
-    gold: palette.gold,
-  };
-};
+export const createAppColors = (_scheme: "light" | "dark"): AppColors => ({
+  background: palette.background,
+  surface: palette.surface,
+  card: palette.card,
+  border: palette.border,
+  textPrimary: palette.text,
+  textSecondary: palette.muted,
+  accent: palette.tint,
+  accentMuted: palette.accentMuted,
+  buttonText: palette.accentText,
+  icon: palette.icon,
+  success: palette.success,
+  warning: palette.warning,
+  error: palette.error,
+  primary: palette.tint,
+  primaryMuted: "rgba(0, 0, 0, 0.06)",
+  bgSecondary: palette.surface,
+  bgTertiary: "#F0F0F0",
+  selectedBg: "rgba(0, 0, 0, 0.05)",
+  pressedBg: "rgba(0, 0, 0, 0.08)",
+  intensity: palette.intensity,
+  gold: palette.gold,
+});
 
-// Default to dark mode (gym-readable, professional)
-export const colors = createAppColors("dark");
+export const colors = createAppColors("light");
 
 export const spacing = {
   xs: 4,

@@ -3,44 +3,42 @@ import { StatusBar } from "expo-status-bar";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { ThemeProvider } from "@/src/context/ThemeContext";
-import { OnboardingProvider } from "@/src/context/OnboardingContext";
-import { SubscriptionProvider } from "@/src/context/SubscriptionContext";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 
 export default function RootLayout() {
   return (
+    <ErrorBoundary label="App">
     <ThemeProvider>
-      <SubscriptionProvider>
-        <OnboardingProvider>
-          <KeyboardProvider>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
-          {/* Auth screens - allow normal navigation */}
-          <Stack.Screen name="index" />
-          <Stack.Screen name="welcome" />
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="sign-up" />
-          <Stack.Screen name="settings" />
-          
-          {/* Authenticated app - disable swipe back to prevent returning to welcome */}
-          <Stack.Screen 
-            name="(app)" 
-            options={{ 
-              gestureEnabled: false,
-              animation: "fade",
-            }} 
-          />
-          
-          {/* Onboarding - disable swipe back */}
-          <Stack.Screen 
-            name="onboarding" 
-            options={{ 
-              gestureEnabled: false,
-            }} 
-          />
-        </Stack>
-          </KeyboardProvider>
-        </OnboardingProvider>
-      </SubscriptionProvider>
+      <KeyboardProvider>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="sign-in" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="sign-up" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="settings" />
+
+        <Stack.Screen
+          name="(app)"
+          options={{ gestureEnabled: false, animation: "fade" }}
+        />
+
+        <Stack.Screen
+          name="onboarding"
+          options={{ gestureEnabled: false, fullScreenGestureEnabled: false }}
+        />
+
+        <Stack.Screen
+          name="(workout)"
+          options={{
+            presentation: "modal",
+            animation: "slide_from_bottom",
+            gestureEnabled: true,
+          }}
+        />
+      </Stack>
+      </KeyboardProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }

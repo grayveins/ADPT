@@ -21,11 +21,11 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/src/context/ThemeContext";
-import { spacing, radius, shadows, layout } from "@/src/theme";
+import { spacing, radius, shadows } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 // Equipment types
