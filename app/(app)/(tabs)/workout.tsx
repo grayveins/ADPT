@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -83,12 +83,24 @@ export default function WorkoutScreen() {
     setTodayWorkout(todayW || null);
   }, [userId]);
 
-  useEffect(() => { fetchProgram(); }, [fetchProgram]);
-  useFocusEffect(useCallback(() => { fetchProgram(); }, [fetchProgram]));
+  const lastFetchedAt = useRef(0);
+  useEffect(() => {
+    if (userId) {
+      fetchProgram();
+      lastFetchedAt.current = Date.now();
+    }
+  }, [userId, fetchProgram]);
+  useFocusEffect(useCallback(() => {
+    if (userId && Date.now() - lastFetchedAt.current > 30_000) {
+      fetchProgram();
+      lastFetchedAt.current = Date.now();
+    }
+  }, [userId, fetchProgram]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchProgram();
+    lastFetchedAt.current = Date.now();
     setRefreshing(false);
   }, [fetchProgram]);
 

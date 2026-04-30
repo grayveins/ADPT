@@ -100,8 +100,13 @@ export default function HomeScreen() {
     setCompletedSessions(sessions ?? []);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
+  const lastFetchedAt = useRef(0);
+  useFocusEffect(useCallback(() => {
+    if (Date.now() - lastFetchedAt.current > 30_000) {
+      fetchData();
+      lastFetchedAt.current = Date.now();
+    }
+  }, [fetchData]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
