@@ -1,6 +1,6 @@
 /**
  * SetRowNew — Minimal set row (Hevy/Trainerize table style)
- * Simple row: set# | previous | weight | reps | checkbox
+ * Simple row: set# | previous | reps | weight | checkbox
  */
 
 import React, { useCallback } from "react";
@@ -62,7 +62,7 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   }));
 
   const prevText = (previousWeight && previousReps)
-    ? `${String(previousWeight)} × ${String(previousReps)}`
+    ? `${String(previousReps)} × ${String(previousWeight)}`
     : "—";
 
   return (
@@ -92,11 +92,11 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
         {prevText}
       </Text>
 
-      {/* Weight input */}
+      {/* Reps input — placed before weight per coach preference (rep target drives the set) */}
       <TextInput
-        value={weight}
-        onChangeText={onWeightChange}
-        placeholder={previousWeight ? String(previousWeight) : "—"}
+        value={reps}
+        onChangeText={onRepsChange}
+        placeholder={previousReps ? String(previousReps) : "—"}
         placeholderTextColor={colors.inputPlaceholder}
         keyboardType="numeric"
         style={[
@@ -112,11 +112,11 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
         allowFontScaling={false}
       />
 
-      {/* Reps input */}
+      {/* Weight input */}
       <TextInput
-        value={reps}
-        onChangeText={onRepsChange}
-        placeholder={previousReps ? String(previousReps) : "—"}
+        value={weight}
+        onChangeText={onWeightChange}
+        placeholder={previousWeight ? String(previousWeight) : "—"}
         placeholderTextColor={colors.inputPlaceholder}
         keyboardType="numeric"
         style={[
