@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 
-import { supabase } from "@/lib/supabase";
+import { hasSupabaseConfig, supabase } from "@/lib/supabase";
 
 export default function Index() {
   const [dest, setDest] = useState<string | null>(null);
@@ -37,6 +37,10 @@ export default function Index() {
   };
 
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       resolveDestination(!!data.session);
     });
@@ -46,6 +50,7 @@ export default function Index() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  if (!hasSupabaseConfig) return null;
   if (!dest) return null;
   return <Redirect href={dest as any} />;
 }
