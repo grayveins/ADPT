@@ -311,21 +311,28 @@ export default function HomeScreen() {
             onAdd={() => router.push({ pathname: "/(app)/log-progress", params: { date: format(selectedDate, "yyyy-MM-dd") } } as any)}
           />
         </View>
-      </ScrollView>
 
-      <Pressable
-        accessibilityLabel="Add"
-        onPress={() => {
-          hapticPress();
-          router.push("/(app)/progress-photos" as any);
-        }}
-        style={({ pressed }) => [
-          styles.fab,
-          { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-        ]}
-      >
-        <Ionicons name="add" size={28} color={colors.textOnPrimary} />
-      </Pressable>
+        <Pressable
+          onPress={() => {
+            hapticPress();
+            router.push("/(app)/progress-photos" as any);
+          }}
+          style={({ pressed }) => [
+            styles.photoCard,
+            { backgroundColor: colors.bgSecondary, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <View>
+            <Text allowFontScaling={false} style={[styles.photoCardTitle, { color: colors.text }]}>
+              Progress Photos
+            </Text>
+            <Text allowFontScaling={false} style={[styles.photoCardSub, { color: colors.textMuted }]}>
+              Front · Side · Back
+            </Text>
+          </View>
+          <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -350,21 +357,18 @@ function AvatarButton({ name, colors }: { name: string; colors: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  photoCard: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.lg,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.base,
+    borderRadius: radius.lg,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: "space-between",
   },
+  photoCardTitle: { fontSize: 15, fontWeight: "600" },
+  photoCardSub: { fontSize: 13, marginTop: 2 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -1,6 +1,10 @@
 /**
- * Camera overlay: thin guide lines positioned over the live preview so the
- * client can align eyes and hips consistently across photos.
+ * Camera overlay matching Trainerize's pose guide:
+ *  - Pose name (orange) top-left
+ *  - Top-center label (Nose / Center of head)
+ *  - Full-height vertical centerline
+ *  - Two full-width horizontal lines (Eyes/Ears, Hip), each with the label
+ *    sitting at the left edge directly on the line
  */
 
 import React from "react";
@@ -9,7 +13,7 @@ import { StyleSheet, Text, View } from "react-native";
 import type { ProgressPose } from "@/src/lib/progressPhotos";
 
 const LINE_COLOR = "rgba(255, 255, 255, 0.7)";
-const LABEL_COLOR = "rgba(255, 255, 255, 0.85)";
+const LABEL_COLOR = "rgba(255, 255, 255, 0.9)";
 const ACCENT_COLOR = "#FF8A1A";
 
 const POSE_LABELS: Record<ProgressPose, string> = {
@@ -33,42 +37,83 @@ const HORIZONTAL_LINE_LABEL_TOP: Record<ProgressPose, string> = {
   other: "",
 };
 
+// Y positions as fraction of the camera area height
+const EYES_Y = 0.30;
+const HIP_Y = 0.70;
+
 export function PoseGuideOverlay({ pose }: { pose: ProgressPose }) {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* Top-left orange pose label */}
       <View style={styles.topLeft}>
         <Text style={[styles.poseLabel, { color: ACCENT_COLOR }]}>
           {POSE_LABELS[pose]}
         </Text>
       </View>
 
-      {TOP_LABEL[pose] && (
+      {/* Top-center label (Nose / Center of head) */}
+      {TOP_LABEL[pose] ? (
         <View style={styles.topCenter}>
           <Text style={styles.guideLabel}>{TOP_LABEL[pose]}</Text>
         </View>
-      )}
+      ) : null}
 
+      {/* Vertical centerline — full height */}
       <View style={styles.verticalLine} />
 
-      <View style={styles.eyesContainer}>
-        <Text style={styles.guideLabelLeft}>{HORIZONTAL_LINE_LABEL_TOP[pose]}</Text>
-        <View style={styles.horizontalLine} />
-      </View>
+      {/* Eyes / Ears horizontal line */}
+      <HorizontalGuide
+        label={HORIZONTAL_LINE_LABEL_TOP[pose]}
+        topPercent={EYES_Y}
+      />
 
-      <View style={styles.hipContainer}>
-        <Text style={styles.guideLabelLeft}>Hip</Text>
-        <View style={styles.horizontalLine} />
-      </View>
+      {/* Hip horizontal line */}
+      <HorizontalGuide label="Hip" topPercent={HIP_Y} />
+    </View>
+  );
+}
+
+function HorizontalGuide({
+  label,
+  topPercent,
+}: {
+  label: string;
+  topPercent: number;
+}) {
+  return (
+    <View
+      style={[
+        styles.horizontalRow,
+        { top: `${topPercent * 100}%` },
+      ]}
+    >
+      <View style={styles.horizontalLine} />
+      <Text style={styles.horizontalLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  topLeft: { position: "absolute", top: 12, left: 16 },
-  topCenter: { position: "absolute", top: 12, left: 0, right: 0, alignItems: "center" },
-  poseLabel: { fontSize: 16, fontWeight: "600" },
-  guideLabel: { color: LABEL_COLOR, fontSize: 13 },
-  guideLabelLeft: { color: LABEL_COLOR, fontSize: 13, paddingHorizontal: 12 },
+  topLeft: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+  },
+  topCenter: {
+    position: "absolute",
+    top: 16,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  poseLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  guideLabel: {
+    color: LABEL_COLOR,
+    fontSize: 14,
+  },
   verticalLine: {
     position: "absolute",
     top: 0,
@@ -77,25 +122,27 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth + 0.5,
     backgroundColor: LINE_COLOR,
   },
-  eyesContainer: {
+  // Horizontal rows are absolutely positioned. The line spans full width
+  // behind the label, and the label text floats just above it on the left.
+  horizontalRow: {
     position: "absolute",
     left: 0,
     right: 0,
-    top: "30%",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  hipContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: "30%",
-    flexDirection: "row",
-    alignItems: "center",
+    height: 0,
+    justifyContent: "center",
   },
   horizontalLine: {
-    flex: 1,
+    position: "absolute",
+    left: 0,
+    right: 0,
     height: StyleSheet.hairlineWidth + 0.5,
     backgroundColor: LINE_COLOR,
+  },
+  horizontalLabel: {
+    position: "absolute",
+    left: 16,
+    top: -22, // sits just above the line
+    color: LABEL_COLOR,
+    fontSize: 14,
   },
 });
