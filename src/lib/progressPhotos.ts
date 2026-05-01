@@ -7,7 +7,7 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { supabase } from "@/lib/supabase";
 
-export type ProgressPose = "front" | "side_left" | "side_right" | "back" | "other";
+export type ProgressPose = "front" | "side" | "back" | "other";
 
 export type ProgressPhoto = {
   id: string;

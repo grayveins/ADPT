@@ -25,10 +25,8 @@ export function PoseSilhouette({ pose }: { pose: ProgressPose }) {
   return (
     <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
       {pose === "front" && <FrontFigure />}
+      {pose === "side" && <SideFigure />}
       {pose === "back" && <BackFigure />}
-      {(pose === "side_left" || pose === "side_right") && (
-        <SideFigure mirrored={pose === "side_right"} />
-      )}
 
       {/* Eyes guide line */}
       <Line x1={4} y1={EYES_Y} x2={W - 4} y2={EYES_Y} stroke={GUIDE} strokeWidth={1} />
@@ -41,7 +39,7 @@ export function PoseSilhouette({ pose }: { pose: ProgressPose }) {
 function FrontFigure() {
   const cx = W / 2;
   return (
-    <>
+    <G>
       {/* Head */}
       <Circle cx={cx} cy={HEAD_CY} r={HEAD_R} stroke={STROKE} strokeWidth={1.5} fill="none" />
       {/* Eyes (just two dots so it reads as "facing forward") */}
@@ -64,14 +62,14 @@ function FrontFigure() {
       {/* Legs */}
       <Line x1={cx - 14} y1={HIP_Y} x2={cx - 18} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
       <Line x1={cx + 14} y1={HIP_Y} x2={cx + 18} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
-    </>
+    </G>
   );
 }
 
 function BackFigure() {
   const cx = W / 2;
   return (
-    <>
+    <G>
       {/* Head — no facial features */}
       <Circle cx={cx} cy={HEAD_CY} r={HEAD_R} stroke={STROKE} strokeWidth={1.5} fill="none" />
       {/* Torso */}
@@ -93,19 +91,17 @@ function BackFigure() {
       {/* Legs */}
       <Line x1={cx - 14} y1={HIP_Y} x2={cx - 18} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
       <Line x1={cx + 14} y1={HIP_Y} x2={cx + 18} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
-    </>
+    </G>
   );
 }
 
-function SideFigure({ mirrored }: { mirrored?: boolean }) {
+function SideFigure() {
   const cx = W / 2;
-  const transform = mirrored ? `translate(${W}, 0) scale(-1, 1)` : undefined;
-  // Profile head: head circle, nose dot to the right, single eye dot
   return (
-    <G transform={transform}>
+    <G>
       {/* Head */}
       <Circle cx={cx} cy={HEAD_CY} r={HEAD_R} stroke={STROKE} strokeWidth={1.5} fill="none" />
-      {/* Nose protrusion (small triangle suggested by a dot to the right) */}
+      {/* Nose protrusion (a small dot to the right) */}
       <Circle cx={cx + HEAD_R + 1} cy={EYES_Y + 2} r={2} fill={STROKE} />
       {/* Single eye visible (profile) */}
       <Circle cx={cx + 4} cy={EYES_Y} r={1.5} fill={STROKE} />
@@ -122,7 +118,7 @@ function SideFigure({ mirrored }: { mirrored?: boolean }) {
       />
       {/* One visible arm (front) */}
       <Line x1={cx + 6} y1={TORSO_TOP + 16} x2={cx + 16} y2={HIP_Y - 6} stroke={STROKE} strokeWidth={1.5} />
-      {/* Legs side-on (offset) */}
+      {/* Legs side-on (slight offset) */}
       <Line x1={cx - 4} y1={HIP_Y} x2={cx - 6} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
       <Line x1={cx + 6} y1={HIP_Y} x2={cx + 8} y2={H - 30} stroke={STROKE} strokeWidth={1.5} />
     </G>
