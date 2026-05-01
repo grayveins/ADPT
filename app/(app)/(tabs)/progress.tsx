@@ -236,7 +236,7 @@ export default function ProgressScreen() {
             <Pressable
               onPress={() => {
                 hapticPress();
-                router.push("/progress/prs");
+                router.push("/progress/analytics");
               }}
             >
               <View style={styles.prTeaserHeader}>
