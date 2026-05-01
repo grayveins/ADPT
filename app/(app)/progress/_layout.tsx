@@ -54,13 +54,6 @@ export default function ProgressLayout() {
           headerShown: false,
         }}
       />
-      <Stack.Screen
-        name="milestones"
-        options={{
-          title: "Milestones",
-          headerBackVisible: true,
-        }}
-      />
     </Stack>
   );
 }

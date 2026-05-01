@@ -29,8 +29,6 @@ import { layout, spacing } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { useStreak } from "@/src/hooks/useStreak";
 import { useStrengthScore } from "@/src/hooks/useStrengthScore";
-import { useUserXP } from "@/src/hooks/useUserXP";
-import { RankBadge } from "@/src/components/RankBadge";
 import { WeeklyHeatmap, StrengthScoreCard } from "@/src/components/progress";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { ProgressSkeleton } from "@/src/animations/components";
@@ -59,9 +57,6 @@ export default function ProgressScreen() {
   
   // Strength Score
   const { score: strengthScore, loading: scoreLoading, refreshScore } = useStrengthScore(userId);
-
-  // XP + Rank
-  const { data: xpData, refresh: refreshXP } = useUserXP(userId);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -200,24 +195,6 @@ export default function ProgressScreen() {
                 hapticPress();
                 router.push(`/progress/${encodeURIComponent(liftName)}`);
               }}
-              onMilestonesPress={() => {
-                hapticPress();
-                router.push("/progress/milestones");
-              }}
-            />
-          </Animated.View>
-        )}
-
-        {/* Rank + XP Progress */}
-        {xpData && xpData.totalXP > 0 && (
-          <Animated.View entering={FadeInDown.delay(30).duration(300)}>
-            <RankBadge
-              variant="full"
-              rank={xpData.rank}
-              level={xpData.level}
-              totalXP={xpData.totalXP}
-              levelProgress={xpData.levelProgress}
-              xpToNextLevel={xpData.xpToNextLevel}
             />
           </Animated.View>
         )}
