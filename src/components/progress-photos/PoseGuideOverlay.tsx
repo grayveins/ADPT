@@ -9,12 +9,13 @@
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { ProgressPose } from "@/src/lib/progressPhotos";
 
 const LINE_COLOR = "rgba(255, 255, 255, 0.7)";
 const LABEL_COLOR = "rgba(255, 255, 255, 0.9)";
-const ACCENT_COLOR = "#FF8A1A";
+const POSE_LABEL_COLOR = "#000000";
 
 const POSE_LABELS: Record<ProgressPose, string> = {
   front: "Front",
@@ -42,18 +43,21 @@ const EYES_Y = 0.30;
 const HIP_Y = 0.70;
 
 export function PoseGuideOverlay({ pose }: { pose: ProgressPose }) {
+  const insets = useSafeAreaInsets();
+  // Push the top labels below the iPhone status bar / Dynamic Island.
+  const topOffset = insets.top + 12;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {/* Top-left orange pose label */}
-      <View style={styles.topLeft}>
-        <Text style={[styles.poseLabel, { color: ACCENT_COLOR }]}>
+      {/* Top-left pose label (clear of the status bar) */}
+      <View style={[styles.topLeft, { top: topOffset }]}>
+        <Text style={[styles.poseLabel, { color: POSE_LABEL_COLOR }]}>
           {POSE_LABELS[pose]}
         </Text>
       </View>
 
       {/* Top-center label (Nose / Center of head) */}
       {TOP_LABEL[pose] ? (
-        <View style={styles.topCenter}>
+        <View style={[styles.topCenter, { top: topOffset }]}>
           <Text style={styles.guideLabel}>{TOP_LABEL[pose]}</Text>
         </View>
       ) : null}
@@ -96,12 +100,10 @@ function HorizontalGuide({
 const styles = StyleSheet.create({
   topLeft: {
     position: "absolute",
-    top: 16,
     left: 16,
   },
   topCenter: {
     position: "absolute",
-    top: 16,
     left: 0,
     right: 0,
     alignItems: "center",
