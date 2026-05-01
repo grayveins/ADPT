@@ -199,7 +199,16 @@ export default function ProgressPhotosScreen() {
           <Text style={styles.topBarTitle}>
             {stage === "done" ? "Done" : `Photo ${poseIndex + 1} of ${POSE_ORDER.length}`}
           </Text>
-          <View style={{ width: 24 }} />
+          <Pressable
+            hitSlop={12}
+            onPress={() => {
+              hapticPress();
+              router.push("/(app)/photo-history" as never);
+            }}
+            accessibilityLabel="View photo history"
+          >
+            <Ionicons name="images-outline" size={22} color="#fff" />
+          </Pressable>
         </View>
 
         {stage === "done" ? (

@@ -107,3 +107,30 @@ export async function getSignedPhotoUrl(storagePath: string, expiresIn = 3600): 
   if (error) return null;
   return data?.signedUrl ?? null;
 }
+
+export async function listOwnProgressPhotosWithUrls(): Promise<
+  Array<ProgressPhoto & { url: string | null }>
+> {
+  const rows = await listOwnProgressPhotos();
+  if (rows.length === 0) return [];
+  const paths = rows.map((r) => r.storage_path);
+  const { data: signed } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, 3600);
+  const urlByPath = new Map<string, string>();
+  (signed ?? []).forEach((s, i) => {
+    if (s.signedUrl) urlByPath.set(paths[i], s.signedUrl);
+  });
+  return rows.map((r) => ({ ...r, url: urlByPath.get(r.storage_path) ?? null }));
+}
+
+export async function deleteProgressPhoto(args: {
+  id: string;
+  storagePath: string;
+}): Promise<void> {
+  // Storage RLS lets the owning client delete; the row delete is then
+  // safe via RLS (Clients manage own intake / progress photos).
+  await supabase.storage.from(BUCKET).remove([args.storagePath]);
+  const { error } = await supabase.from("progress_photos").delete().eq("id", args.id);
+  if (error) throw error;
+}
