@@ -27,6 +27,11 @@ import { useBodyStats } from "@/src/hooks/useBodyStats";
 import { useClientMacros } from "@/src/hooks/useClientMacros";
 import { MetricCard } from "@/src/components/progress/MetricCard";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import {
+  fetchTasksForDate,
+  setCustomTaskCompleted,
+  type CoachTask,
+} from "@/src/lib/coachTasks";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -50,6 +55,7 @@ export default function HomeScreen() {
   const [allWorkouts, setAllWorkouts] = useState<any[]>([]);
   const [programName, setProgramName] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
+  const [coachTasks, setCoachTasks] = useState<CoachTask[]>([]);
 
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
@@ -115,6 +121,40 @@ export default function HomeScreen() {
     await refreshStats();
     setRefreshing(false);
   }, [fetchData, refreshStats]);
+
+  // Fetch coach-scheduled tasks for the currently selected date.
+  useEffect(() => {
+    if (!userId) return;
+    const date = format(selectedDate, "yyyy-MM-dd");
+    let cancelled = false;
+    fetchTasksForDate({ clientId: userId, date })
+      .then((tasks) => { if (!cancelled) setCoachTasks(tasks); })
+      .catch(() => { if (!cancelled) setCoachTasks([]); });
+    return () => { cancelled = true; };
+  }, [userId, selectedDate]);
+
+  const toggleCustomTask = useCallback(async (task: CoachTask) => {
+    const wasCompleted = !!task.manually_completed_at;
+    setCoachTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id
+          ? { ...t, manually_completed_at: wasCompleted ? null : new Date().toISOString() }
+          : t
+      )
+    );
+    try {
+      await setCustomTaskCompleted(task.id, !wasCompleted);
+    } catch {
+      // Roll back optimistic update on failure
+      setCoachTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, manually_completed_at: wasCompleted ? new Date().toISOString() : null }
+            : t
+        )
+      );
+    }
+  }, []);
 
   // Get workout assigned for selected day
   const selectedDayWorkout = useMemo(() => {
@@ -280,8 +320,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Nutrition task */}
-          {macros && (
+          {/* Nutrition task (shown only if no coach-scheduled macros task today) */}
+          {macros && !coachTasks.some((t) => t.task_type === "macros") && (
             <Pressable onPress={() => router.push("/(app)/(tabs)/meals" as any)} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
               <View style={[styles.taskDot, { borderColor: colors.textMuted }]} />
               <View style={styles.taskInfo}>
@@ -295,6 +335,67 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
+
+          {/* Coach-scheduled tasks */}
+          {coachTasks.map((task, idx) => {
+            const isLast = idx === coachTasks.length - 1;
+            const completed = !!task.manually_completed_at;
+            const handlePress = () => {
+              hapticPress();
+              if (task.task_type === "custom") {
+                toggleCustomTask(task);
+                return;
+              }
+              if (task.task_type === "photos") {
+                router.push("/(app)/progress-photos" as any);
+              } else if (task.task_type === "body_stats") {
+                router.push({
+                  pathname: "/(app)/log-progress",
+                  params: { date: format(selectedDate, "yyyy-MM-dd") },
+                } as any);
+              } else if (task.task_type === "macros") {
+                router.push("/(app)/(tabs)/meals" as any);
+              }
+            };
+            return (
+              <Pressable
+                key={task.id}
+                onPress={handlePress}
+                style={[
+                  styles.taskRow,
+                  {
+                    borderBottomColor: colors.border,
+                    borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.taskDot,
+                    {
+                      backgroundColor: completed ? colors.success : "transparent",
+                      borderColor: completed ? colors.success : colors.textMuted,
+                    },
+                  ]}
+                >
+                  {completed && <Ionicons name="checkmark" size={12} color="#fff" />}
+                </View>
+                <View style={styles.taskInfo}>
+                  <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
+                    {task.title}
+                  </Text>
+                  {task.description ? (
+                    <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
+                      {task.description}
+                    </Text>
+                  ) : null}
+                </View>
+                {task.task_type !== "custom" && (
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                )}
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* My Progress section */}
