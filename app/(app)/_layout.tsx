@@ -190,6 +190,12 @@ export default function AuthenticatedLayout() {
             drawerItemStyle: { display: "none" },
           }}
         />
+        <Drawer.Screen
+          name="progress-photos"
+          options={{
+            drawerItemStyle: { display: "none" },
+          }}
+        />
       </Drawer>
     </View>
     </ErrorBoundary>

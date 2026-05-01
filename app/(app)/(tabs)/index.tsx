@@ -312,6 +312,20 @@ export default function HomeScreen() {
           />
         </View>
       </ScrollView>
+
+      <Pressable
+        accessibilityLabel="Add"
+        onPress={() => {
+          hapticPress();
+          router.push("/(app)/progress-photos" as any);
+        }}
+        style={({ pressed }) => [
+          styles.fab,
+          { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+        ]}
+      >
+        <Ionicons name="add" size={28} color={colors.textOnPrimary} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -336,6 +350,21 @@ function AvatarButton({ name, colors }: { name: string; colors: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

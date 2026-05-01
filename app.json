@@ -38,6 +38,19 @@
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ADPT needs camera access so you can take progress photos.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ADPT needs photo library access so you can pick progress photos to upload."
+        }
       ]
     ],
     "experiments": {
