@@ -32,7 +32,7 @@ export function FloatingActionButton() {
     {
       icon: "camera-outline",
       label: "Take Photos",
-      onPress: () => router.push("/(app)/take-photos" as any),
+      onPress: () => router.push("/(app)/progress-photos" as any),
     },
   ];
 
