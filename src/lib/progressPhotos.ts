@@ -5,6 +5,8 @@
  */
 
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import * as FileSystem from "expo-file-system";
+import { decode } from "base64-arraybuffer";
 import { supabase } from "@/lib/supabase";
 
 export type ProgressPose = "front" | "side" | "back" | "other";
@@ -49,13 +51,17 @@ export async function uploadProgressPhoto(args: {
   const filename = `${args.pose}_${Date.now()}.jpg`;
   const storagePath = `${user.id}/${date}/${filename}`;
 
-  // React Native: fetch the file URI and upload as a blob.
-  const response = await fetch(compressed.uri);
-  const blob = await response.blob();
+  // React Native: read the file as base64 and upload as ArrayBuffer.
+  // (fetch().blob() doesn't work reliably in RN; this is the supported
+  // Supabase Storage pattern for Expo apps.)
+  const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
+    encoding: "base64",
+  });
+  const arrayBuffer = decode(base64);
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(storagePath, blob, {
+    .upload(storagePath, arrayBuffer, {
       contentType: "image/jpeg",
       upsert: false,
     });
