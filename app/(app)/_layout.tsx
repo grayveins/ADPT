@@ -196,6 +196,12 @@ export default function AuthenticatedLayout() {
             drawerItemStyle: { display: "none" },
           }}
         />
+        <Drawer.Screen
+          name="photo-history"
+          options={{
+            drawerItemStyle: { display: "none" },
+          }}
+        />
       </Drawer>
     </View>
     </ErrorBoundary>
