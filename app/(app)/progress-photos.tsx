@@ -27,12 +27,11 @@ import { uploadProgressPhoto, type ProgressPose } from "@/src/lib/progressPhotos
 import { PoseSilhouette } from "@/src/components/progress-photos/PoseSilhouette";
 import { PoseGuideOverlay } from "@/src/components/progress-photos/PoseGuideOverlay";
 
-const POSE_ORDER: ProgressPose[] = ["front", "side_left", "side_right", "back"];
+const POSE_ORDER: ProgressPose[] = ["front", "side", "back"];
 
 const POSE_TITLES: Record<ProgressPose, string> = {
   front: "Front",
-  side_left: "Side (left)",
-  side_right: "Side (right)",
+  side: "Side",
   back: "Back",
   other: "Other",
 };

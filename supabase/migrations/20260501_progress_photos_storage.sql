@@ -1,24 +1,15 @@
 -- ============================================================================
--- Progress photos — widen pose enum and add storage bucket + RLS
+-- Progress photos storage bucket + RLS
 -- ============================================================================
--- The progress_photos table itself was created in 20260419_fix_schema_gaps.sql.
--- This migration:
---   1. Widens the pose CHECK constraint to allow side_left / side_right
---      (Trainerize-style pose flow: front, side L, side R, back).
---   2. Creates the progress-photos storage bucket.
---   3. Adds RLS policies on storage.objects so clients write/read their own
---      folder and coaches can read photos for their active clients.
+-- The progress_photos table itself was created in 20260419_fix_schema_gaps.sql
+-- with pose CHECK ('front', 'side', 'back', 'other') — kept as-is.
+--
+-- This migration only adds the storage layer:
+--   1. Creates the progress-photos bucket.
+--   2. Adds storage.objects RLS so clients write/read their own folder
+--      and coaches can read photos for their active or paused clients.
 -- ============================================================================
 
--- 1. Widen pose enum
-ALTER TABLE public.progress_photos
-  DROP CONSTRAINT IF EXISTS progress_photos_pose_check;
-
-ALTER TABLE public.progress_photos
-  ADD CONSTRAINT progress_photos_pose_check
-  CHECK (pose IN ('front', 'side', 'side_left', 'side_right', 'back', 'other'));
-
--- 2. Storage bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'progress-photos',
@@ -29,7 +20,6 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Storage RLS — drop existing first to allow re-runs
 DO $$ BEGIN
   DROP POLICY IF EXISTS "Clients upload own progress photos" ON storage.objects;
   DROP POLICY IF EXISTS "Clients view own progress photos"   ON storage.objects;

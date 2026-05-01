@@ -10,28 +10,25 @@ import type { ProgressPose } from "@/src/lib/progressPhotos";
 
 const LINE_COLOR = "rgba(255, 255, 255, 0.7)";
 const LABEL_COLOR = "rgba(255, 255, 255, 0.85)";
-const ACCENT_COLOR = "#FF8A1A"; // single warm accent for the active pose label
+const ACCENT_COLOR = "#FF8A1A";
 
 const POSE_LABELS: Record<ProgressPose, string> = {
   front: "Front",
-  side_left: "Side",
-  side_right: "Side",
+  side: "Side",
   back: "Back",
   other: "Other",
 };
 
 const TOP_LABEL: Record<ProgressPose, string> = {
   front: "Nose",
-  side_left: "Center of head",
-  side_right: "Center of head",
+  side: "Center of head",
   back: "Center of head",
   other: "",
 };
 
 const HORIZONTAL_LINE_LABEL_TOP: Record<ProgressPose, string> = {
   front: "Eyes",
-  side_left: "Eyes",
-  side_right: "Eyes",
+  side: "Eyes",
   back: "Ears",
   other: "",
 };
@@ -39,30 +36,25 @@ const HORIZONTAL_LINE_LABEL_TOP: Record<ProgressPose, string> = {
 export function PoseGuideOverlay({ pose }: { pose: ProgressPose }) {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {/* Top-left active pose label */}
       <View style={styles.topLeft}>
         <Text style={[styles.poseLabel, { color: ACCENT_COLOR }]}>
           {POSE_LABELS[pose]}
         </Text>
       </View>
 
-      {/* Top-center label (Nose / Center of head) */}
       {TOP_LABEL[pose] && (
         <View style={styles.topCenter}>
           <Text style={styles.guideLabel}>{TOP_LABEL[pose]}</Text>
         </View>
       )}
 
-      {/* Vertical centerline */}
       <View style={styles.verticalLine} />
 
-      {/* Eyes / Ears horizontal line */}
       <View style={styles.eyesContainer}>
         <Text style={styles.guideLabelLeft}>{HORIZONTAL_LINE_LABEL_TOP[pose]}</Text>
         <View style={styles.horizontalLine} />
       </View>
 
-      {/* Hip horizontal line */}
       <View style={styles.hipContainer}>
         <Text style={styles.guideLabelLeft}>Hip</Text>
         <View style={styles.horizontalLine} />
@@ -72,31 +64,11 @@ export function PoseGuideOverlay({ pose }: { pose: ProgressPose }) {
 }
 
 const styles = StyleSheet.create({
-  topLeft: {
-    position: "absolute",
-    top: 12,
-    left: 16,
-  },
-  topCenter: {
-    position: "absolute",
-    top: 12,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  poseLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  guideLabel: {
-    color: LABEL_COLOR,
-    fontSize: 13,
-  },
-  guideLabelLeft: {
-    color: LABEL_COLOR,
-    fontSize: 13,
-    paddingHorizontal: 12,
-  },
+  topLeft: { position: "absolute", top: 12, left: 16 },
+  topCenter: { position: "absolute", top: 12, left: 0, right: 0, alignItems: "center" },
+  poseLabel: { fontSize: 16, fontWeight: "600" },
+  guideLabel: { color: LABEL_COLOR, fontSize: 13 },
+  guideLabelLeft: { color: LABEL_COLOR, fontSize: 13, paddingHorizontal: 12 },
   verticalLine: {
     position: "absolute",
     top: 0,
