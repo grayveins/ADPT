@@ -21,7 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
-import { spacing, radius } from "@/src/theme";
+import { spacing } from "@/src/theme";
 import { useStreak } from "@/src/hooks/useStreak";
 import { useBodyStats } from "@/src/hooks/useBodyStats";
 import { useClientMacros } from "@/src/hooks/useClientMacros";
@@ -53,6 +53,7 @@ export default function HomeScreen() {
 
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
+  const { currentStreak } = useStreak(userId);
 
   const days = useMemo(generateDays, []);
   const today = new Date();
@@ -136,6 +137,11 @@ export default function HomeScreen() {
 
   const greeting = `${getGreeting()}, ${profileName}`;
   const weightLbs = bodyStats?.weight_kg ? (bodyStats.weight_kg * 2.205).toFixed(1) : "—";
+
+  const workoutsThisWeek = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return completedSessions.filter((s: any) => new Date(s.started_at) >= start).length;
+  }, [completedSessions]);
 
   const startWorkout = () => {
     hapticPress();
@@ -311,27 +317,20 @@ export default function HomeScreen() {
             onAdd={() => router.push({ pathname: "/(app)/log-progress", params: { date: format(selectedDate, "yyyy-MM-dd") } } as any)}
           />
         </View>
-
-        <Pressable
-          onPress={() => {
-            hapticPress();
-            router.push("/(app)/progress-photos" as any);
-          }}
-          style={({ pressed }) => [
-            styles.photoCard,
-            { backgroundColor: colors.bgSecondary, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <View>
-            <Text allowFontScaling={false} style={[styles.photoCardTitle, { color: colors.text }]}>
-              Progress Photos
-            </Text>
-            <Text allowFontScaling={false} style={[styles.photoCardSub, { color: colors.textMuted }]}>
-              Front · Side · Back
-            </Text>
-          </View>
-          <Ionicons name="add-circle-outline" size={22} color={colors.textMuted} />
-        </Pressable>
+        <View style={styles.cardRow}>
+          <MetricCard
+            title="Streak"
+            subtitle={currentStreak > 0 ? "Keep it going" : "Start today"}
+            value={`${currentStreak}`}
+            unit={currentStreak === 1 ? "day" : "days"}
+          />
+          <MetricCard
+            title="Workouts"
+            subtitle="This week"
+            value={`${workoutsThisWeek}`}
+            unit={workoutsThisWeek === 1 ? "session" : "sessions"}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -357,18 +356,6 @@ function AvatarButton({ name, colors }: { name: string; colors: any }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  photoCard: {
-    marginTop: spacing.sm,
-    marginHorizontal: spacing.lg,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.base,
-    borderRadius: radius.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  photoCardTitle: { fontSize: 15, fontWeight: "600" },
-  photoCardSub: { fontSize: 13, marginTop: 2 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
