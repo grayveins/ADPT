@@ -9,6 +9,7 @@ import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -79,20 +80,35 @@ export default function ProgressPhotosScreen() {
     setStage("preview");
   }, []);
 
+  const promptOpenSettings = useCallback(() => {
+    Alert.alert(
+      "Camera access required",
+      "Enable camera access in Settings to take progress photos. You can still pick from your photo library instead.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: () => Linking.openSettings() },
+      ]
+    );
+  }, []);
+
   const handleTakeNow = useCallback(async () => {
     hapticPress();
-    if (!permission?.granted) {
-      const next = await requestPermission();
-      if (!next.granted) {
-        Alert.alert(
-          "Camera permission needed",
-          "Enable camera access in Settings to take progress photos."
-        );
-        return;
-      }
+    if (permission?.granted) {
+      setStage("camera");
+      return;
     }
-    setStage("camera");
-  }, [permission, requestPermission]);
+    // Permission previously denied and the OS won't re-prompt — send to Settings.
+    if (permission && !permission.canAskAgain) {
+      promptOpenSettings();
+      return;
+    }
+    const next = await requestPermission();
+    if (next.granted) {
+      setStage("camera");
+    } else {
+      promptOpenSettings();
+    }
+  }, [permission, requestPermission, promptOpenSettings]);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current) return;
