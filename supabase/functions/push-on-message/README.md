@@ -3,85 +3,113 @@
 Supabase Edge Function that fires an Expo Push notification when a new
 `messages` row is inserted.
 
-## Deploy
+## Setup (one-time, ~3 minutes)
 
-You need the [Supabase CLI](https://supabase.com/docs/guides/cli) authenticated to the linked project (`supabase login` once, then `supabase link --project-ref <ref>` if not already linked).
+The Supabase CLI is a devDependency in this repo, so use `npx supabase`
+(not bare `supabase`).
+
+### 1. Auth + link
 
 ```bash
-supabase functions deploy push-on-message
+cd ~/troyg/Projects/ADPT
+npx supabase login                                      # browser flow, once per machine
+npx supabase link --project-ref yckodvjabgkemhddrzle    # once per repo clone
 ```
 
-## Wire the webhook
+### 2. Deploy the function
 
-Two steps in Supabase Studio (one-time):
+```bash
+npx supabase functions deploy push-on-message
+```
 
-1. **Database → Webhooks → Create a new hook**
-   - Name: `messages_push`
-   - Table: `public.messages`
-   - Events: `Insert` only
-   - Type: `Supabase Edge Functions`
-   - Edge Function: `push-on-message`
-   - Method: `POST`
-   - Headers: leave defaults — Studio injects the service-role authorization automatically.
-   - Save.
+You should see the function appear in
+`https://supabase.com/dashboard/project/yckodvjabgkemhddrzle/functions`.
 
-2. (Optional, only if Expo Enhanced Security is enabled on your Expo
-   project) **Settings → Edge Functions → Secrets**:
-   ```
-   EXPO_ACCESS_TOKEN=<token from expo.dev/accounts/.../settings/access-tokens>
-   ```
-   The function falls back to anonymous Expo Push if this is unset, which
-   is fine for development.
+### 3. Set the GUC settings the trigger needs
+
+The trigger built in `20260502_messages_push_trigger.sql` reads
+`app.settings.supabase_url` and `app.settings.service_role_key`. Set
+them once, in **Studio → SQL Editor**:
+
+```sql
+ALTER DATABASE postgres
+  SET app.settings.supabase_url = 'https://yckodvjabgkemhddrzle.supabase.co';
+ALTER DATABASE postgres
+  SET app.settings.service_role_key = '<paste from Project Settings → API → service_role>';
+```
+
+> Use the **service_role** key (the long one), not the anon key. Treat it
+> like a password — it's already hidden in `extensions.pg_net` requests
+> but don't paste it into chats or commits.
+
+### 4. Apply the trigger migration
+
+```bash
+npx supabase db push
+```
+
+This applies any pending migrations including
+`20260502_messages_push_trigger.sql`.
+
+### 5. (Optional) Expo Access Token
+
+Only required if the project has Expo Enhanced Security enabled. Set it
+in **Studio → Edge Functions → push-on-message → Secrets**:
+
+```
+EXPO_ACCESS_TOKEN=<token from expo.dev/accounts/.../settings/access-tokens>
+```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are auto-injected by the
-Supabase Edge Functions runtime; you don't set those.
+Edge Functions runtime — you don't set those.
 
 ## Verify
 
-1. From the mobile app, sign in as a client whose coach has sent a
-   message.
-2. Background the app.
-3. From the dashboard, send a message in their thread.
+1. From the mobile app, sign in as a client whose coach is in your
+   roster. Confirm you accepted the push permission prompt at first
+   launch (`lib/pushNotifications.ts` triggers it).
+2. Background the app fully (swipe up).
+3. From the dashboard, send them a message.
 4. The mobile device should receive an OS notification within ~1s.
-5. In Studio → Edge Functions → push-on-message → Logs, you should see a
+5. Studio → Edge Functions → push-on-message → Logs should show a
    `200` response with `{ "ticket": { "status": "ok" } }`.
 
-If the function returns `{ "skipped": "no_push_token" }`, the recipient's
-`profiles.push_token` is null — the mobile app didn't register a token
-yet. Check `lib/pushNotifications.ts` runs on app launch.
+If you see `{ "skipped": "no_push_token" }`, the recipient's
+`profiles.push_token` is `NULL` — the mobile app didn't register a token
+yet (permission denied, or `lib/pushNotifications.ts` didn't run on
+launch).
 
-## Local dev
+If you see no log activity at all, the trigger isn't firing. Check:
+- The migration was applied (`SELECT tgname FROM pg_trigger WHERE tgname = 'on_message_inserted_push';`).
+- The GUC settings are set
+  (`SELECT current_setting('app.settings.supabase_url', true);`
+  in SQL Editor — should not be empty).
+- The pg_net extension is enabled
+  (`SELECT * FROM pg_extension WHERE extname = 'pg_net';`).
+
+## Local dev (optional, requires Docker)
 
 ```bash
-supabase functions serve push-on-message --env-file ./supabase/.env.local
+npx supabase start
+npx supabase functions serve push-on-message --env-file ./supabase/.env.local
 ```
 
-with `./supabase/.env.local` containing:
+with `./supabase/.env.local`:
 ```
 SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_SERVICE_ROLE_KEY=<local service role key from `supabase status`>
+SUPABASE_SERVICE_ROLE_KEY=<from `npx supabase status`>
 EXPO_ACCESS_TOKEN=
 ```
 
-Then POST a webhook-shaped payload manually:
+## Architecture notes
 
-```bash
-curl -X POST http://127.0.0.1:54321/functions/v1/push-on-message \
-  -H "Authorization: Bearer <local service role key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "INSERT",
-    "table": "messages",
-    "schema": "public",
-    "record": {
-      "id": "00000000-0000-0000-0000-000000000001",
-      "conversation_id": "00000000-0000-0000-0000-000000000002",
-      "sender_id": "<some real auth.users.id>",
-      "recipient_id": "<recipient with push_token set>",
-      "content": "test push",
-      "message_type": "text",
-      "created_at": "2026-05-02T20:00:00Z"
-    },
-    "old_record": null
-  }'
-```
+- Trigger is `AFTER INSERT FOR EACH ROW` on `messages` — fires once per
+  new message.
+- `net.http_post` is **async**. The INSERT statement returns immediately;
+  the HTTP call happens in pg_net's background worker. So a slow Expo
+  Push call never blocks message sending.
+- If the function URL or key is misconfigured, the trigger silently
+  no-ops — message INSERTs never fail because of push misconfig.
+- Bad-token cleanup: when Expo returns `DeviceNotRegistered`, the
+  function clears the bad token from `profiles.push_token` so we don't
+  retry forever.
