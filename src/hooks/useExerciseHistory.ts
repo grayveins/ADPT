@@ -128,6 +128,9 @@ export function useExerciseHistory(
     setState((s) => ({ ...s, loading: true, error: null }));
 
     (async () => {
+      // Note: PostgREST refuses ".order()" against deeply nested foreign
+      // relationships. Fetch unordered and sort client-side after grouping —
+      // the dataset is bounded (one user × one exercise) so this is cheap.
       const { data, error } = await supabase
         .from("workout_sets")
         .select(
@@ -150,11 +153,7 @@ export function useExerciseHistory(
         `
         )
         .eq("workout_exercises.exercise_name", exerciseName)
-        .eq("workout_exercises.workout_sessions.user_id", userId)
-        .order("workout_exercises(workout_sessions(started_at))", {
-          ascending: false,
-        })
-        .order("set_number", { ascending: true });
+        .eq("workout_exercises.workout_sessions.user_id", userId);
 
       if (cancelled) return;
       if (error) {
@@ -193,9 +192,15 @@ export function useExerciseHistory(
         });
       }
 
-      const sessions = Array.from(grouped.values()).sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
+      // Sort: sessions newest-first, sets within a session by set_number.
+      const sessions = Array.from(grouped.values())
+        .map((s) => ({
+          ...s,
+          sets: [...s.sets].sort((a, b) => a.setNumber - b.setNumber),
+        }))
+        .sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
       const stats = computeStats(sessions);
 
       setState({ loading: false, error: null, sessions, stats });

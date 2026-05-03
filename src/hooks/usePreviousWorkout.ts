@@ -38,8 +38,9 @@ export function usePreviousWorkout(userId: string | null, exerciseNames: string[
     }
 
     try {
-      // Query workout sets for these exercises, ordered by date (most recent first)
-      // Group by exercise to get the most recent session for each
+      // PostgREST refuses ".order()" through deeply nested foreign tables —
+      // it errors with "failed to parse order". Fetch unordered and pick
+      // the most-recent session per exercise client-side.
       const { data, error } = await supabase
         .from("workout_sets")
         .select(`
@@ -57,8 +58,7 @@ export function usePreviousWorkout(userId: string | null, exerciseNames: string[
         `)
         .eq("workout_exercises.workout_sessions.user_id", userId)
         .in("workout_exercises.exercise_name", exerciseNames)
-        .eq("is_warmup", false)
-        .order("workout_exercises(workout_sessions(started_at))", { ascending: false });
+        .eq("is_warmup", false);
 
       if (error) {
         console.error("Error fetching previous workout data:", error);
