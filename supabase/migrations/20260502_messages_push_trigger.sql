@@ -4,16 +4,18 @@
 -- This is the SQL alternative to a Database Webhook configured in Studio —
 -- equivalent behavior, but reproducible and version-controlled.
 --
--- Pre-requisites (one-time per project, run in Supabase SQL Editor):
+-- ----------------------------------------------------------------------------
+-- Pre-requisites (one-time per project):
 --
---   ALTER DATABASE postgres
---     SET app.settings.supabase_url = 'https://<your-project-ref>.supabase.co';
---   ALTER DATABASE postgres
---     SET app.settings.service_role_key = '<service role key from Project Settings → API>';
+--   1. Supabase Studio → Project Settings → Vault → Add new secret:
+--        Name:  service_role_key
+--        Value: <copy from Project Settings → API → service_role>
 --
--- pg_net is enabled on every Supabase project by default; if not, run:
---   CREATE EXTENSION IF NOT EXISTS pg_net;
--- (it creates its own `net` schema)
+--   2. The function URL below is hardcoded for this project. If you fork or
+--      stage to a new project, update FN_URL.
+--      TODO: parameterize once we add a staging environment.
+--
+-- pg_net is enabled on every Supabase project by default.
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_net;
@@ -22,28 +24,34 @@ CREATE OR REPLACE FUNCTION public.notify_new_message()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, vault, net
 AS $$
 DECLARE
-  v_url TEXT;
+  -- Project-pinned. Update if you fork to a new Supabase project.
+  FN_URL CONSTANT TEXT :=
+    'https://yckodvjabgkemhddrzle.supabase.co/functions/v1/push-on-message';
   v_key TEXT;
 BEGIN
-  -- Pull settings; bail silently if not configured so an INSERT never fails
-  -- because the trigger config is incomplete.
+  -- Read the service-role key from Vault. If Vault is misconfigured or the
+  -- secret hasn't been created yet, silently no-op so an INSERT into messages
+  -- never fails because of push-notification plumbing.
   BEGIN
-    v_url := current_setting('app.settings.supabase_url', true);
-    v_key := current_setting('app.settings.service_role_key', true);
+    SELECT decrypted_secret INTO v_key
+    FROM vault.decrypted_secrets
+    WHERE name = 'service_role_key'
+    LIMIT 1;
   EXCEPTION WHEN OTHERS THEN
     RETURN NEW;
   END;
 
-  IF v_url IS NULL OR v_url = '' OR v_key IS NULL OR v_key = '' THEN
+  IF v_key IS NULL OR v_key = '' THEN
     RETURN NEW;
   END IF;
 
-  -- pg_net.http_post is async — returns a request_id immediately and queues
+  -- net.http_post is async — returns a request_id immediately and queues
   -- the actual call. The INSERT is never blocked on the network round-trip.
   PERFORM net.http_post(
-    url     := v_url || '/functions/v1/push-on-message',
+    url     := FN_URL,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || v_key
