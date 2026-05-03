@@ -80,6 +80,11 @@ function CustomDrawerContent(props: any) {
 
   const closeDrawer = () => props.navigation.closeDrawer?.();
 
+  const onMessages = () => {
+    closeDrawer();
+    router.push("/(app)/(tabs)/chat" as any);
+  };
+
   const onSettings = () => {
     closeDrawer();
     router.push("/settings");
@@ -141,6 +146,7 @@ function CustomDrawerContent(props: any) {
 
       {/* Menu Items */}
       <View style={styles.menuSection}>
+        <MenuItem icon="chatbubble-outline" label="Messages" onPress={onMessages} />
         <MenuItem icon="settings-outline" label="Settings" onPress={onSettings} />
         <MenuItem icon="help-circle-outline" label="Help & Support" onPress={onHelp} />
         <MenuItem icon="document-text-outline" label="Terms & Privacy" onPress={onTerms} />
