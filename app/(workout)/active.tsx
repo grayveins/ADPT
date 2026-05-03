@@ -33,6 +33,7 @@ import {
   PostWorkoutCheckin,
 } from "@/src/components/workout";
 import type { PostWorkoutData } from "@/src/components/workout";
+import { ExerciseHistorySheet } from "@/src/components/workout/ExerciseHistorySheet";
 // useActiveLimitations removed — causes PGRST errors without migrations applied
 import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
 import type { BodyRegion } from "@/src/theme";
@@ -105,6 +106,7 @@ function ActiveWorkoutInner() {
   const { colors } = useTheme();
   const { state, actions, progress } = useActiveWorkout();
   const [showExerciseInfo, setShowExerciseInfo] = useState<string | null>(null);
+  const [historyExerciseId, setHistoryExerciseId] = useState<string | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapExerciseId, setSwapExerciseId] = useState<string | null>(null);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -347,6 +349,7 @@ function ActiveWorkoutInner() {
               setShowSwapModal(true);
             }}
             onShowInfo={() => setShowExerciseInfo(exercise.name)}
+            onShowHistory={() => setHistoryExerciseId(exercise.id)}
           />
 
           {/* Notes section */}
@@ -451,6 +454,29 @@ function ActiveWorkoutInner() {
           </View>
         </View>
       </Modal>
+
+      {/* Exercise History Sheet */}
+      <ExerciseHistorySheet
+        visible={!!historyExerciseId}
+        userId={state.userId}
+        exerciseName={
+          state.exercises.find((ex) => ex.id === historyExerciseId)?.name ?? null
+        }
+        onClose={() => setHistoryExerciseId(null)}
+        onUseLastWorkout={(prevSets) => {
+          const ex = state.exercises.find((e) => e.id === historyExerciseId);
+          if (!ex) return;
+          // Position-match: copy each previous set into the corresponding
+          // current set. Don't add or remove rows — coach's prescribed
+          // structure stays intact; the user can still adjust manually.
+          ex.sets.forEach((s, i) => {
+            const prev = prevSets[i];
+            if (!prev || s.completed) return;
+            actions.updateSet(ex.id, s.id, "weight", String(prev.weight));
+            actions.updateSet(ex.id, s.id, "reps", String(prev.reps));
+          });
+        }}
+      />
 
       {/* Exercise Swap Modal */}
       {swapExerciseId && (
