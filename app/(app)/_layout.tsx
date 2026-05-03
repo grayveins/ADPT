@@ -15,6 +15,7 @@ import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useTheme } from "@/src/context/ThemeContext";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { MessageNotifier } from "@/src/components/MessageNotifier";
 import { spacing } from "@/src/theme";
 import Constants from "expo-constants";
 
@@ -171,6 +172,7 @@ export default function AuthenticatedLayout() {
   return (
     <ErrorBoundary label="Home">
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <MessageNotifier />
       <Drawer
         screenOptions={{
           headerShown: false,
