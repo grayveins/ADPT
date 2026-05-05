@@ -3,7 +3,7 @@
  * Single thread (clients have one coach). Realtime via Supabase channel.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -34,11 +34,47 @@ type Message = {
   message_type: string;
   read_at: string | null;
   created_at: string;
+  // Client-only flag for optimistic rows awaiting server confirmation.
+  pending?: boolean;
 };
 
+type Row =
+  | { kind: "separator"; key: string; label: string }
+  | { kind: "message"; key: string; message: Message };
+
 function formatTime(d: string): string {
-  const date = new Date(d);
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function dayLabel(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86400000);
+  if (diffDays < 7) return date.toLocaleDateString([], { weekday: "long" });
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function buildRows(messages: Message[]): Row[] {
+  const rows: Row[] = [];
+  let lastDay = "";
+  for (const m of messages) {
+    const d = new Date(m.created_at);
+    const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (dayKey !== lastDay) {
+      lastDay = dayKey;
+      rows.push({ kind: "separator", key: `sep-${dayKey}`, label: dayLabel(d) });
+    }
+    rows.push({ kind: "message", key: m.id, message: m });
+  }
+  return rows;
 }
 
 export default function ChatScreen() {
@@ -52,7 +88,7 @@ export default function ChatScreen() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const listRef = useRef<FlatList<Message>>(null);
+  const listRef = useRef<FlatList<Row>>(null);
 
   // Resolve user → coach link → conversation id
   useEffect(() => {
@@ -103,7 +139,19 @@ export default function ChatScreen() {
         setCoachName(c.display_name ?? "Your coach");
         setCoachAvatar(c.avatar_url ?? null);
       }
-      if (convo) setConversationId((convo as { id: string }).id);
+
+      let convoId = (convo as { id: string } | null)?.id ?? null;
+      if (!convoId) {
+        const { data: rpc } = await (supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>
+        ) => Promise<{ data: unknown; error: unknown }>)(
+          "find_or_create_conversation",
+          { p_coach_id: cid }
+        );
+        if (typeof rpc === "string") convoId = rpc;
+      }
+      setConversationId(convoId);
       setLoading(false);
     })();
     return () => {
@@ -180,29 +228,66 @@ export default function ChatScreen() {
     })();
   }, [messages, userId]);
 
+  const rows = useMemo(() => buildRows(messages), [messages]);
+
   // Autoscroll on new messages
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (rows.length === 0) return;
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true });
     });
-  }, [messages.length]);
+  }, [rows.length]);
 
   const handleSend = useCallback(async () => {
     if (!userId || !coachId || !conversationId) return;
     const text = draft.trim();
     if (!text) return;
-    setSending(true);
-    const { error } = await supabase.from("messages").insert({
+
+    // Optimistic: render the message immediately with a local temp id; replace
+    // with the server row when realtime delivers the INSERT.
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: conversationId,
       sender_id: userId,
       recipient_id: coachId,
       content: text,
       message_type: "text",
-    } as never);
-    setSending(false);
-    if (error) return;
+      read_at: null,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimistic]);
     setDraft("");
+    setSending(true);
+
+    const { data: inserted, error } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: userId,
+        recipient_id: coachId,
+        content: text,
+        message_type: "text",
+      } as never)
+      .select("*")
+      .single();
+
+    setSending(false);
+
+    if (error || !inserted) {
+      // Roll back; restore draft so the user can retry.
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setDraft((d) => (d.length === 0 ? text : d));
+      return;
+    }
+
+    const real = inserted as Message;
+    setMessages((prev) => {
+      const withoutTemp = prev.filter((m) => m.id !== tempId);
+      if (withoutTemp.some((m) => m.id === real.id)) return withoutTemp;
+      return [...withoutTemp, real];
+    });
   }, [draft, userId, coachId, conversationId]);
 
   if (loading) {
@@ -307,8 +392,8 @@ export default function ChatScreen() {
       >
         <FlatList
           ref={listRef}
-          data={messages}
-          keyExtractor={(m) => m.id}
+          data={rows}
+          keyExtractor={(r) => r.key}
           contentContainerStyle={styles.messagesContent}
           ListEmptyComponent={
             <Text style={[styles.empty, { color: colors.textMuted }]}>
@@ -316,7 +401,18 @@ export default function ChatScreen() {
             </Text>
           }
           renderItem={({ item }) => {
-            const mine = item.sender_id === userId;
+            if (item.kind === "separator") {
+              return (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.daySep, { color: colors.textMuted }]}
+                >
+                  {item.label}
+                </Text>
+              );
+            }
+            const m = item.message;
+            const mine = m.sender_id === userId;
             return (
               <View style={[styles.row, mine ? styles.rowRight : styles.rowLeft]}>
                 <View
@@ -326,6 +422,7 @@ export default function ChatScreen() {
                       ? { backgroundColor: colors.text }
                       : { backgroundColor: colors.bgSecondary },
                     mine ? styles.bubbleRight : styles.bubbleLeft,
+                    m.pending && styles.bubblePending,
                   ]}
                 >
                   <Text
@@ -335,7 +432,7 @@ export default function ChatScreen() {
                       { color: mine ? colors.bg : colors.text },
                     ]}
                   >
-                    {item.content}
+                    {m.content}
                   </Text>
                   <Text
                     allowFontScaling={false}
@@ -344,8 +441,9 @@ export default function ChatScreen() {
                       { color: mine ? "rgba(255,255,255,0.6)" : colors.textMuted },
                     ]}
                   >
-                    {formatTime(item.created_at)}
-                    {mine && item.read_at ? " · Read" : ""}
+                    {formatTime(m.created_at)}
+                    {mine && m.pending ? " · Sending…" : ""}
+                    {mine && !m.pending && m.read_at ? " · Read" : ""}
                   </Text>
                 </View>
               </View>
@@ -428,6 +526,15 @@ const styles = StyleSheet.create({
   messagesContent: { padding: spacing.md, gap: spacing.sm },
   empty: { textAlign: "center", padding: spacing.xl, fontSize: 14 },
 
+  daySep: {
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    paddingVertical: spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+
   row: { flexDirection: "row" },
   rowLeft: { justifyContent: "flex-start" },
   rowRight: { justifyContent: "flex-end" },
@@ -439,6 +546,7 @@ const styles = StyleSheet.create({
   },
   bubbleLeft: { borderBottomLeftRadius: 6 },
   bubbleRight: { borderBottomRightRadius: 6 },
+  bubblePending: { opacity: 0.6 },
   bubbleText: { fontSize: 15, lineHeight: 20 },
   bubbleTime: { fontSize: 10, marginTop: 4 },
 

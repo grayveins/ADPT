@@ -43,6 +43,7 @@ import {
   type HabitLog,
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
+import { useUnreadMessages } from "@/src/hooks/useUnreadMessages";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -73,6 +74,7 @@ export default function HomeScreen() {
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
   const { currentStreak } = useStreak(userId);
+  const { unreadCount } = useUnreadMessages();
 
   const days = useMemo(generateDays, []);
   const today = new Date();
@@ -84,40 +86,47 @@ export default function HomeScreen() {
     if (!user) { router.replace("/sign-in"); return; }
     setUserId(user.id);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("first_name")
-      .eq("id", user.id)
-      .single();
+    // The three queries below are independent — fire them in parallel
+    // instead of awaiting each one in series. Cuts perceived load time
+    // on Home from ~3 round-trips to 1.
+    const cutoff = subDays(new Date(), 21).toISOString();
+    const [profileRes, programRes, sessionsRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("coaching_programs")
+        .select("id, name, program_phases(id, name, status, phase_number, phase_workouts(id, day_number, name, exercises))")
+        .eq("client_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("workout_sessions")
+        .select("id, title, started_at, ended_at")
+        .eq("user_id", user.id)
+        .gte("started_at", cutoff)
+        .order("started_at", { ascending: false }),
+    ]);
+
+    const profile = profileRes.data as { first_name?: string } | null;
     if (profile?.first_name) setProfileName(profile.first_name);
 
-    // Fetch active program with all workouts
-    const { data: program } = await supabase
-      .from("coaching_programs")
-      .select("id, name, program_phases(id, name, status, phase_number, phase_workouts(id, day_number, name, exercises))")
-      .eq("client_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-
+    const program = programRes.data as
+      | { name: string; program_phases?: any[] }
+      | null;
     if (program) {
       setProgramName(program.name);
-      const sortedPhases = ((program as any).program_phases ?? [])
+      const sortedPhases = (program.program_phases ?? [])
         .sort((a: any, b: any) => (a.phase_number ?? 0) - (b.phase_number ?? 0));
-      const activePhase = sortedPhases.find((p: any) => p.status === "active") || sortedPhases[0];
+      const activePhase =
+        sortedPhases.find((p: any) => p.status === "active") || sortedPhases[0];
       setAllWorkouts(activePhase?.phase_workouts ?? []);
     }
 
-    // Fetch completed workout sessions (last 21 days)
-    const cutoff = subDays(new Date(), 21).toISOString();
-    const { data: sessions } = await supabase
-      .from("workout_sessions")
-      .select("id, title, started_at, ended_at")
-      .eq("user_id", user.id)
-      .gte("started_at", cutoff)
-      .order("started_at", { ascending: false });
-
-    setCompletedSessions(sessions ?? []);
+    setCompletedSessions(sessionsRes.data ?? []);
   }, []);
 
   const lastFetchedAt = useRef(0);
@@ -163,11 +172,21 @@ export default function HomeScreen() {
   // Habits — only relevant for "today." Future days don't get a checkbox
   // (you can't pre-complete tomorrow's water intake), past days are
   // read-only history. Keeps the affordance unambiguous.
+  //
+  // Fetch assignments + 30 days of logs in parallel. The logs query needs
+  // assignment ids, so we run them serially only for the assignment ids;
+  // we compute the date window in parallel with the assignment fetch so
+  // the second query starts immediately on assignments arriving.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     (async () => {
       try {
+        const today = todayLocalISO();
+        const from = new Date();
+        from.setDate(from.getDate() - 30);
+        const fromISO = from.toISOString().slice(0, 10);
+
         const active = await fetchActiveHabits(userId);
         if (cancelled) return;
         setHabits(active);
@@ -176,11 +195,6 @@ export default function HomeScreen() {
           setHabitLogs([]);
           return;
         }
-        // Pull last 30 days of logs so the streak walk has enough data.
-        const today = todayLocalISO();
-        const from = new Date();
-        from.setDate(from.getDate() - 30);
-        const fromISO = from.toISOString().slice(0, 10);
         const logs = await fetchHabitLogs({
           clientId: userId,
           assignmentIds: active.map((h) => h.id),
@@ -328,7 +342,10 @@ export default function HomeScreen() {
         <Text allowFontScaling={false} style={[styles.greeting, { color: colors.text }]}>
           {greeting}
         </Text>
-        <AvatarButton name={profileName} colors={colors} />
+        <View style={styles.headerActions}>
+          <MessagesButton unread={unreadCount} colors={colors} />
+          <AvatarButton name={profileName} colors={colors} />
+        </View>
       </View>
 
       {/* Date label */}
@@ -581,6 +598,38 @@ export default function HomeScreen() {
   );
 }
 
+function MessagesButton({ unread, colors }: { unread: number; colors: any }) {
+  const goToChat = () => {
+    hapticPress();
+    router.push("/(app)/(tabs)/chat" as any);
+  };
+  return (
+    <Pressable
+      onPress={goToChat}
+      accessibilityRole="button"
+      accessibilityLabel={
+        unread > 0 ? `Messages, ${unread} unread` : "Messages"
+      }
+      style={[
+        styles.iconButton,
+        { backgroundColor: colors.bgSecondary, borderColor: colors.border },
+      ]}
+    >
+      <Ionicons name="chatbubble-outline" size={18} color={colors.text} />
+      {unread > 0 && (
+        <View style={[styles.unreadBadge, { backgroundColor: colors.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.unreadBadgeText, { color: colors.bg }]}
+          >
+            {unread > 9 ? "9+" : unread}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 function AvatarButton({ name, colors }: { name: string; colors: any }) {
   const navigation = useNavigation<any>();
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -610,6 +659,27 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   greeting: { fontSize: 22, fontWeight: "600" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadBadgeText: { fontSize: 10, fontWeight: "700" },
   avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 15, fontWeight: "600" },
 
