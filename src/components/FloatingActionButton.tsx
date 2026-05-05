@@ -123,7 +123,7 @@ export function FloatingActionButton() {
         style={[
           styles.chatFab,
           {
-            bottom: 158 + insets.bottom,
+            bottom: 162 + insets.bottom,
             backgroundColor: colors.bgSecondary,
             borderColor: colors.border,
           },
@@ -132,7 +132,7 @@ export function FloatingActionButton() {
         {coach?.avatar_url ? (
           <Image source={{ uri: coach.avatar_url }} style={styles.chatFabAvatar} />
         ) : (
-          <Ionicons name="chatbubble-outline" size={20} color={colors.text} />
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
         )}
         {unreadCount > 0 && (
           <View style={[styles.unreadBadge, { backgroundColor: colors.text, borderColor: colors.bg }]}>
@@ -185,21 +185,21 @@ const styles = StyleSheet.create({
   chatFab: {
     position: "absolute",
     right: spacing.lg,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
     overflow: "visible",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     zIndex: 100,
   },
-  chatFabAvatar: { width: 48, height: 48, borderRadius: 24 },
+  chatFabAvatar: { width: 56, height: 56, borderRadius: 28 },
   unreadBadge: {
     position: "absolute",
     top: -2,
