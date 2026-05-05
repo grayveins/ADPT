@@ -17,10 +17,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
+import { router } from "expo-router";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
+import { hapticPress } from "@/src/animations/feedback/haptics";
 
 type Message = {
   id: string;
@@ -43,6 +46,7 @@ export default function ChatScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [coachId, setCoachId] = useState<string | null>(null);
   const [coachName, setCoachName] = useState<string>("Your coach");
+  const [coachAvatar, setCoachAvatar] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -82,7 +86,7 @@ export default function ChatScreen() {
       const [{ data: coach }, { data: convo }] = await Promise.all([
         supabase
           .from("coaches")
-          .select("display_name")
+          .select("display_name, avatar_url")
           .eq("id", cid)
           .maybeSingle(),
         supabase
@@ -94,7 +98,11 @@ export default function ChatScreen() {
       ]);
 
       if (cancelled) return;
-      if (coach) setCoachName((coach as { display_name: string }).display_name ?? "Your coach");
+      if (coach) {
+        const c = coach as { display_name: string | null; avatar_url: string | null };
+        setCoachName(c.display_name ?? "Your coach");
+        setCoachAvatar(c.avatar_url ?? null);
+      }
       if (convo) setConversationId((convo as { id: string }).id);
       setLoading(false);
     })();
@@ -221,12 +229,75 @@ export default function ChatScreen() {
     );
   }
 
+  const handleBack = () => {
+    hapticPress();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(tabs)" as never);
+    }
+  };
+
+  const initials = coachName
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
+
   return (
     <SafeAreaView style={[styles.shell, { backgroundColor: colors.bg }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
-          {coachName}
-        </Text>
+        <Pressable
+          onPress={handleBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={10}
+          style={styles.backBtn}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </Pressable>
+
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: colors.bgSecondary, borderColor: colors.border },
+          ]}
+        >
+          {coachAvatar ? (
+            <Image
+              source={{ uri: coachAvatar }}
+              style={styles.avatarImage}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
+            />
+          ) : (
+            <Text
+              allowFontScaling={false}
+              style={[styles.avatarText, { color: colors.text }]}
+            >
+              {initials}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.headerTextCol}>
+          <Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={[styles.headerTitle, { color: colors.text }]}
+          >
+            {coachName}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.headerSubtitle, { color: colors.textMuted }]}
+          >
+            Coach
+          </Text>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -325,11 +396,34 @@ const styles = StyleSheet.create({
   emptyBody: { fontSize: 14, textAlign: "center", marginTop: spacing.sm },
 
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
   },
-  headerTitle: { fontSize: 17, fontWeight: "600" },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: -2,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: { width: "100%", height: "100%" },
+  avatarText: { fontSize: 13, fontWeight: "700" },
+  headerTextCol: { flex: 1, gap: 1 },
+  headerTitle: { fontSize: 16, fontWeight: "700" },
+  headerSubtitle: { fontSize: 11, fontWeight: "500" },
 
   messagesContent: { padding: spacing.md, gap: spacing.sm },
   empty: { textAlign: "center", padding: spacing.xl, fontSize: 14 },
