@@ -177,7 +177,7 @@ function InstructionsModal({
               { color: colors.textSecondary },
             ]}
           >
-            Don't suck in or push out
+            Don&apos;t suck in or push out
           </Text>
 
           <Text
@@ -187,7 +187,7 @@ function InstructionsModal({
               { color: colors.textSecondary },
             ]}
           >
-            We'll take 3 photos from different angles today. You can compare
+            We&apos;ll take 3 photos from different angles today. You can compare
             them side by side as you get fitter.
           </Text>
 
@@ -215,7 +215,7 @@ function InstructionsModal({
                 { color: colors.textOnPrimary },
               ]}
             >
-              Ok, let's start
+              Ok, let&apos;s start
             </Text>
           </Pressable>
         </View>
