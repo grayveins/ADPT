@@ -26,4 +26,3 @@ export { ExerciseNotes } from "./ExerciseNotes";
 export { SupersetGroup } from "./SupersetGroup";
 export { SaveAsTemplateSheet } from "./SaveAsTemplateSheet";
 export { DraggableExerciseList } from "./DraggableExerciseList";
-// WorkoutShareCard removed — depends on react-native-view-shot (not installed)

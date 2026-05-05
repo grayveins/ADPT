@@ -127,7 +127,7 @@ export default function MealsScreen() {
               No targets set
             </Text>
             <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
-              Your coach hasn't set nutrition targets yet
+              Your coach hasn&apos;t set nutrition targets yet
             </Text>
           </View>
         ) : null}
