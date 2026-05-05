@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
@@ -17,6 +17,14 @@ export function FloatingActionButton() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const segments = useSegments();
+  // Hide on chat — the composer occupies the bottom-right space the FAB
+  // would land on, and a "+" overlay reads as an attachment affordance,
+  // which is misleading until attachments ship.
+  const hideFab = segments.some(
+    (s) => s === "chat" || s === "(workout)" || s === "active"
+  );
+  if (hideFab) return null;
 
   const actions: Action[] = [
     {
