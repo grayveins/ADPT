@@ -26,6 +26,7 @@ export default function ProgramDetailScreen() {
     exercises?: string;
     phaseName?: string;
     dayNumber?: string;
+    sessionDate?: string;
   }>();
 
   const workoutName = params.name || "Workout";
@@ -49,6 +50,7 @@ export default function ProgramDetailScreen() {
         name: workoutName,
         exercises: params.exercises || "[]",
         sourceType: "program",
+        ...(params.sessionDate ? { sessionDate: params.sessionDate } : {}),
       },
     });
   };

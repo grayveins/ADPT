@@ -518,6 +518,7 @@ type ProviderProps = {
   initialTitle?: string;
   sourceType?: SourceType;
   sourceId?: string;
+  sessionDate?: string;
   children: ReactNode;
 };
 
@@ -526,8 +527,14 @@ export function ActiveWorkoutProvider({
   initialTitle = "Workout",
   sourceType = "empty",
   sourceId,
+  sessionDate,
   children,
 }: ProviderProps) {
+  const sessionDateRef = useRef(sessionDate);
+  useEffect(() => {
+    sessionDateRef.current = sessionDate;
+  }, [sessionDate]);
+
   const initialState: ActiveWorkoutState = {
     title: initialTitle,
     sourceType,
@@ -760,14 +767,36 @@ export function ActiveWorkoutProvider({
       }
 
       try {
-        // 1. Create session
+        // 1. Create session — backfill to selected day if user logged for a past date
+        const elapsedMs = Date.now() - state.startTime;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const ymd = sessionDateRef.current;
+        const backfillDate = ymd ? new Date(`${ymd}T00:00:00`) : null;
+        const isBackfill =
+          backfillDate &&
+          !isNaN(backfillDate.getTime()) &&
+          backfillDate.getTime() < today.getTime();
+
+        let startedAt: Date;
+        let endedAt: Date;
+        if (isBackfill) {
+          // Place the session at noon of the chosen day so it's unambiguously "that day"
+          startedAt = new Date(backfillDate);
+          startedAt.setHours(12, 0, 0, 0);
+          endedAt = new Date(startedAt.getTime() + elapsedMs);
+        } else {
+          startedAt = new Date(state.startTime);
+          endedAt = now;
+        }
+
         const { data: sessionData, error: sessionError } = await supabase
           .from("workout_sessions")
           .insert({
             user_id: state.userId,
             title: state.title,
-            started_at: new Date(state.startTime).toISOString(),
-            ended_at: new Date().toISOString(),
+            started_at: startedAt.toISOString(),
+            ended_at: endedAt.toISOString(),
           })
           .select("id")
           .single();
