@@ -115,6 +115,20 @@ export default function HomeScreen() {
     }
   }, [fetchData]));
 
+  // Day-strip ref + auto-scroll on selection change so the selected day
+  // becomes the leftmost fully-visible chip (Trainerize-like behavior).
+  const dayStripRef = useRef<ScrollView | null>(null);
+  const dayStripMounted = useRef(false);
+  useEffect(() => {
+    const idx = days.findIndex((d) => isSameDay(d, selectedDate));
+    if (idx < 0) return;
+    // 52px = chip min width (see styles.dayChip). Subtract a small offset
+    // so the previous day peeks in for context.
+    const x = Math.max(0, idx * 52 - 4);
+    dayStripRef.current?.scrollTo({ x, animated: dayStripMounted.current });
+    dayStripMounted.current = true;
+  }, [selectedDate, days]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchData();
@@ -231,18 +245,13 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
       >
-        {/* Day selector inside scroll — no gap */}
+        {/* Day selector inside scroll — no gap. Scroll behavior lives in
+            the dayStripRef effect above so taps re-snap the selection. */}
         <ScrollView
+          ref={dayStripRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.dayStrip}
-          ref={(ref) => {
-            if (ref) {
-              const selectedIdx = days.findIndex(d => isSameDay(d, selectedDate));
-              const offset = Math.max(0, selectedIdx * 52 - 120);
-              setTimeout(() => ref.scrollTo({ x: offset, animated: false }), 50);
-            }
-          }}
         >
           {days.map((day, i) => {
             const isSelected = isSameDay(day, selectedDate);
