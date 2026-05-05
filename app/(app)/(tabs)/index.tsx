@@ -42,6 +42,7 @@ import {
   type HabitAssignment,
   type HabitLog,
 } from "@/src/lib/habits";
+import { HabitRow } from "@/src/components/HabitRow";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -526,55 +527,17 @@ export default function HomeScreen() {
               const weeklyDone = computeWeeklyCompleted(habitLogs, habit.id);
               const isLast = idx === habits.length - 1;
               return (
-                <Pressable
+                <HabitRow
                   key={habit.id}
-                  onPress={() => toggleHabit(habit)}
-                  style={[
-                    styles.taskRow,
-                    {
-                      borderBottomColor: colors.border,
-                      borderBottomWidth: isLast
-                        ? 0
-                        : StyleSheet.hairlineWidth,
-                    },
-                  ]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: completed }}
-                  accessibilityLabel={`${habit.name}, ${
-                    completed ? "completed" : "not completed"
-                  } today`}
-                >
-                  <View
-                    style={[
-                      styles.taskDot,
-                      {
-                        backgroundColor: completed ? colors.success : "transparent",
-                        borderColor: completed ? colors.success : colors.textMuted,
-                      },
-                    ]}
-                  >
-                    {completed && (
-                      <Ionicons name="checkmark" size={12} color="#fff" />
-                    )}
-                  </View>
-                  <View style={styles.taskInfo}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.taskTitle, { color: colors.text }]}
-                    >
-                      {habit.name}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.taskSub, { color: colors.textMuted }]}
-                    >
-                      {habit.frequency === "daily"
-                        ? `${weeklyDone} of 7 this week`
-                        : `${weeklyDone} this week`}
-                      {streak >= 2 ? ` · ${streak}🔥` : ""}
-                    </Text>
-                  </View>
-                </Pressable>
+                  name={habit.name}
+                  frequency={habit.frequency}
+                  weeklyDone={weeklyDone}
+                  streak={streak}
+                  completed={completed}
+                  enabled
+                  isLast={isLast}
+                  onToggle={() => toggleHabit(habit)}
+                />
               );
             })}
         </View>
