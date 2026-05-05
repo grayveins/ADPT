@@ -869,8 +869,15 @@ export function ActiveWorkoutProvider({
           }
         }
 
-        // 4. Update streak
-        const { error: streakError } = await supabase.rpc("update_user_streak", { p_user_id: state.userId });
+        // 4. Update streak — pass the session's actual date (not CURRENT_DATE)
+        // so backfilled workouts don't get attributed to today.
+        const workoutDate = `${startedAt.getFullYear()}-${String(
+          startedAt.getMonth() + 1
+        ).padStart(2, "0")}-${String(startedAt.getDate()).padStart(2, "0")}`;
+        const { error: streakError } = await supabase.rpc("update_user_streak", {
+          p_user_id: state.userId,
+          p_workout_date: workoutDate,
+        });
         if (streakError) console.error(streakError);
 
         // 5. Clear draft — workout saved successfully
