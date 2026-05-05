@@ -15,7 +15,6 @@ export { SetRowNew } from "./SetRowNew";
 export { ExerciseCardNew, type SetData } from "./ExerciseCardNew";
 export { ExerciseSwapModal } from "./ExerciseSwapModal";
 export { RecentWorkoutCard } from "./RecentWorkoutCard";
-export { TemplateCard } from "./TemplateCard";
 export { ProgramCard } from "./ProgramCard";
 export { WorkoutHeader } from "./WorkoutHeader";
 export { AddExerciseButton } from "./AddExerciseButton";
