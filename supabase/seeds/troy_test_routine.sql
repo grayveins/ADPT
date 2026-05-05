@@ -18,7 +18,7 @@
 DO $$
 DECLARE
   COACH_EMAIL TEXT := 'trohoy123@gmail.com';
-  CLIENT_EMAIL TEXT := 'TEST_CLIENT_EMAIL';  -- <<< EDIT THIS
+  CLIENT_EMAIL TEXT := 'test@user.com';
   v_coach_id UUID;
   v_client_id UUID;
   v_program_id UUID;
