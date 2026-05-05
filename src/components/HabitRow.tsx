@@ -68,11 +68,17 @@ export function HabitRow({
         completed ? "completed" : "not completed"
       } today`}
     >
-      <Ionicons
-        name={completed ? "checkbox" : "square-outline"}
-        size={24}
-        color={completed ? colors.text : colors.textMuted}
-      />
+      <View
+        style={[
+          styles.dot,
+          {
+            backgroundColor: completed ? colors.success : "transparent",
+            borderColor: completed ? colors.success : colors.textMuted,
+          },
+        ]}
+      >
+        {completed && <Ionicons name="checkmark" size={12} color="#fff" />}
+      </View>
 
       <View style={styles.info}>
         <Text
@@ -98,6 +104,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     gap: spacing.md,
+  },
+  dot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   info: { flex: 1, gap: 1 },
   title: { fontSize: 15, fontWeight: "500" },
