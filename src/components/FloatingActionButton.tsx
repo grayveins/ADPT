@@ -84,7 +84,7 @@ export function FloatingActionButton() {
     <>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
-          <View style={[styles.menu, { bottom: 155 + insets.bottom }]}>
+          <View style={[styles.menu, { bottom: 227 + insets.bottom }]}>
             {actions.map((action, i) => (
               <Pressable
                 key={i}
@@ -103,7 +103,7 @@ export function FloatingActionButton() {
 
       <Pressable
         onPress={() => { hapticPress(); setOpen(true); }}
-        style={[styles.fab, { bottom: 90 + insets.bottom, backgroundColor: colors.text }]}
+        style={[styles.fab, { bottom: 162 + insets.bottom, backgroundColor: colors.text }]}
       >
         <Ionicons name="add" size={28} color={colors.bg} />
       </Pressable>
@@ -123,7 +123,7 @@ export function FloatingActionButton() {
         style={[
           styles.chatFab,
           {
-            bottom: 162 + insets.bottom,
+            bottom: 90 + insets.bottom,
             backgroundColor: colors.bgSecondary,
             borderColor: colors.border,
           },
