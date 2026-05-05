@@ -1,11 +1,5 @@
 /**
- * Tab Layout
- * 4-tab navigation: Home, Workout, Progress, Coach
- * 
- * Header strategy:
- * - Home: Custom TabHeader with greeting + streak + avatar (manages own)
- * - Workout/Progress: Simple centered title headers
- * - Chat: Custom minimal header (manages own)
+ * Tab Layout — Home, Calendar, Workouts, Meals, Chat.
  */
 
 import React, { useEffect } from "react";
@@ -21,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { layout, spacing } from "@/src/theme";
 import { FloatingActionButton } from "@/src/components/FloatingActionButton";
-// Coach chat removed — no top fitness app uses AI chat (Fitbod, Gravl, MacroFactor all skip it)
+import { useUnreadMessages } from "@/src/hooks/useUnreadMessages";
 
 /** Tab icon with spring scale on focus change */
 function AnimatedTabIcon({
@@ -89,6 +83,7 @@ function SimpleHeader({ title }: { title: string }) {
 export default function TabLayout() {
   const { colors, typography } = useTheme();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useUnreadMessages();
   // Tab bar configuration - use dynamic safe area
   const tabBarHeight = Platform.OS === "ios" ? 49 + insets.bottom : 60;
   const iconSize = 24;
@@ -179,9 +174,28 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              name="chatbubble"
+              outlineName="chatbubble-outline"
+              size={iconSize}
+              color={color}
+              focused={focused}
+            >
+              {unreadCount > 0 && (
+                <View style={[styles.unreadBadge, { backgroundColor: colors.text }]} />
+              )}
+            </AnimatedTabIcon>
+          ),
+        }}
+      />
+
       {/* Hidden legacy tabs — Expo Router requires the files to exist */}
       <Tabs.Screen name="progress" options={{ href: null }} />
-      <Tabs.Screen name="chat" options={{ href: null }} />
       <Tabs.Screen name="social" options={{ href: null }} />
       <Tabs.Screen name="checkin" options={{ href: null }} />
     </Tabs>
