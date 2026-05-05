@@ -43,7 +43,6 @@ import {
   type HabitLog,
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
-import { useUnreadMessages } from "@/src/hooks/useUnreadMessages";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -74,7 +73,6 @@ export default function HomeScreen() {
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
   const { currentStreak } = useStreak(userId);
-  const { unreadCount } = useUnreadMessages();
 
   const days = useMemo(generateDays, []);
   const today = new Date();
@@ -328,6 +326,7 @@ export default function HomeScreen() {
           exercises: JSON.stringify(selectedDayWorkout.exercises || []),
           phaseName: programName || "",
           dayNumber: String(selectedDayWorkout.day_number),
+          sessionDate: format(selectedDate, "yyyy-MM-dd"),
         },
       });
     } else {
@@ -343,7 +342,6 @@ export default function HomeScreen() {
           {greeting}
         </Text>
         <View style={styles.headerActions}>
-          <MessagesButton unread={unreadCount} colors={colors} />
           <AvatarButton name={profileName} colors={colors} />
         </View>
       </View>
@@ -598,38 +596,6 @@ export default function HomeScreen() {
   );
 }
 
-function MessagesButton({ unread, colors }: { unread: number; colors: any }) {
-  const goToChat = () => {
-    hapticPress();
-    router.push("/(app)/(tabs)/chat" as any);
-  };
-  return (
-    <Pressable
-      onPress={goToChat}
-      accessibilityRole="button"
-      accessibilityLabel={
-        unread > 0 ? `Messages, ${unread} unread` : "Messages"
-      }
-      style={[
-        styles.iconButton,
-        { backgroundColor: colors.bgSecondary, borderColor: colors.border },
-      ]}
-    >
-      <Ionicons name="chatbubble-outline" size={18} color={colors.text} />
-      {unread > 0 && (
-        <View style={[styles.unreadBadge, { backgroundColor: colors.text }]}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.unreadBadgeText, { color: colors.bg }]}
-          >
-            {unread > 9 ? "9+" : unread}
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 function AvatarButton({ name, colors }: { name: string; colors: any }) {
   const navigation = useNavigation<any>();
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -660,26 +626,6 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 22, fontWeight: "600" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unreadBadge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unreadBadgeText: { fontSize: 10, fontWeight: "700" },
   avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 15, fontWeight: "600" },
 

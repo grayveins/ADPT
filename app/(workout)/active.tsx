@@ -53,38 +53,47 @@ import {
 // =============================================================================
 
 type ProgramExercise = {
-  name: string;
+  name?: string;
+  exercise_name?: string;
   sets: number;
   reps: string;
   rir: number;
   notes?: string;
   muscleGroup?: string;
+  primary_muscles?: string[];
+  rest_seconds?: number;
 };
 
 function parseInitialExercises(exercisesJson?: string): ActiveExercise[] {
   if (!exercisesJson) return [];
   try {
     const parsed = JSON.parse(exercisesJson) as ProgramExercise[];
-    return parsed.map((ex, i) => ({
-      id: `ex-init-${i}`,
-      name: ex.name,
-      muscles: ex.muscleGroup ? [ex.muscleGroup] : [],
-      sets: Array.from({ length: ex.sets }, (_, j) => ({
-        id: `set-init-${i}-${j}`,
-        weight: "",
-        reps: "",
-        completed: false,
-        isWarmup: false,
-        isPR: false,
-      })),
-      targetReps: ex.reps,
-      targetRIR: ex.rir,
-      notes: ex.notes || "",
-      groupId: null,
-      orderIndex: i,
-      isExpanded: i === 0,
-      restTimerSeconds: 90,
-    }));
+    return parsed.map((ex, i) => {
+      const name = ex.name ?? ex.exercise_name ?? "Exercise";
+      const muscles = ex.muscleGroup
+        ? [ex.muscleGroup]
+        : ex.primary_muscles ?? [];
+      return {
+        id: `ex-init-${i}`,
+        name,
+        muscles,
+        sets: Array.from({ length: ex.sets }, (_, j) => ({
+          id: `set-init-${i}-${j}`,
+          weight: "",
+          reps: "",
+          completed: false,
+          isWarmup: false,
+          isPR: false,
+        })),
+        targetReps: ex.reps,
+        targetRIR: ex.rir,
+        notes: ex.notes || "",
+        groupId: null,
+        orderIndex: i,
+        isExpanded: i === 0,
+        restTimerSeconds: ex.rest_seconds ?? 90,
+      };
+    });
   } catch {
     return [];
   }
@@ -536,6 +545,7 @@ export default function ActiveWorkoutScreen() {
     exercises?: string;
     sourceType?: string;
     sourceId?: string;
+    sessionDate?: string;
   }>();
 
   const workoutType = params.type || "Full Body";
@@ -600,6 +610,7 @@ export default function ActiveWorkoutScreen() {
       initialTitle={workoutName}
       sourceType={sourceType}
       sourceId={params.sourceId}
+      sessionDate={params.sessionDate}
     >
       <ActiveWorkoutInner />
     </ActiveWorkoutProvider>
