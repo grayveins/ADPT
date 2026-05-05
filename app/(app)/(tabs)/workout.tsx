@@ -111,6 +111,23 @@ export default function WorkoutScreen() {
 
   const openWorkoutDetail = (workout: PhaseWorkout) => {
     hapticPress();
+    // Map day_number (1..7 Mon..Sun) to the most recent calendar date for that
+    // weekday — so a Mon workout opened on Tue saves to yesterday, not today.
+    // Future days in the current week pass no sessionDate (defaults to today).
+    const today = new Date();
+    const todayDow = today.getDay() || 7;
+    const offset = todayDow - workout.day_number;
+    const sessionDate = offset >= 0
+      ? (() => {
+          const d = new Date(today);
+          d.setDate(today.getDate() - offset);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        })()
+      : undefined;
+
     router.push({
       pathname: "/(workout)/program-detail",
       params: {
@@ -118,6 +135,7 @@ export default function WorkoutScreen() {
         exercises: JSON.stringify(workout.exercises || []),
         phaseName: phaseName || "",
         dayNumber: String(workout.day_number),
+        ...(sessionDate ? { sessionDate } : {}),
       },
     });
   };
