@@ -28,13 +28,7 @@ import { supabase } from "@/lib/supabase";
 export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const {
-    isPro,
-    isTrialActive: rcTrialActive,
-    subscriptionStatus,
-    formattedExpirationDate,
-    restorePurchases,
-  } = useSubscription();
+  const { isPro, isTrialing: rcTrialActive, restorePurchases } = useSubscription();
   const { isTrialActive: reverseTrial, daysRemaining } = useReverseTrial();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -96,7 +90,7 @@ export default function SettingsScreen() {
               <View style={[styles.proBadge, { backgroundColor: colors.primaryMuted }]}>
                 <Ionicons name="star" size={14} color={colors.primary} />
                 <Text allowFontScaling={false} style={[styles.proBadgeText, { color: colors.primary }]}>
-                  {subscriptionStatus}
+                  Pro
                 </Text>
               </View>
               {rcTrialActive && (
@@ -105,11 +99,6 @@ export default function SettingsScreen() {
                 </View>
               )}
             </View>
-            {formattedExpirationDate && (
-              <Text allowFontScaling={false} style={[styles.proSubtext, { color: colors.textMuted }]}>
-                {rcTrialActive ? "Trial ends" : "Renews"} {formattedExpirationDate}
-              </Text>
-            )}
             <Pressable onPress={handleManageSubscription} style={[styles.manageBtn, { borderColor: colors.border }]}>
               <Text allowFontScaling={false} style={[styles.manageBtnText, { color: colors.text }]}>
                 Manage Subscription
