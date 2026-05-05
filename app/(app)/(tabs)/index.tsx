@@ -32,6 +32,16 @@ import {
   setCustomTaskCompleted,
   type CoachTask,
 } from "@/src/lib/coachTasks";
+import {
+  fetchActiveHabits,
+  fetchHabitLogs,
+  setHabitLog,
+  computeCurrentStreak,
+  computeWeeklyCompleted,
+  todayLocalISO,
+  type HabitAssignment,
+  type HabitLog,
+} from "@/src/lib/habits";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -56,6 +66,8 @@ export default function HomeScreen() {
   const [programName, setProgramName] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
   const [coachTasks, setCoachTasks] = useState<CoachTask[]>([]);
+  const [habits, setHabits] = useState<HabitAssignment[]>([]);
+  const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
 
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
@@ -146,6 +158,100 @@ export default function HomeScreen() {
       .catch(() => { if (!cancelled) setCoachTasks([]); });
     return () => { cancelled = true; };
   }, [userId, selectedDate]);
+
+  // Habits — only relevant for "today." Future days don't get a checkbox
+  // (you can't pre-complete tomorrow's water intake), past days are
+  // read-only history. Keeps the affordance unambiguous.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const active = await fetchActiveHabits(userId);
+        if (cancelled) return;
+        setHabits(active);
+
+        if (active.length === 0) {
+          setHabitLogs([]);
+          return;
+        }
+        // Pull last 30 days of logs so the streak walk has enough data.
+        const today = todayLocalISO();
+        const from = new Date();
+        from.setDate(from.getDate() - 30);
+        const fromISO = from.toISOString().slice(0, 10);
+        const logs = await fetchHabitLogs({
+          clientId: userId,
+          assignmentIds: active.map((h) => h.id),
+          fromDate: fromISO,
+          toDate: today,
+        });
+        if (!cancelled) setHabitLogs(logs);
+      } catch {
+        if (!cancelled) {
+          setHabits([]);
+          setHabitLogs([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const toggleHabit = useCallback(
+    async (habit: HabitAssignment) => {
+      if (!userId || !isToday) return;
+      const today = todayLocalISO();
+      const existing = habitLogs.find(
+        (l) => l.assignment_id === habit.id && l.date === today
+      );
+      const wasCompleted = !!existing?.completed;
+      const next = !wasCompleted;
+
+      // Optimistic update
+      setHabitLogs((prev) => {
+        if (existing) {
+          return prev.map((l) =>
+            l.id === existing.id ? { ...l, completed: next } : l
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: `tmp-${Date.now()}`,
+            assignment_id: habit.id,
+            client_id: userId,
+            date: today,
+            completed: next,
+            value: null,
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
+      hapticPress();
+
+      try {
+        await setHabitLog({
+          clientId: userId,
+          assignmentId: habit.id,
+          date: today,
+          completed: next,
+        });
+      } catch {
+        // Roll back
+        setHabitLogs((prev) => {
+          if (existing) {
+            return prev.map((l) =>
+              l.id === existing.id ? { ...l, completed: wasCompleted } : l
+            );
+          }
+          return prev.filter((l) => !l.id.startsWith("tmp-"));
+        });
+      }
+    },
+    [userId, habitLogs, isToday]
+  );
 
   const toggleCustomTask = useCallback(async (task: CoachTask) => {
     const wasCompleted = !!task.manually_completed_at;
@@ -405,6 +511,72 @@ export default function HomeScreen() {
               </Pressable>
             );
           })}
+
+          {/* Coach-set habits — only checkable on "today." Past/future days
+              show the row read-only so the user knows the habit exists
+              without an ambiguous "complete tomorrow" affordance. */}
+          {isToday &&
+            habits.map((habit, idx) => {
+              const today = todayLocalISO();
+              const log = habitLogs.find(
+                (l) => l.assignment_id === habit.id && l.date === today
+              );
+              const completed = !!log?.completed;
+              const streak = computeCurrentStreak(habitLogs, habit.id, today);
+              const weeklyDone = computeWeeklyCompleted(habitLogs, habit.id);
+              const isLast = idx === habits.length - 1;
+              return (
+                <Pressable
+                  key={habit.id}
+                  onPress={() => toggleHabit(habit)}
+                  style={[
+                    styles.taskRow,
+                    {
+                      borderBottomColor: colors.border,
+                      borderBottomWidth: isLast
+                        ? 0
+                        : StyleSheet.hairlineWidth,
+                    },
+                  ]}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: completed }}
+                  accessibilityLabel={`${habit.name}, ${
+                    completed ? "completed" : "not completed"
+                  } today`}
+                >
+                  <View
+                    style={[
+                      styles.taskDot,
+                      {
+                        backgroundColor: completed ? colors.success : "transparent",
+                        borderColor: completed ? colors.success : colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {completed && (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    )}
+                  </View>
+                  <View style={styles.taskInfo}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.taskTitle, { color: colors.text }]}
+                    >
+                      {habit.name}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.taskSub, { color: colors.textMuted }]}
+                    >
+                      {habit.frequency === "daily"
+                        ? `${weeklyDone} of 7 this week`
+                        : `${weeklyDone} this week`}
+                      {streak >= 2 ? ` · ${streak}🔥` : ""}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
         </View>
 
         {/* My Progress section */}
