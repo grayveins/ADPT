@@ -26,6 +26,9 @@ type SetRowNewProps = {
   onComplete: () => void;
   onWeightChange: (weight: string) => void;
   onRepsChange: (reps: string) => void;
+  /** Tap-to-fill from PREVIOUS column. Called with the previous
+   *  weight/reps when the user taps the cell. */
+  onCopyPrevious?: (weight: string, reps: string) => void;
   disabled?: boolean;
   isPR?: boolean;
   closeToPR?: boolean;
@@ -43,6 +46,7 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   onComplete,
   onWeightChange,
   onRepsChange,
+  onCopyPrevious,
   disabled = false,
 }) => {
   const { colors } = useTheme();
@@ -83,14 +87,40 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
         {setNumber}
       </Text>
 
-      {/* Previous */}
-      <Text
-        allowFontScaling={false}
-        numberOfLines={1}
-        style={[styles.prev, { color: colors.textMuted }]}
+      {/* Previous — tap to copy into current set's weight + reps. */}
+      <Pressable
+        onPress={(e) => {
+          // Stop propagation so tapping doesn't toggle the row's completion.
+          e.stopPropagation?.();
+          if (
+            !onCopyPrevious ||
+            disabled ||
+            completed ||
+            !previousWeight ||
+            !previousReps
+          ) {
+            return;
+          }
+          onCopyPrevious(previousWeight, previousReps);
+        }}
+        hitSlop={6}
+        style={styles.prevWrap}
+        accessibilityRole="button"
+        accessibilityLabel={
+          previousWeight && previousReps
+            ? `Copy previous set: ${previousReps} reps at ${previousWeight} pounds`
+            : "No previous set"
+        }
+        disabled={disabled || completed || !previousWeight || !previousReps}
       >
-        {prevText}
-      </Text>
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={[styles.prev, { color: colors.textMuted }]}
+        >
+          {prevText}
+        </Text>
+      </Pressable>
 
       {/* Reps input — placed before weight per coach preference (rep target drives the set) */}
       <TextInput
@@ -158,8 +188,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
-  prev: {
+  prevWrap: {
     width: 80,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prev: {
     fontSize: 12,
     textAlign: "center",
   },

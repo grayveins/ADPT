@@ -33,6 +33,8 @@ type ExerciseCardNewProps = {
   onSetChange: (setId: string, field: "weight" | "reps", value: string) => void;
   onSwapExercise?: () => void;
   onShowInfo?: () => void;
+  /** Tap-on-name handler — opens the ExerciseHistorySheet. */
+  onShowHistory?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 };
@@ -49,6 +51,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
   onSetChange,
   onSwapExercise,
   onShowInfo,
+  onShowHistory,
 }) => {
   const { colors } = useTheme();
 
@@ -59,7 +62,17 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Exercise header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <Pressable
+          style={styles.headerLeft}
+          onPress={() => {
+            if (!onShowHistory) return;
+            hapticPress();
+            onShowHistory();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${name}, view history`}
+          disabled={!onShowHistory}
+        >
           <Text
             allowFontScaling={false}
             style={[styles.exerciseName, { color: colors.text }]}
@@ -73,7 +86,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           >
             {`Set ${completedSets} of ${totalSets} · ${targetReps || "8-12"} reps · RIR ${targetRIR ?? 2}`}
           </Text>
-        </View>
+        </Pressable>
         {currentPRWeight != null && currentPRWeight > 0 && (
           <View style={[styles.prBadge, { borderColor: colors.border }]}>
             <Text allowFontScaling={false} style={[styles.prText, { color: colors.text }]}>
@@ -132,6 +145,10 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
             onComplete={() => onSetComplete(set.id)}
             onWeightChange={(value) => onSetChange(set.id, "weight", value)}
             onRepsChange={(value) => onSetChange(set.id, "reps", value)}
+            onCopyPrevious={(prevWeight, prevReps) => {
+              onSetChange(set.id, "weight", prevWeight);
+              onSetChange(set.id, "reps", prevReps);
+            }}
           />
         );
       })}
