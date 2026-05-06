@@ -338,7 +338,7 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text allowFontScaling={false} style={[styles.greeting, { color: colors.text }]}>
+        <Text allowFontScaling={false} style={[styles.greeting, { color: colors.textMuted }]}>
           {greeting}
         </Text>
         <View style={styles.headerActions}>
@@ -621,10 +621,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.base,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xs,
   },
-  greeting: { fontSize: 22, fontWeight: "600" },
+  greeting: { fontSize: 14, fontWeight: "500", letterSpacing: 0.2 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 15, fontWeight: "600" },
@@ -632,14 +632,14 @@ const styles = StyleSheet.create({
   dateRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.lg,
   },
-  dateLabel: { fontSize: 16, fontWeight: "600" },
-  todayLink: { fontSize: 14, fontWeight: "600" },
+  dateLabel: { fontSize: 32, fontWeight: "700", letterSpacing: -0.5 },
+  todayLink: { fontSize: 14, fontWeight: "600", paddingBottom: 6 },
 
-  dayStrip: { paddingHorizontal: spacing.sm, gap: 0, paddingBottom: spacing.sm },
+  dayStrip: { paddingHorizontal: spacing.sm, gap: 0, paddingBottom: spacing.base },
   dayChip: {
     flex: 1,
     minWidth: 52,
