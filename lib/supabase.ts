@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-// TODO Sprint 2: wire Database types into createClient<Database>(...)
-// import type { Database } from '@/types/database';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -23,7 +21,30 @@ const missingConfigHandler: ProxyHandler<SupabaseClientInstance> = {
 let supabaseInstance: SupabaseClientInstance;
 
 if (supabaseUrl && supabaseAnonKey) {
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  // Lazy-load RN-only modules so jest (node env, no RN transform) can still
+  // load this file via transitive imports without exploding.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { AppState } = require('react-native');
+
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  });
+
+  // Pause the auto-refresh loop while backgrounded; resume on foreground.
+  AppState.addEventListener('change', (next: string) => {
+    if (next === 'active') {
+      supabaseInstance.auth.startAutoRefresh();
+    } else {
+      supabaseInstance.auth.stopAutoRefresh();
+    }
+  });
 } else {
   supabaseInstance = new Proxy(
     {} as SupabaseClientInstance,
