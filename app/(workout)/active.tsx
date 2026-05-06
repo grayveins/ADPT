@@ -359,6 +359,7 @@ function ActiveWorkoutInner() {
             }}
             onShowInfo={() => setShowExerciseInfo(exercise.name)}
             onShowHistory={() => setHistoryExerciseId(exercise.id)}
+            onAddSet={() => actions.addSet(exercise.id)}
           />
 
           {/* Notes section */}
