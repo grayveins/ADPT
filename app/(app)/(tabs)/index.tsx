@@ -346,29 +346,29 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Date label */}
-      <View style={styles.dateRow}>
-        <Text allowFontScaling={false} style={[styles.dateLabel, { color: colors.text }]}>
-          {format(selectedDate, "MMMM d")}
-          {isToday ? "" : ` · ${format(selectedDate, "EEEE")}`}
-        </Text>
-        {!isToday && (
-          <Pressable onPress={() => setSelectedDate(new Date())}>
-            <Text allowFontScaling={false} style={[styles.todayLink, { color: colors.text }]}>
-              Today
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
       {/* Main content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
       >
-        {/* Day selector inside scroll — no gap. Scroll behavior lives in
-            the dayStripRef effect above so taps re-snap the selection. */}
+        {/* Date label scrolls with content */}
+        <View style={styles.dateRow}>
+          <Text allowFontScaling={false} style={[styles.dateLabel, { color: colors.text }]}>
+            {format(selectedDate, "MMMM d")}
+            {isToday ? "" : ` · ${format(selectedDate, "EEEE")}`}
+          </Text>
+          {!isToday && (
+            <Pressable onPress={() => setSelectedDate(new Date())}>
+              <Text allowFontScaling={false} style={[styles.todayLink, { color: colors.text }]}>
+                Today
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Day selector. Scroll behavior lives in the dayStripRef effect
+            above so taps re-snap the selection. */}
         <ScrollView
           ref={dayStripRef}
           horizontal
@@ -451,18 +451,13 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Nutrition task (shown only if no coach-scheduled macros task today) */}
+          {/* Nutrition row (shown only if no coach-scheduled macros task today) */}
           {macros && !coachTasks.some((t) => t.task_type === "macros") && (
             <Pressable onPress={() => router.push("/(app)/(tabs)/meals" as any)} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
               <View style={[styles.taskDot, { borderColor: colors.textMuted }]} />
-              <View style={styles.taskInfo}>
-                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
-                  Hit your daily nutrition goal
-                </Text>
-                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
-                  {macros.calories} cal · {macros.protein_g}g P · {macros.carbs_g}g C · {macros.fat_g}g F
-                </Text>
-              </View>
+              <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text, flex: 1 }]}>
+                Nutrition
+              </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
@@ -528,33 +523,33 @@ export default function HomeScreen() {
             );
           })}
 
-          {/* Coach-set habits — only checkable on "today." Past/future days
-              show the row read-only so the user knows the habit exists
-              without an ambiguous "complete tomorrow" affordance. */}
-          {isToday &&
-            habits.map((habit, idx) => {
-              const today = todayLocalISO();
-              const log = habitLogs.find(
-                (l) => l.assignment_id === habit.id && l.date === today
-              );
-              const completed = !!log?.completed;
-              const streak = computeCurrentStreak(habitLogs, habit.id, today);
-              const weeklyDone = computeWeeklyCompleted(habitLogs, habit.id);
-              const isLast = idx === habits.length - 1;
-              return (
-                <HabitRow
-                  key={habit.id}
-                  name={habit.name}
-                  frequency={habit.frequency}
-                  weeklyDone={weeklyDone}
-                  streak={streak}
-                  completed={completed}
-                  enabled
-                  isLast={isLast}
-                  onToggle={() => toggleHabit(habit)}
-                />
-              );
-            })}
+          {/* Coach-set habits — visible on every day with that day's log
+              state. Only checkable on "today" — past/future days are
+              read-only since the act of completing them happened (or
+              didn't) at that point in time. */}
+          {habits.map((habit, idx) => {
+            const dateStr = format(selectedDate, "yyyy-MM-dd");
+            const log = habitLogs.find(
+              (l) => l.assignment_id === habit.id && l.date === dateStr
+            );
+            const completed = !!log?.completed;
+            const streak = computeCurrentStreak(habitLogs, habit.id, todayLocalISO());
+            const weeklyDone = computeWeeklyCompleted(habitLogs, habit.id);
+            const isLast = idx === habits.length - 1;
+            return (
+              <HabitRow
+                key={habit.id}
+                name={habit.name}
+                frequency={habit.frequency}
+                weeklyDone={weeklyDone}
+                streak={streak}
+                completed={completed}
+                enabled={isToday}
+                isLast={isLast}
+                onToggle={() => toggleHabit(habit)}
+              />
+            );
+          })}
         </View>
 
         {/* My Progress section */}
@@ -636,8 +631,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
-  dateLabel: { fontSize: 32, fontWeight: "700", letterSpacing: -0.5 },
-  todayLink: { fontSize: 14, fontWeight: "600", paddingBottom: 6 },
+  dateLabel: { fontSize: 22, fontWeight: "700", letterSpacing: -0.3 },
+  todayLink: { fontSize: 14, fontWeight: "600" },
 
   dayStrip: { paddingHorizontal: spacing.sm, gap: 0, paddingBottom: spacing.base },
   dayChip: {
