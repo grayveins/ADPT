@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
@@ -40,11 +41,19 @@ type WorkoutEvent = {
   title: string | null;
 };
 
+type HabitEvent = {
+  id: string;
+  date: string;
+  habit_name: string;
+};
+
 export default function CalendarScreen() {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sessions, setSessions] = useState<SessionEvent[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEvent[]>([]);
+  const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
+  const [macroDates, setMacroDates] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,28 +62,67 @@ export default function CalendarScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const monthStart = startOfMonth(currentMonth).toISOString();
-    const monthEnd = endOfMonth(currentMonth).toISOString();
+    const monthStartIso = startOfMonth(currentMonth).toISOString();
+    const monthEndIso = endOfMonth(currentMonth).toISOString();
+    const monthStartYmd = format(startOfMonth(currentMonth), "yyyy-MM-dd");
+    const monthEndYmd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-    const [sessionRes, workoutRes] = await Promise.all([
+    const [sessionRes, workoutRes, habitRes, allKeys] = await Promise.all([
       supabase
         .from("sessions")
         .select("id, scheduled_at, duration_minutes, location, notes, status")
         .eq("client_id", user.id)
-        .gte("scheduled_at", monthStart)
-        .lte("scheduled_at", monthEnd)
+        .gte("scheduled_at", monthStartIso)
+        .lte("scheduled_at", monthEndIso)
         .order("scheduled_at"),
       supabase
         .from("workout_sessions")
         .select("id, started_at, title")
         .eq("user_id", user.id)
-        .gte("started_at", monthStart)
-        .lte("started_at", monthEnd)
+        .gte("started_at", monthStartIso)
+        .lte("started_at", monthEndIso)
         .order("started_at"),
+      supabase
+        .from("habit_logs")
+        .select("id, date, completed, habit_assignments(name)")
+        .eq("client_id", user.id)
+        .eq("completed", true)
+        .gte("date", monthStartYmd)
+        .lte("date", monthEndYmd)
+        .order("date"),
+      AsyncStorage.getAllKeys().catch(() => [] as readonly string[]),
     ]);
 
     if (sessionRes.data) setSessions(sessionRes.data);
     if (workoutRes.data) setWorkouts(workoutRes.data);
+    if (habitRes.data) {
+      const events: HabitEvent[] = (habitRes.data as any[])
+        .map((row) => ({
+          id: row.id as string,
+          date: row.date as string,
+          habit_name: (row.habit_assignments?.name as string) ?? "Habit",
+        }));
+      setHabitEvents(events);
+    }
+
+    // Macros per-day flags live in AsyncStorage; read once per month load.
+    const macroKeys = (allKeys as readonly string[]).filter((k) =>
+      k.startsWith("dailyFlag:macros:")
+    );
+    if (macroKeys.length > 0) {
+      const pairs = await AsyncStorage.multiGet(macroKeys).catch(() => [] as [string, string | null][]);
+      const dates = new Set<string>();
+      for (const [k, v] of pairs) {
+        if (v !== "1") continue;
+        const ymd = k.split(":")[2];
+        if (!ymd) continue;
+        if (ymd >= monthStartYmd && ymd <= monthEndYmd) dates.add(ymd);
+      }
+      setMacroDates(dates);
+    } else {
+      setMacroDates(new Set());
+    }
+
     setLoading(false);
   }, [currentMonth]);
 
@@ -100,6 +148,10 @@ export default function CalendarScreen() {
     () => new Set(workouts.map((w) => format(new Date(w.started_at), "yyyy-MM-dd"))),
     [workouts]
   );
+  const habitDates = useMemo(
+    () => new Set(habitEvents.map((h) => h.date)),
+    [habitEvents]
+  );
 
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
   const dayEvents = useMemo(() => {
@@ -109,8 +161,10 @@ export default function CalendarScreen() {
     const dayWorkouts = workouts.filter(
       (w) => format(new Date(w.started_at), "yyyy-MM-dd") === selectedDateStr
     );
-    return { sessions: daySessions, workouts: dayWorkouts };
-  }, [sessions, workouts, selectedDateStr]);
+    const dayHabits = habitEvents.filter((h) => h.date === selectedDateStr);
+    const macrosHit = macroDates.has(selectedDateStr);
+    return { sessions: daySessions, workouts: dayWorkouts, habits: dayHabits, macrosHit };
+  }, [sessions, workouts, habitEvents, macroDates, selectedDateStr]);
 
   const today = new Date();
 
@@ -147,6 +201,8 @@ export default function CalendarScreen() {
           const inMonth = isSameMonth(day, currentMonth);
           const hasSession = sessionDates.has(dateStr);
           const hasWorkout = workoutDates.has(dateStr);
+          const hasHabit = habitDates.has(dateStr);
+          const hasMacros = macroDates.has(dateStr);
 
           return (
             <Pressable
@@ -172,13 +228,19 @@ export default function CalendarScreen() {
                   {format(day, "d")}
                 </Text>
               </View>
-              {(hasSession || hasWorkout) && (
+              {(hasSession || hasWorkout || hasHabit || hasMacros) && (
                 <View style={styles.dotRow}>
                   {hasSession && (
                     <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.text }]} />
                   )}
                   {hasWorkout && (
                     <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.textMuted }]} />
+                  )}
+                  {hasHabit && (
+                    <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.success }]} />
+                  )}
+                  {hasMacros && (
+                    <View style={[styles.dot, { backgroundColor: isSelected ? colors.bg : colors.text, opacity: isSelected ? 1 : 0.5 }]} />
                   )}
                 </View>
               )}
@@ -232,11 +294,40 @@ export default function CalendarScreen() {
           </View>
         ))}
 
-        {dayEvents.sessions.length === 0 && dayEvents.workouts.length === 0 && !loading && (
-          <Text allowFontScaling={false} style={[styles.noEvents, { color: colors.textMuted }]}>
-            Nothing scheduled
-          </Text>
+        {dayEvents.habits.map((h) => (
+          <View key={h.id} style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
+            <View style={styles.eventInfo}>
+              <Text allowFontScaling={false} style={[styles.eventTitle, { color: colors.text }]}>
+                {h.habit_name}
+              </Text>
+              <Text allowFontScaling={false} style={[styles.eventMeta, { color: colors.textMuted }]}>
+                Habit completed
+              </Text>
+            </View>
+          </View>
+        ))}
+
+        {dayEvents.macrosHit && (
+          <View style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
+            <Ionicons name="restaurant-outline" size={18} color={colors.text} />
+            <View style={styles.eventInfo}>
+              <Text allowFontScaling={false} style={[styles.eventTitle, { color: colors.text }]}>
+                Nutrition goal hit
+              </Text>
+            </View>
+          </View>
         )}
+
+        {dayEvents.sessions.length === 0 &&
+          dayEvents.workouts.length === 0 &&
+          dayEvents.habits.length === 0 &&
+          !dayEvents.macrosHit &&
+          !loading && (
+            <Text allowFontScaling={false} style={[styles.noEvents, { color: colors.textMuted }]}>
+              Nothing scheduled
+            </Text>
+          )}
       </ScrollView>
     </SafeAreaView>
   );
