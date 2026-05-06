@@ -1,9 +1,9 @@
 /**
  * HabitRow — Trainerize-style toggle for a coach-assigned habit.
- * Monochrome, no flash, no pulse. Single haptic on tap.
+ * Monochrome, no flash, no pulse. Title + checkbox only.
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -13,8 +13,10 @@ import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 
 type Props = {
   name: string;
-  weeklyDone: number;
-  streak: number;
+  /** Kept for future use; not rendered. */
+  weeklyDone?: number;
+  /** Kept for future use; not rendered. */
+  streak?: number;
   completed: boolean;
   celebrateStreak?: boolean;
   enabled: boolean;
@@ -25,12 +27,9 @@ type Props = {
 
 export function HabitRow({
   name,
-  weeklyDone,
-  streak,
   completed,
   enabled,
   isLast,
-  frequency,
   onToggle,
 }: Props) {
   const { colors } = useTheme();
@@ -42,15 +41,6 @@ export function HabitRow({
     onToggle();
   };
 
-  const subtitle = useMemo(() => {
-    const base =
-      frequency === "daily"
-        ? `${weeklyDone} of 7 this week`
-        : `${weeklyDone} this week`;
-    if (streak >= 2) return `${base} · ${streak}🔥`;
-    return base;
-  }, [frequency, weeklyDone, streak]);
-
   return (
     <Pressable
       onPress={handlePress}
@@ -60,13 +50,12 @@ export function HabitRow({
         {
           borderBottomColor: colors.border,
           borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          opacity: enabled ? 1 : 0.85,
         },
       ]}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: completed, disabled: !enabled }}
-      accessibilityLabel={`${name}, ${
-        completed ? "completed" : "not completed"
-      } today`}
+      accessibilityLabel={`${name}, ${completed ? "completed" : "not completed"}`}
     >
       <View
         style={[
@@ -80,20 +69,12 @@ export function HabitRow({
         {completed && <Ionicons name="checkmark" size={12} color="#fff" />}
       </View>
 
-      <View style={styles.info}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.title, { color: colors.text }]}
-        >
-          {name}
-        </Text>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sub, { color: colors.textMuted }]}
-        >
-          {subtitle}
-        </Text>
-      </View>
+      <Text
+        allowFontScaling={false}
+        style={[styles.title, { color: colors.text }]}
+      >
+        {name}
+      </Text>
     </Pressable>
   );
 }
@@ -113,9 +94,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  info: { flex: 1, gap: 1 },
-  title: { fontSize: 15, fontWeight: "500" },
-  sub: { fontSize: 13 },
+  title: { flex: 1, fontSize: 15, fontWeight: "500" },
 });
 
 export default HabitRow;
