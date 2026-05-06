@@ -451,13 +451,18 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Nutrition row (shown only if no coach-scheduled macros task today) */}
+          {/* Nutrition row — verbose macros breakdown, tappable like a habit */}
           {macros && !coachTasks.some((t) => t.task_type === "macros") && (
             <Pressable onPress={() => router.push("/(app)/(tabs)/meals" as any)} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
               <View style={[styles.taskDot, { borderColor: colors.textMuted }]} />
-              <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text, flex: 1 }]}>
-                Nutrition
-              </Text>
+              <View style={styles.taskInfo}>
+                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
+                  Hit your daily nutrition goal
+                </Text>
+                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
+                  {macros.calories} cal · {macros.protein_g}g P · {macros.carbs_g}g C · {macros.fat_g}g F
+                </Text>
+              </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
