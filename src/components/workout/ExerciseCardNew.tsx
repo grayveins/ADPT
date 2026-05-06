@@ -35,6 +35,7 @@ type ExerciseCardNewProps = {
   onShowInfo?: () => void;
   /** Tap-on-name handler — opens the ExerciseHistorySheet. */
   onShowHistory?: () => void;
+  onAddSet?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 };
@@ -52,6 +53,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
   onSwapExercise,
   onShowInfo,
   onShowHistory,
+  onAddSet,
 }) => {
   const { colors } = useTheme();
 
@@ -152,6 +154,20 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           />
         );
       })}
+
+      {onAddSet && (
+        <Pressable
+          onPress={() => { hapticPress(); onAddSet(); }}
+          accessibilityRole="button"
+          accessibilityLabel="Add set"
+          style={[styles.addSetButton, { borderColor: colors.border }]}
+        >
+          <Ionicons name="add" size={16} color={colors.textSecondary} />
+          <Text allowFontScaling={false} style={[styles.addSetText, { color: colors.textSecondary }]}>
+            Add Set
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 };
@@ -226,6 +242,19 @@ const styles = StyleSheet.create({
   weightCol: { flex: 1, textAlign: "center" },
   repsCol: { flex: 1, textAlign: "center" },
   doneCol: { width: 32 },
+  addSetButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginHorizontal: spacing.base,
+    marginTop: spacing.sm,
+    paddingVertical: 10,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: "dashed",
+  },
+  addSetText: { fontSize: 13, fontWeight: "500" },
 });
 
 export default ExerciseCardNew;

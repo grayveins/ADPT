@@ -12,15 +12,17 @@ import {
   Pressable,
   TextInput,
   FlatList,
+  DeviceEventEmitter,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
-import { useActiveWorkoutSafe } from "@/src/context/ActiveWorkoutContext";
 import { useExercises, type DBExercise } from "@/src/hooks/useExercises";
 import { spacing, radius } from "@/src/theme";
+
+export const ADD_EXERCISE_EVENT = "workout:addExercise";
 
 const MUSCLE_GROUPS: { id: string; label: string; muscles: string[] }[] = [
   { id: "chest", label: "Chest", muscles: ["chest"] },
@@ -88,8 +90,6 @@ export default function ExercisesScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ mode?: string }>();
   const isAddMode = params.mode === "add";
-  const workoutCtx = useActiveWorkoutSafe();
-  const workoutActions = isAddMode ? workoutCtx?.actions ?? null : null;
 
   const { exercises, loading, search, setSearch, muscleFilter, setMuscleFilter } = useExercises();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -97,20 +97,13 @@ export default function ExercisesScreen() {
 
   const toggleExercise = useCallback((ex: DBExercise) => {
     hapticPress();
-    if (isAddMode && workoutActions) {
-      workoutActions.addExercise({
+    if (isAddMode) {
+      // The active-workout provider is mounted in active.tsx, not above this
+      // sibling stack screen, so we can't dispatch directly. Emit an event;
+      // active.tsx subscribes and dispatches addExercise.
+      DeviceEventEmitter.emit(ADD_EXERCISE_EVENT, {
         name: ex.name,
         muscles: ex.primary_muscles || [],
-        sets: [
-          { id: `set-add-0`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
-          { id: `set-add-1`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
-          { id: `set-add-2`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
-        ],
-        targetReps: "8-12",
-        targetRIR: 2,
-        notes: "",
-        groupId: null,
-        restTimerSeconds: 90,
       });
       hapticSuccess();
       router.back();
@@ -121,7 +114,7 @@ export default function ExercisesScreen() {
       next.has(ex.name) ? next.delete(ex.name) : next.add(ex.name);
       return next;
     });
-  }, [isAddMode, workoutActions]);
+  }, [isAddMode]);
 
   const startWorkout = useCallback(() => {
     if (selected.size === 0) return;

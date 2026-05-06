@@ -15,8 +15,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { Alert } from "react-native";
-import { AppState } from "react-native";
+import { Alert, AppState, DeviceEventEmitter } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -609,6 +608,34 @@ export function ActiveWorkoutProvider({
     });
     return () => sub.remove();
   }, [state]);
+
+  // Listen for adds dispatched from the sibling exercises picker.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(
+      "workout:addExercise",
+      (payload: { name: string; muscles?: string[] }) => {
+        const seed = Date.now();
+        dispatch({
+          type: "ADD_EXERCISE",
+          exercise: {
+            name: payload.name,
+            muscles: payload.muscles ?? [],
+            sets: [
+              { id: `set-add-${seed}-0`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
+              { id: `set-add-${seed}-1`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
+              { id: `set-add-${seed}-2`, weight: "", reps: "", completed: false, isWarmup: false, isPR: false },
+            ],
+            targetReps: "8-12",
+            targetRIR: 2,
+            notes: "",
+            groupId: null,
+            restTimerSeconds: 90,
+          },
+        });
+      }
+    );
+    return () => sub.remove();
+  }, []);
 
   // Progress
   const progress = useMemo<ActiveWorkoutProgress>(() => {
