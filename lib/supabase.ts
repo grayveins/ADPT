@@ -37,8 +37,13 @@ if (supabaseUrl && supabaseAnonKey) {
     },
   });
 
-  // Pause the auto-refresh loop while backgrounded; resume on foreground.
-  AppState.addEventListener('change', (next: string) => {
+  // Survive Fast Refresh: store the subscription handle on globalThis so a
+  // re-run of this module body can tear down the prior listener instead of
+  // stacking N copies that all churn token refreshes.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any;
+  g.__adpt_supabase_appstate_sub__?.remove?.();
+  g.__adpt_supabase_appstate_sub__ = AppState.addEventListener('change', (next: string) => {
     if (next === 'active') {
       supabaseInstance.auth.startAutoRefresh();
     } else {

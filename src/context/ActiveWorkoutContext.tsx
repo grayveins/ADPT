@@ -22,6 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { haptic, hapticPress, hapticSuccess, hapticCelebration } from "@/src/animations/feedback/haptics";
 import { showToast } from "@/src/animations/celebrations";
 import { invalidateAndNotify } from "@/lib/coachContextCache";
+import { computeSessionTimestamps } from "@/src/lib/sessionDate";
 // EffortLevel may be used later for RIR tracking per set
 
 // =============================================================================
@@ -795,27 +796,11 @@ export function ActiveWorkoutProvider({
 
       try {
         // 1. Create session — backfill to selected day if user logged for a past date
-        const elapsedMs = Date.now() - state.startTime;
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const ymd = sessionDateRef.current;
-        const backfillDate = ymd ? new Date(`${ymd}T00:00:00`) : null;
-        const isBackfill =
-          backfillDate &&
-          !isNaN(backfillDate.getTime()) &&
-          backfillDate.getTime() < today.getTime();
-
-        let startedAt: Date;
-        let endedAt: Date;
-        if (isBackfill) {
-          // Place the session at noon of the chosen day so it's unambiguously "that day"
-          startedAt = new Date(backfillDate);
-          startedAt.setHours(12, 0, 0, 0);
-          endedAt = new Date(startedAt.getTime() + elapsedMs);
-        } else {
-          startedAt = new Date(state.startTime);
-          endedAt = now;
-        }
+        const { startedAt, endedAt } = computeSessionTimestamps({
+          startTime: state.startTime,
+          now: new Date(),
+          sessionDate: sessionDateRef.current,
+        });
 
         const { data: sessionData, error: sessionError } = await supabase
           .from("workout_sessions")
