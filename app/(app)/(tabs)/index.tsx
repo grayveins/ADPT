@@ -43,6 +43,7 @@ import {
   type HabitLog,
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
+import { useDailyFlag } from "@/src/hooks/useDailyFlag";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -316,6 +317,8 @@ export default function HomeScreen() {
     return completedSessions.filter((s: any) => new Date(s.started_at) >= start).length;
   }, [completedSessions]);
 
+  const macrosFlag = useDailyFlag("macros", format(selectedDate, "yyyy-MM-dd"));
+
   const startWorkout = () => {
     hapticPress();
     if (selectedDayWorkout) {
@@ -413,8 +416,11 @@ export default function HomeScreen() {
             );
           })}
         </ScrollView>
-        {/* Daily tasks */}
-        <View style={styles.taskList}>
+
+        <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
+          {isToday ? "TODAY" : format(selectedDate, "EEEE").toUpperCase()}
+        </Text>
+        <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
           {/* Assigned workout — only show if one exists */}
           {selectedDayWorkout && (
             <Pressable onPress={startWorkout} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
@@ -451,10 +457,22 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Nutrition row — verbose macros breakdown, tappable like a habit */}
+          {/* Nutrition row — toggle like a habit; only enabled on today */}
           {macros && !coachTasks.some((t) => t.task_type === "macros") && (
-            <Pressable onPress={() => router.push("/(app)/(tabs)/meals" as any)} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
-              <View style={[styles.taskDot, { borderColor: colors.textMuted }]} />
+            <Pressable
+              onPress={() => { if (isToday) { hapticPress(); macrosFlag.toggle(); } }}
+              disabled={!isToday}
+              style={[styles.taskRow, { borderBottomColor: colors.border, opacity: isToday ? 1 : 0.85 }]}
+            >
+              <View style={[
+                styles.taskDot,
+                {
+                  backgroundColor: macrosFlag.on ? colors.success : "transparent",
+                  borderColor: macrosFlag.on ? colors.success : colors.textMuted,
+                },
+              ]}>
+                {macrosFlag.on && <Ionicons name="checkmark" size={12} color="#fff" />}
+              </View>
               <View style={styles.taskInfo}>
                 <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
                   Hit your daily nutrition goal
@@ -463,7 +481,6 @@ export default function HomeScreen() {
                   {macros.calories} cal · {macros.protein_g}g P · {macros.carbs_g}g C · {macros.fat_g}g F
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
 
@@ -558,8 +575,8 @@ export default function HomeScreen() {
         </View>
 
         {/* My Progress section */}
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
-          My Progress
+        <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
+          MY PROGRESS
         </Text>
         <View style={styles.cardRow}>
           <MetricCard
@@ -654,7 +671,18 @@ const styles = StyleSheet.create({
 
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
 
-  taskList: { marginBottom: spacing.lg },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  taskCard: {
+    borderRadius: 16,
+    paddingHorizontal: spacing.base,
+    marginBottom: spacing.lg,
+  },
   taskRow: {
     flexDirection: "row",
     alignItems: "center",
