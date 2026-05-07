@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { useActiveWorkoutSafe } from "@/src/context/ActiveWorkoutContext";
 
 type Action = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -18,9 +19,12 @@ export function FloatingActionButton() {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const segments = useSegments();
-  const hideFab = segments.some(
-    (s) => s === "chat" || s === "(workout)" || s === "active"
-  );
+  const workoutCtx = useActiveWorkoutSafe();
+  const hideFab =
+    segments.some((s) => s === "chat" || s === "(workout)" || s === "active") ||
+    // Hide while a workout is in progress — the mini-bar owns the bottom
+    // affordance and "start a new workout" from the FAB would be misleading.
+    !!workoutCtx?.state.isActive;
   if (hideFab) return null;
 
   const actions: Action[] = [

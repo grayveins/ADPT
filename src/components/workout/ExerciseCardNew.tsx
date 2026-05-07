@@ -36,6 +36,9 @@ type ExerciseCardNewProps = {
   /** Tap-on-name handler — opens the ExerciseHistorySheet. */
   onShowHistory?: () => void;
   onAddSet?: () => void;
+  /** Per-set delete via swipe. Refused at the action layer when the set
+   *  is completed or it's the last remaining set. */
+  onDeleteSet?: (setId: string) => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 };
@@ -54,6 +57,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
   onShowInfo,
   onShowHistory,
   onAddSet,
+  onDeleteSet,
 }) => {
   const { colors } = useTheme();
 
@@ -134,6 +138,10 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           weightNum > 0 &&
           weightNum >= currentPRWeight * 0.9
         );
+        // Disable swipe-to-delete on the last remaining set: the reducer
+        // would refuse it anyway (an exercise needs ≥1 set), so don't
+        // surface an action that no-ops.
+        const canDelete = !!onDeleteSet && sets.length > 1;
         return (
           <SetRowNew
             key={set.id}
@@ -151,6 +159,7 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
               onSetChange(set.id, "weight", prevWeight);
               onSetChange(set.id, "reps", prevReps);
             }}
+            onDelete={canDelete ? () => onDeleteSet!(set.id) : undefined}
           />
         );
       })}

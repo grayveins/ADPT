@@ -20,7 +20,8 @@ type Props = {
   completed: boolean;
   celebrateStreak?: boolean;
   enabled: boolean;
-  isLast: boolean;
+  /** @deprecated rows are now individual cards; dividers are unused. */
+  isLast?: boolean;
   frequency: "daily" | "weekly";
   onToggle: () => void;
 };
@@ -29,7 +30,6 @@ export function HabitRow({
   name,
   completed,
   enabled,
-  isLast,
   onToggle,
 }: Props) {
   const { colors } = useTheme();
@@ -46,10 +46,9 @@ export function HabitRow({
       onPress={handlePress}
       disabled={!enabled}
       style={[
-        styles.row,
+        styles.card,
         {
-          borderBottomColor: colors.border,
-          borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          backgroundColor: colors.bgSecondary,
           opacity: enabled ? 1 : 0.85,
         },
       ]}
@@ -80,10 +79,12 @@ export function HabitRow({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  card: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
+    paddingHorizontal: spacing.base,
+    borderRadius: 14,
     gap: spacing.md,
   },
   dot: {

@@ -1,12 +1,14 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { hasSupabaseConfig, supabaseConfigError } from "@/lib/supabase";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { ActiveWorkoutProvider } from "@/src/context/ActiveWorkoutContext";
 
 export default function RootLayout() {
   if (!hasSupabaseConfig) {
@@ -33,42 +35,49 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary label="App">
+      <GestureHandlerRootView style={styles.gestureRoot}>
       <ThemeProvider>
         <KeyboardProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="sign-in" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="sign-up" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="settings" />
+          <ActiveWorkoutProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="sign-in" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="sign-up" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="settings" />
 
-            <Stack.Screen
-              name="(app)"
-              options={{ gestureEnabled: false, animation: "fade" }}
-            />
+              <Stack.Screen
+                name="(app)"
+                options={{ gestureEnabled: false, animation: "fade" }}
+              />
 
-            <Stack.Screen
-              name="onboarding"
-              options={{ gestureEnabled: false, fullScreenGestureEnabled: false }}
-            />
+              <Stack.Screen
+                name="onboarding"
+                options={{ gestureEnabled: false, fullScreenGestureEnabled: false }}
+              />
 
-            <Stack.Screen
-              name="(workout)"
-              options={{
-                presentation: "modal",
-                animation: "slide_from_bottom",
-                gestureEnabled: true,
-              }}
-            />
-          </Stack>
+              <Stack.Screen
+                name="(workout)"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                  gestureEnabled: true,
+                }}
+              />
+            </Stack>
+          </ActiveWorkoutProvider>
         </KeyboardProvider>
       </ThemeProvider>
+      </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   configSafe: {
     flex: 1,
     backgroundColor: "#F8FAFC",

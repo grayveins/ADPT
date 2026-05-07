@@ -1,9 +1,10 @@
 /**
  * SetRowNew — Minimal set row (Hevy/Trainerize table style)
  * Simple row: set# | previous | reps | weight | checkbox
+ * Swipe left to delete (uncompleted sets only).
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useRef } from "react";
 import { StyleSheet, View, Text, TextInput, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
@@ -11,6 +12,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/src/context/ThemeContext";
@@ -29,6 +31,10 @@ type SetRowNewProps = {
   /** Tap-to-fill from PREVIOUS column. Called with the previous
    *  weight/reps when the user taps the cell. */
   onCopyPrevious?: (weight: string, reps: string) => void;
+  /** Swipe-to-delete handler. Omit to disable swipe (e.g. when this is
+   *  the only set in the exercise). Completed sets refuse deletion at
+   *  the action layer; the swipe still opens but the action no-ops. */
+  onDelete?: () => void;
   disabled?: boolean;
   isPR?: boolean;
   closeToPR?: boolean;
@@ -47,10 +53,12 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   onWeightChange,
   onRepsChange,
   onCopyPrevious,
+  onDelete,
   disabled = false,
 }) => {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
+  const swipeRef = useRef<Swipeable | null>(null);
 
   const handleComplete = useCallback(() => {
     if (disabled) return;
@@ -61,6 +69,11 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
     onComplete();
   }, [disabled, onComplete]);
 
+  const handleSwipeDelete = useCallback(() => {
+    swipeRef.current?.close();
+    if (onDelete) onDelete();
+  }, [onDelete]);
+
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -69,14 +82,32 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
     ? `${String(previousReps)} × ${String(previousWeight)}`
     : "—";
 
-  return (
+  // Completed sets aren't deletable — Swipeable is bypassed entirely so
+  // there's no flicker / no half-open state.
+  const swipeEnabled = !!onDelete && !completed && !disabled;
+
+  const renderRightActions = () => (
+    <Pressable
+      onPress={handleSwipeDelete}
+      style={[styles.deleteAction, { backgroundColor: colors.bg }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete set ${setNumber}`}
+    >
+      <Ionicons name="trash-outline" size={20} color={colors.error} />
+    </Pressable>
+  );
+
+  const rowContent = (
     <AnimatedPressable
       onPress={handleComplete}
       disabled={disabled}
       style={[
         styles.row,
         rowStyle,
-        completed && { backgroundColor: colors.successMuted },
+        // Opaque base so the Swipeable's Delete action stays hidden behind
+        // the row until the user drags it into view. Without this, the
+        // red Delete bleeds through during the swipe.
+        { backgroundColor: completed ? colors.successMuted : colors.card },
       ]}
     >
       {/* Set number */}
@@ -172,6 +203,20 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
       </View>
     </AnimatedPressable>
   );
+
+  if (!swipeEnabled) return rowContent;
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      friction={2}
+      rightThreshold={32}
+      overshootRight={false}
+    >
+      {rowContent}
+    </Swipeable>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -216,6 +261,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 1.5,
+  },
+  deleteAction: {
+    width: 64,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
