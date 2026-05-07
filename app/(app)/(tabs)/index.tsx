@@ -44,6 +44,12 @@ import {
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
 import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import {
+  fetchScheduledMap,
+  resolveDay,
+  type ScheduledMap,
+  type WorkoutLite,
+} from "@/src/lib/scheduledWorkouts";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -65,6 +71,15 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [allWorkouts, setAllWorkouts] = useState<any[]>([]);
+  // All phase_workouts in the active program, keyed by id. Used to look up
+  // a workout that scheduled_workouts references — possibly from a phase
+  // other than the currently-active one.
+  const [workoutsById, setWorkoutsById] = useState<Map<string, WorkoutLite>>(
+    () => new Map(),
+  );
+  const [scheduledByDate, setScheduledByDate] = useState<ScheduledMap>(
+    () => new Map(),
+  );
   const [programName, setProgramName] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
   const [coachTasks, setCoachTasks] = useState<CoachTask[]>([]);
@@ -89,7 +104,11 @@ export default function HomeScreen() {
     // instead of awaiting each one in series. Cuts perceived load time
     // on Home from ~3 round-trips to 1.
     const cutoff = subDays(new Date(), 21).toISOString();
-    const [profileRes, programRes, sessionsRes] = await Promise.all([
+    // Day-strip in this screen spans 14 days back / 14 days forward; fetch
+    // a slightly wider window so quick swipes don't miss schedule rows.
+    const scheduleFrom = subDays(new Date(), 21);
+    const scheduleTo = addDays(new Date(), 21);
+    const [profileRes, programRes, sessionsRes, schedMap] = await Promise.all([
       supabase
         .from("profiles")
         .select("first_name")
@@ -108,6 +127,7 @@ export default function HomeScreen() {
         .eq("user_id", user.id)
         .gte("started_at", cutoff)
         .order("started_at", { ascending: false }),
+      fetchScheduledMap(user.id, scheduleFrom, scheduleTo),
     ]);
 
     const profile = profileRes.data as { first_name?: string } | null;
@@ -123,7 +143,21 @@ export default function HomeScreen() {
       const activePhase =
         sortedPhases.find((p: any) => p.status === "active") || sortedPhases[0];
       setAllWorkouts(activePhase?.phase_workouts ?? []);
+
+      // workoutsById spans every phase in the program, not just the active
+      // one — so a coach scheduling a workout from phase 2 while phase 1 is
+      // still active still resolves correctly.
+      const byId = new Map<string, WorkoutLite>();
+      for (const ph of sortedPhases) {
+        for (const w of (ph.phase_workouts ?? [])) {
+          byId.set(w.id, w as WorkoutLite);
+        }
+      }
+      setWorkoutsById(byId);
+    } else {
+      setWorkoutsById(new Map());
     }
+    setScheduledByDate(schedMap);
 
     setCompletedSessions(sessionsRes.data ?? []);
   }, []);
@@ -290,10 +324,25 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Get workout assigned for selected day
-  const selectedDayWorkout = useMemo(() => {
-    return allWorkouts.find((w: any) => w.day_number === selectedDayOfWeek) || null;
-  }, [allWorkouts, selectedDayOfWeek]);
+  // Resolve the day via scheduled_workouts first, fall back to day_number.
+  // Returns the workout to render plus a kind so the UI can distinguish
+  // an explicit rest day from "no workout assigned" (those look the same
+  // when both yield null otherwise).
+  const resolved = useMemo(
+    () =>
+      resolveDay({
+        date: selectedDate,
+        scheduledByDate,
+        workoutsById,
+        activePhaseWorkouts: allWorkouts as WorkoutLite[],
+      }),
+    [selectedDate, scheduledByDate, workoutsById, allWorkouts],
+  );
+  const selectedDayWorkout = useMemo<any>(() => {
+    if (resolved.kind === "rest") return null;
+    return resolved.workout ?? null;
+  }, [resolved]);
+  const selectedDayIsRest = resolved.kind === "rest";
 
   // Check if selected day has a completed session
   const selectedDayCompleted = useMemo(() => {
@@ -441,6 +490,21 @@ export default function HomeScreen() {
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
+          )}
+
+          {/* Rest day — coach explicitly marked this date as rest */}
+          {selectedDayIsRest && !selectedDayCompleted && (
+            <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+              <View style={[styles.taskDot, { borderColor: colors.textMuted, backgroundColor: "transparent" }]} />
+              <View style={styles.taskInfo}>
+                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
+                  Rest day
+                </Text>
+                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
+                  No workout planned
+                </Text>
+              </View>
+            </View>
           )}
 
           {/* Completed workout (if no assigned but has a logged session) */}

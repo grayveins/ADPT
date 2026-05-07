@@ -634,9 +634,11 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          last_published_at: string | null
           name: string
           start_date: string | null
           status: string
+          unpublished_changes: boolean
           updated_at: string
         }
         Insert: {
@@ -646,9 +648,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          last_published_at?: string | null
           name: string
           start_date?: string | null
           status?: string
+          unpublished_changes?: boolean
           updated_at?: string
         }
         Update: {
@@ -658,9 +662,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          last_published_at?: string | null
           name?: string
           start_date?: string | null
           status?: string
+          unpublished_changes?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1162,6 +1168,76 @@ export type Database = {
           thumbnail_url?: string | null
         }
         Relationships: []
+      }
+      scheduled_workouts: {
+        Row: {
+          client_id: string
+          coach_id: string
+          completed: boolean
+          completed_session_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          override_payload: Json | null
+          phase_workout_id: string | null
+          scheduled_date: string
+          source_type: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          completed?: boolean
+          completed_session_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          override_payload?: Json | null
+          phase_workout_id?: string | null
+          scheduled_date: string
+          source_type: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          completed?: boolean
+          completed_session_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          override_payload?: Json | null
+          phase_workout_id?: string | null
+          scheduled_date?: string
+          source_type?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_workouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_workouts_completed_session_id_fkey"
+            columns: ["completed_session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_workouts_phase_workout_id_fkey"
+            columns: ["phase_workout_id"]
+            isOneToOne: false
+            referencedRelation: "phase_workouts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sessions: {
         Row: {
