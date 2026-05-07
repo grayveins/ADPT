@@ -4,7 +4,7 @@
  * All state and logic lives in the context — this is purely UI composition.
  */
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { View, Modal, Pressable, BackHandler, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -13,7 +13,6 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useTheme } from "@/src/context/ThemeContext";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import {
-  ActiveWorkoutProvider,
   useActiveWorkout,
   type ActiveExercise,
 } from "@/src/context/ActiveWorkoutContext";
@@ -114,6 +113,19 @@ const PAIN_TO_BODY_REGION: Record<string, BodyRegion> = {
 function ActiveWorkoutInner() {
   const { colors } = useTheme();
   const { state, actions, progress } = useActiveWorkout();
+
+  // Leave the modal when the session *ends* (Discard, Save & Exit, or
+  // finishWorkout success). On first mount `state.isActive` is briefly
+  // false while the outer wrapper dispatches START_SESSION; tracking the
+  // true→false transition explicitly avoids that initial bounce.
+  const wasActiveRef = useRef(false);
+  useEffect(() => {
+    if (state.isActive) {
+      wasActiveRef.current = true;
+    } else if (wasActiveRef.current) {
+      router.dismissTo("/(app)/(tabs)/workout");
+    }
+  }, [state.isActive]);
   const [showExerciseInfo, setShowExerciseInfo] = useState<string | null>(null);
   const [historyExerciseId, setHistoryExerciseId] = useState<string | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -230,14 +242,16 @@ function ActiveWorkoutInner() {
     return { totalVolume: Math.round(totalVolume), prs };
   }, [state.exercises, getPR]);
 
-  // Handle back button
+  // Hardware back: minimize the workout instead of discarding it.
+  // The session lives in the root provider, so dismissing the modal
+  // surfaces the persistent mini-bar — workout state is preserved.
   useEffect(() => {
     const handler = BackHandler.addEventListener("hardwareBackPress", () => {
-      actions.discardWorkout();
+      router.dismissTo("/(app)/(tabs)/workout");
       return true;
     });
     return () => handler.remove();
-  }, [actions]);
+  }, []);
 
   // When workout celebration shows, check for special moments before finishing
   const handleFinishContinue = useCallback(async () => {
@@ -360,6 +374,7 @@ function ActiveWorkoutInner() {
             onShowInfo={() => setShowExerciseInfo(exercise.name)}
             onShowHistory={() => setHistoryExerciseId(exercise.id)}
             onAddSet={() => actions.addSet(exercise.id)}
+            onDeleteSet={(setId) => actions.removeSet(exercise.id, setId)}
           />
 
           {/* Notes section */}
@@ -549,31 +564,67 @@ export default function ActiveWorkoutScreen() {
     sessionDate?: string;
   }>();
 
+  const { state, actions } = useActiveWorkout();
+
   const workoutType = params.type || "Full Body";
   const workoutName = params.name || workoutType;
   const sourceType = (params.sourceType as "empty" | "template" | "program" | "rerun") || "empty";
 
-  // Parse initial exercises from route params (program or template)
-  const [initialExercises, setInitialExercises] = useState<ActiveExercise[]>(() =>
-    parseInitialExercises(params.exercises)
+  // Each navigation to active.tsx is a fresh "start" intent — but we only
+  // honor it once per mount and only when no session is already active.
+  // If a session is in progress (mini-bar tap, swipe-back-and-back-in),
+  // we just resume it. The startedRef latch prevents re-init from a
+  // strict-mode double-effect or downstream state change.
+  const startedRef = useRef(false);
+
+  const startWith = useCallback(
+    (exercises: ActiveExercise[]) => {
+      if (startedRef.current) return;
+      startedRef.current = true;
+      actions.startSession({
+        exercises,
+        title: workoutName,
+        sourceType,
+        sourceId: params.sourceId,
+        sessionDate: params.sessionDate,
+      });
+    },
+    [actions, workoutName, sourceType, params.sourceId, params.sessionDate]
   );
 
-  // If no exercises were passed and not starting empty, try to generate on-the-fly
+  // Synchronous start path: if route carries exercises and no session is
+  // active yet, seed immediately so the inner screen renders this workout.
   useEffect(() => {
-    if (params.exercises) return; // Already have exercises
-    if (sourceType === "empty") return; // User chose empty workout — don't auto-generate
+    if (state.isActive) {
+      startedRef.current = true; // resume; don't re-seed
+      return;
+    }
+    if (params.exercises) {
+      startWith(parseInitialExercises(params.exercises));
+    } else if (sourceType === "empty") {
+      startWith([]);
+    }
+    // sourceType !== "empty" with no exercises → handled by the generator
+    // effect below.
+  }, [state.isActive, params.exercises, sourceType, startWith]);
+
+  // On-the-fly generation path: program/template/rerun without exercises.
+  useEffect(() => {
+    if (startedRef.current || state.isActive) return;
+    if (params.exercises) return;
+    if (sourceType === "empty") return;
 
     let cancelled = false;
-    const generate = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (cancelled || !user) return;
 
       const generated = await generateWorkoutOnTheFly(user.id, workoutType);
-      if (cancelled || !generated || generated.exercises.length === 0) return;
+      if (cancelled || !generated || generated.exercises.length === 0) {
+        if (!cancelled) startWith([]); // fall back to empty so the screen renders
+        return;
+      }
 
-      // Convert generated exercises to ActiveExercise format
       const active: ActiveExercise[] = generated.exercises.map((ex: any, i: number) => ({
         id: `ex-gen-${i}`,
         name: ex.name,
@@ -595,26 +646,16 @@ export default function ActiveWorkoutScreen() {
         restTimerSeconds: 90,
       }));
 
-      setInitialExercises(active);
-    };
-
-    generate();
+      if (!cancelled) startWith(active);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [params.exercises, workoutType, sourceType]);
+  }, [params.exercises, workoutType, sourceType, state.isActive, startWith]);
 
   return (
     <ErrorBoundary label="Workout" onReset={() => router.dismissTo("/(app)/(tabs)/workout")}>
-    <ActiveWorkoutProvider
-      initialExercises={initialExercises}
-      initialTitle={workoutName}
-      sourceType={sourceType}
-      sourceId={params.sourceId}
-      sessionDate={params.sessionDate}
-    >
       <ActiveWorkoutInner />
-    </ActiveWorkoutProvider>
     </ErrorBoundary>
   );
 }

@@ -16,6 +16,7 @@ import { supabase } from "../../lib/supabase";
 import { useTheme } from "@/src/context/ThemeContext";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { MessageNotifier } from "@/src/components/MessageNotifier";
+import { ActiveWorkoutMiniBar } from "@/src/components/workout/ActiveWorkoutMiniBar";
 import { spacing } from "@/src/theme";
 import Constants from "expo-constants";
 
@@ -211,6 +212,9 @@ export default function AuthenticatedLayout() {
           }}
         />
       </Drawer>
+      {/* Mounted as the View's last child so it z-orders ABOVE the Drawer
+          and stays visible across tabs / progress screens / photo flows. */}
+      <ActiveWorkoutMiniBar />
     </View>
     </ErrorBoundary>
   );

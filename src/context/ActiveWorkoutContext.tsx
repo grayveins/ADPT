@@ -17,7 +17,6 @@ import React, {
 } from "react";
 import { Alert, AppState, DeviceEventEmitter } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { haptic, hapticPress, hapticSuccess, hapticCelebration } from "@/src/animations/feedback/haptics";
 import { showToast } from "@/src/animations/celebrations";
@@ -57,6 +56,9 @@ export type ActiveExercise = {
 export type RestTimerState = {
   active: boolean;
   afterExerciseId: string | null;
+  /** Wallclock epoch (ms) when the timer expires. Survives backgrounding
+   *  and app kill — derived `secondsLeft` is always recomputed from this. */
+  endsAt: number | null;
   secondsLeft: number;
   defaultDuration: number;
 };
@@ -64,10 +66,17 @@ export type RestTimerState = {
 export type SourceType = "empty" | "template" | "program" | "rerun";
 
 export type ActiveWorkoutState = {
+  /** False until startSession() is called (or a draft is rehydrated).
+   *  All non-lifecycle reducer cases short-circuit when false so a stale
+   *  provider tree can't be mutated by stray dispatches. */
+  isActive: boolean;
+
   // Core
   title: string;
   sourceType: SourceType;
   sourceId?: string;
+  /** Used by finishWorkout to backfill workouts to a chosen day. */
+  sessionDate?: string;
 
   // Exercises
   exercises: ActiveExercise[];
@@ -95,7 +104,25 @@ export type ActiveWorkoutState = {
 // ACTIONS
 // =============================================================================
 
+export type SessionInit = {
+  exercises: ActiveExercise[];
+  title: string;
+  sourceType: SourceType;
+  sourceId?: string;
+  sessionDate?: string;
+  /** Optional: when rehydrating from a draft, restore the original wall time. */
+  startTime?: number;
+  /** Optional: when rehydrating, restore the rest timer state. */
+  restTimer?: RestTimerState;
+  /** Optional: when rehydrating, restore set-completion timestamps. */
+  setCompletionTimestamps?: number[];
+  userId?: string | null;
+};
+
 type Action =
+  // Session lifecycle
+  | { type: "START_SESSION"; payload: SessionInit }
+  | { type: "END_SESSION" }
   // Exercise management
   | { type: "ADD_EXERCISE"; exercise: Omit<ActiveExercise, "orderIndex" | "id" | "isExpanded"> }
   | { type: "REMOVE_EXERCISE"; exerciseId: string }
@@ -108,7 +135,7 @@ type Action =
   | { type: "REMOVE_FROM_SUPERSET"; exerciseId: string }
   // Set management
   | { type: "ADD_SET"; exerciseId: string }
-  | { type: "REMOVE_SET"; exerciseId: string }
+  | { type: "REMOVE_SET"; exerciseId: string; setId: string }
   | { type: "UPDATE_SET"; exerciseId: string; setId: string; field: "weight" | "reps"; value: string }
   | { type: "TOGGLE_SET_COMPLETE"; exerciseId: string; setId: string }
   | { type: "TOGGLE_WARMUP"; exerciseId: string; setId: string }
@@ -142,18 +169,34 @@ const generateGroupId = () => `group-${Date.now()}-${Math.random().toString(36).
 
 const WORKOUT_DRAFT_KEY = "adpt:workout-draft";
 
-type WorkoutDraft = Pick<ActiveWorkoutState, "title" | "sourceType" | "sourceId" | "exercises" | "startTime" | "elapsedSeconds" | "setCompletionTimestamps">;
+type WorkoutDraft = Pick<
+  ActiveWorkoutState,
+  | "title"
+  | "sourceType"
+  | "sourceId"
+  | "sessionDate"
+  | "exercises"
+  | "startTime"
+  | "elapsedSeconds"
+  | "restTimer"
+  | "setCompletionTimestamps"
+  | "userId"
+>;
 
 async function saveDraft(state: ActiveWorkoutState): Promise<void> {
+  if (!state.isActive) return;
   try {
     const draft: WorkoutDraft = {
       title: state.title,
       sourceType: state.sourceType,
       sourceId: state.sourceId,
+      sessionDate: state.sessionDate,
       exercises: state.exercises,
       startTime: state.startTime,
       elapsedSeconds: state.elapsedSeconds,
+      restTimer: state.restTimer,
       setCompletionTimestamps: state.setCompletionTimestamps,
+      userId: state.userId,
     };
     await AsyncStorage.setItem(WORKOUT_DRAFT_KEY, JSON.stringify(draft));
   } catch {
@@ -180,11 +223,87 @@ export async function loadDraft(): Promise<WorkoutDraft | null> {
   }
 }
 
+const DEFAULT_REST_DURATION = 90;
+
+function emptyState(): ActiveWorkoutState {
+  return {
+    isActive: false,
+    title: "Workout",
+    sourceType: "empty",
+    sourceId: undefined,
+    sessionDate: undefined,
+    exercises: [],
+    startTime: 0,
+    elapsedSeconds: 0,
+    restTimer: {
+      active: false,
+      afterExerciseId: null,
+      endsAt: null,
+      secondsLeft: 0,
+      defaultDuration: DEFAULT_REST_DURATION,
+    },
+    showCelebration: false,
+    showPRCelebration: false,
+    prData: null,
+    userId: null,
+    setCompletionTimestamps: [],
+  };
+}
+
+/** Recompute remaining seconds from wallclock `endsAt`. Idempotent. */
+function recomputeRest(rest: RestTimerState, now: number = Date.now()): RestTimerState {
+  if (!rest.active || rest.endsAt == null) return rest;
+  const remaining = Math.max(0, Math.ceil((rest.endsAt - now) / 1000));
+  if (remaining <= 0) {
+    return { ...rest, active: false, afterExerciseId: null, endsAt: null, secondsLeft: 0 };
+  }
+  return { ...rest, secondsLeft: remaining };
+}
+
 // =============================================================================
 // REDUCER
 // =============================================================================
 
 function workoutReducer(state: ActiveWorkoutState, action: Action): ActiveWorkoutState {
+  // Lifecycle actions are always allowed (they manage the active flag itself).
+  if (action.type === "START_SESSION") {
+    const init = action.payload;
+    const startTime = init.startTime ?? Date.now();
+    const restTimer = recomputeRest(
+      init.restTimer ?? {
+        active: false,
+        afterExerciseId: null,
+        endsAt: null,
+        secondsLeft: 0,
+        defaultDuration: DEFAULT_REST_DURATION,
+      }
+    );
+    return {
+      isActive: true,
+      title: init.title,
+      sourceType: init.sourceType,
+      sourceId: init.sourceId,
+      sessionDate: init.sessionDate,
+      exercises: init.exercises.map((ex, i) => ({ ...ex, orderIndex: i })),
+      startTime,
+      elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
+      restTimer,
+      showCelebration: false,
+      showPRCelebration: false,
+      prData: null,
+      userId: init.userId ?? state.userId ?? null,
+      setCompletionTimestamps: init.setCompletionTimestamps ?? [],
+    };
+  }
+  if (action.type === "END_SESSION") {
+    // Preserve userId so a new workout can start without re-fetching the user.
+    return { ...emptyState(), userId: state.userId };
+  }
+
+  // Everything else requires an active session — defensively no-op when the
+  // provider tree is mounted but no workout is running.
+  if (!state.isActive) return state;
+
   switch (action.type) {
     case "ADD_EXERCISE": {
       const newExercise: ActiveExercise = {
@@ -290,10 +409,11 @@ function workoutReducer(state: ActiveWorkoutState, action: Action): ActiveWorkou
       return {
         ...state,
         exercises: state.exercises.map((ex) => {
-          if (ex.id !== action.exerciseId || ex.sets.length <= 1) return ex;
-          const lastSet = ex.sets[ex.sets.length - 1];
-          if (lastSet.completed) return ex;
-          return { ...ex, sets: ex.sets.slice(0, -1) };
+          if (ex.id !== action.exerciseId) return ex;
+          if (ex.sets.length <= 1) return ex;
+          const target = ex.sets.find((s) => s.id === action.setId);
+          if (!target || target.completed) return ex;
+          return { ...ex, sets: ex.sets.filter((s) => s.id !== action.setId) };
         }),
       };
     }
@@ -367,45 +487,45 @@ function workoutReducer(state: ActiveWorkoutState, action: Action): ActiveWorkou
       };
     }
 
-    // Rest timer
+    // Rest timer (wallclock-driven — survives backgrounding and app kill).
     case "START_REST": {
+      const duration = action.duration ?? state.restTimer.defaultDuration;
       return {
         ...state,
         restTimer: {
           active: true,
           afterExerciseId: action.afterExerciseId,
-          secondsLeft: action.duration ?? state.restTimer.defaultDuration,
+          endsAt: Date.now() + duration * 1000,
+          secondsLeft: duration,
           defaultDuration: state.restTimer.defaultDuration,
         },
       };
     }
 
     case "TICK_REST": {
-      if (!state.restTimer.active) return state;
-      const next = state.restTimer.secondsLeft - 1;
-      if (next <= 0) {
-        return {
-          ...state,
-          restTimer: { ...state.restTimer, active: false, afterExerciseId: null, secondsLeft: 0 },
-        };
-      }
-      return { ...state, restTimer: { ...state.restTimer, secondsLeft: next } };
+      return { ...state, restTimer: recomputeRest(state.restTimer) };
     }
 
     case "SKIP_REST": {
       return {
         ...state,
-        restTimer: { ...state.restTimer, active: false, afterExerciseId: null, secondsLeft: 0 },
+        restTimer: {
+          ...state.restTimer,
+          active: false,
+          afterExerciseId: null,
+          endsAt: null,
+          secondsLeft: 0,
+        },
       };
     }
 
     case "ADJUST_REST": {
+      if (!state.restTimer.active || state.restTimer.endsAt == null) return state;
+      // Floor at "now" so -15 from a 5-second remainder doesn't go negative.
+      const newEndsAt = Math.max(Date.now(), state.restTimer.endsAt + action.delta * 1000);
       return {
         ...state,
-        restTimer: {
-          ...state.restTimer,
-          secondsLeft: Math.max(0, state.restTimer.secondsLeft + action.delta),
-        },
+        restTimer: recomputeRest({ ...state.restTimer, endsAt: newEndsAt }),
       };
     }
 
@@ -467,6 +587,8 @@ function cleanupSupersets(exercises: ActiveExercise[]): ActiveExercise[] {
 // =============================================================================
 
 export type ActiveWorkoutActions = {
+  // Session lifecycle
+  startSession: (init: SessionInit) => void;
   // Exercises
   addExercise: (exercise: Omit<ActiveExercise, "orderIndex" | "id" | "isExpanded">) => void;
   removeExercise: (exerciseId: string) => void;
@@ -479,7 +601,7 @@ export type ActiveWorkoutActions = {
   removeFromSuperset: (exerciseId: string) => void;
   // Sets
   addSet: (exerciseId: string) => void;
-  removeSet: (exerciseId: string) => void;
+  removeSet: (exerciseId: string, setId: string) => void;
   updateSet: (exerciseId: string, setId: string, field: "weight" | "reps", value: string) => void;
   toggleSetComplete: (exerciseId: string, setId: string) => void;
   toggleWarmup: (exerciseId: string, setId: string) => void;
@@ -514,45 +636,21 @@ const ActiveWorkoutContext = createContext<ContextValue | null>(null);
 // =============================================================================
 
 type ProviderProps = {
-  initialExercises?: ActiveExercise[];
-  initialTitle?: string;
-  sourceType?: SourceType;
-  sourceId?: string;
-  sessionDate?: string;
   children: ReactNode;
 };
 
-export function ActiveWorkoutProvider({
-  initialExercises = [],
-  initialTitle = "Workout",
-  sourceType = "empty",
-  sourceId,
-  sessionDate,
-  children,
-}: ProviderProps) {
-  const sessionDateRef = useRef(sessionDate);
-  useEffect(() => {
-    sessionDateRef.current = sessionDate;
-  }, [sessionDate]);
+/**
+ * The provider is mounted at the app root so an active workout survives
+ * navigation (swipe-out from the modal, tab switching). Sessions are
+ * started explicitly via `actions.startSession(...)` from the workout
+ * screen, and rehydrated from AsyncStorage on app launch if a draft
+ * exists. The Hevy-style mini-bar reads `state.isActive` to render.
+ */
+export function ActiveWorkoutProvider({ children }: ProviderProps) {
+  const [state, dispatch] = useReducer(workoutReducer, undefined, emptyState);
 
-  const initialState: ActiveWorkoutState = {
-    title: initialTitle,
-    sourceType,
-    sourceId,
-    exercises: initialExercises.map((ex, i) => ({ ...ex, orderIndex: i })),
-    startTime: Date.now(),
-    elapsedSeconds: 0,
-    restTimer: { active: false, afterExerciseId: null, secondsLeft: 0, defaultDuration: 90 },
-    showCelebration: false,
-    showPRCelebration: false,
-    prData: null,
-    userId: null,
-    setCompletionTimestamps: [],
-  };
-
-  const [state, dispatch] = useReducer(workoutReducer, initialState);
-
-  // Get user ID on mount
+  // Get user ID on mount (kept available so a workout can be started
+  // without re-fetching the auth user).
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -561,11 +659,42 @@ export function ActiveWorkoutProvider({
     getUser();
   }, []);
 
-  // Elapsed timer
+  // Rehydrate from AsyncStorage exactly once on mount. If a draft exists
+  // we resume the workout; otherwise the provider stays inactive.
+  const rehydratedRef = useRef(false);
   useEffect(() => {
+    if (rehydratedRef.current) return;
+    rehydratedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const draft = await loadDraft();
+      if (cancelled || !draft) return;
+      dispatch({
+        type: "START_SESSION",
+        payload: {
+          exercises: draft.exercises,
+          title: draft.title,
+          sourceType: draft.sourceType,
+          sourceId: draft.sourceId,
+          sessionDate: draft.sessionDate,
+          startTime: draft.startTime,
+          restTimer: draft.restTimer,
+          setCompletionTimestamps: draft.setCompletionTimestamps,
+          userId: draft.userId,
+        },
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Elapsed timer — only ticks while a session is active.
+  useEffect(() => {
+    if (!state.isActive) return;
     const interval = setInterval(() => dispatch({ type: "TICK_ELAPSED" }), 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [state.isActive]);
 
   // Rest timer countdown
   useEffect(() => {
@@ -575,6 +704,16 @@ export function ActiveWorkoutProvider({
     }, 1000);
     return () => clearInterval(interval);
   }, [state.restTimer.active]);
+
+  // Resync the wallclock rest timer when the app returns to the foreground —
+  // intervals are paused while backgrounded, so the stored secondsLeft can
+  // be stale by the time we wake up.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") dispatch({ type: "TICK_REST" });
+    });
+    return () => sub.remove();
+  }, []);
 
   // Haptic when rest timer finishes
   const prevRestActive = useRef(state.restTimer.active);
@@ -593,16 +732,17 @@ export function ActiveWorkoutProvider({
     }
   }, [state.restTimer.active, state.restTimer.secondsLeft]);
 
-  // Checkpoint to AsyncStorage after every set change
-  const completedSetCount = useMemo(
-    () => state.exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0),
-    [state.exercises]
-  );
+  // Debounced checkpoint to AsyncStorage on every state change.
+  // 500ms debounce so the AsyncStorage queue doesn't thrash during typing,
+  // but every meaningful pause (set completion, swap, add/delete) flushes
+  // to disk — which is what protects against a hard app kill.
   useEffect(() => {
-    if (completedSetCount > 0) saveDraft(state);
-  }, [completedSetCount]);
+    if (!state.isActive) return;
+    const t = setTimeout(() => saveDraft(state), 500);
+    return () => clearTimeout(t);
+  }, [state]);
 
-  // Checkpoint on app background
+  // Force-flush on background/inactive — the OS may kill us shortly after.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "background" || next === "inactive") saveDraft(state);
@@ -664,6 +804,10 @@ export function ActiveWorkoutProvider({
   // ==========================================================================
 
   const actions = useMemo<ActiveWorkoutActions>(() => ({
+    startSession: (init) => {
+      dispatch({ type: "START_SESSION", payload: init });
+    },
+
     addExercise: (exercise) => {
       hapticPress();
       dispatch({ type: "ADD_EXERCISE", exercise });
@@ -708,9 +852,9 @@ export function ActiveWorkoutProvider({
       dispatch({ type: "ADD_SET", exerciseId });
     },
 
-    removeSet: (exerciseId) => {
+    removeSet: (exerciseId, setId) => {
       hapticPress();
-      dispatch({ type: "REMOVE_SET", exerciseId });
+      dispatch({ type: "REMOVE_SET", exerciseId, setId });
     },
 
     updateSet: (exerciseId, setId, field, value) => {
@@ -790,7 +934,10 @@ export function ActiveWorkoutProvider({
       dispatch({ type: "SHOW_CELEBRATION", show: false });
 
       if (!state.userId) {
-        router.dismissTo("/(app)/(tabs)/workout");
+        // Can't persist without a user — tear down locally; the active
+        // screen's `!isActive` effect will leave the modal.
+        dispatch({ type: "END_SESSION" });
+        await clearDraft();
         return;
       }
 
@@ -799,7 +946,7 @@ export function ActiveWorkoutProvider({
         const { startedAt, endedAt } = computeSessionTimestamps({
           startTime: state.startTime,
           now: new Date(),
-          sessionDate: sessionDateRef.current,
+          sessionDate: state.sessionDate,
         });
 
         const { data: sessionData, error: sessionError } = await supabase
@@ -892,8 +1039,9 @@ export function ActiveWorkoutProvider({
         });
         if (streakError) console.error(streakError);
 
-        // 5. Clear draft — workout saved successfully
+        // 5. Clear draft + tear down session — workout saved successfully
         await clearDraft();
+        dispatch({ type: "END_SESSION" });
 
         // 6. Invalidate coach cache
         await invalidateAndNotify(state.userId, "workout_complete").catch(console.error);
@@ -908,42 +1056,26 @@ export function ActiveWorkoutProvider({
     },
 
     discardWorkout: () => {
-      const completedSets = state.exercises.reduce(
-        (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
-        0
+      // Always confirm — accidental taps on the mini-bar's trash should
+      // not nuke an in-progress session. Save-and-exit isn't offered here:
+      // saving lives behind the workout screen's Finish button. Navigation
+      // is left to callers (active screen's `wasActive` effect dismisses
+      // the modal; mini-bar just lets the bar disappear in place).
+      Alert.alert(
+        "Discard Workout?",
+        "Are you sure you want to discard the workout in progress?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Discard Workout",
+            style: "destructive",
+            onPress: () => {
+              clearDraft();
+              dispatch({ type: "END_SESSION" });
+            },
+          },
+        ]
       );
-
-      if (completedSets > 0) {
-        Alert.alert(
-          "End Workout?",
-          `You've completed ${completedSets} sets. Save and exit?`,
-          [
-            { text: "Continue", style: "cancel" },
-            {
-              text: "Save & Exit",
-              onPress: async () => {
-                try {
-                  await actions.finishWorkout();
-                } catch {
-                  // Error already shown by finishWorkout
-                  return;
-                }
-                router.dismissTo("/(app)/(tabs)/workout");
-              },
-            },
-            {
-              text: "Discard",
-              style: "destructive",
-              onPress: () => {
-                clearDraft();
-                router.dismissTo("/(app)/(tabs)/workout");
-              },
-            },
-          ]
-        );
-      } else {
-        router.back();
-      }
     },
 
     saveAsTemplate: async (name) => {
@@ -975,7 +1107,7 @@ export function ActiveWorkoutProvider({
     updateTitle: (title) => {
       dispatch({ type: "UPDATE_TITLE", title });
     },
-  }), [state.exercises, state.userId, state.startTime, state.title]);
+  }), [state.exercises, state.userId, state.startTime, state.title, state.sessionDate]);
 
   const value = useMemo<ContextValue>(
     () => ({ state, actions, progress, formatTime }),

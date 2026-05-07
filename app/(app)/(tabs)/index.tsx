@@ -345,6 +345,7 @@ export default function HomeScreen() {
           {greeting}
         </Text>
         <View style={styles.headerActions}>
+          <StreakPill streak={currentStreak} colors={colors} />
           <AvatarButton name={profileName} colors={colors} />
         </View>
       </View>
@@ -420,10 +421,10 @@ export default function HomeScreen() {
         <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
           {isToday ? "TODAY" : format(selectedDate, "EEEE").toUpperCase()}
         </Text>
-        <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+        <View style={styles.taskList}>
           {/* Assigned workout — only show if one exists */}
           {selectedDayWorkout && (
-            <Pressable onPress={startWorkout} style={[styles.taskRow, { borderBottomColor: colors.border }]}>
+            <Pressable onPress={startWorkout} style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
               <View style={[styles.taskDot, {
                 backgroundColor: selectedDayCompleted ? colors.success : "transparent",
                 borderColor: selectedDayCompleted ? colors.success : colors.textMuted,
@@ -444,7 +445,7 @@ export default function HomeScreen() {
 
           {/* Completed workout (if no assigned but has a logged session) */}
           {!selectedDayWorkout && selectedDayCompleted && (
-            <View style={[styles.taskRow, { borderBottomColor: colors.border }]}>
+            <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
               <View style={[styles.taskDot, { backgroundColor: colors.success, borderColor: colors.success }]}>
                 <Ionicons name="checkmark" size={12} color="#fff" />
               </View>
@@ -462,7 +463,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => { if (isToday) { hapticPress(); macrosFlag.toggle(); } }}
               disabled={!isToday}
-              style={[styles.taskRow, { borderBottomColor: colors.border, opacity: isToday ? 1 : 0.85 }]}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary, opacity: isToday ? 1 : 0.85 }]}
             >
               <View style={[
                 styles.taskDot,
@@ -485,8 +486,7 @@ export default function HomeScreen() {
           )}
 
           {/* Coach-scheduled tasks */}
-          {coachTasks.map((task, idx) => {
-            const isLast = idx === coachTasks.length - 1;
+          {coachTasks.map((task) => {
             const completed = !!task.manually_completed_at;
             const handlePress = () => {
               hapticPress();
@@ -509,13 +509,7 @@ export default function HomeScreen() {
               <Pressable
                 key={task.id}
                 onPress={handlePress}
-                style={[
-                  styles.taskRow,
-                  {
-                    borderBottomColor: colors.border,
-                    borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                  },
-                ]}
+                style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}
               >
                 <View
                   style={[
@@ -549,7 +543,7 @@ export default function HomeScreen() {
               state. Only checkable on "today" — past/future days are
               read-only since the act of completing them happened (or
               didn't) at that point in time. */}
-          {habits.map((habit, idx) => {
+          {habits.map((habit) => {
             const dateStr = format(selectedDate, "yyyy-MM-dd");
             const log = habitLogs.find(
               (l) => l.assignment_id === habit.id && l.date === dateStr
@@ -557,7 +551,6 @@ export default function HomeScreen() {
             const completed = !!log?.completed;
             const streak = computeCurrentStreak(habitLogs, habit.id, todayLocalISO());
             const weeklyDone = computeWeeklyCompleted(habitLogs, habit.id);
-            const isLast = idx === habits.length - 1;
             return (
               <HabitRow
                 key={habit.id}
@@ -567,7 +560,6 @@ export default function HomeScreen() {
                 streak={streak}
                 completed={completed}
                 enabled={isToday}
-                isLast={isLast}
                 onToggle={() => toggleHabit(habit)}
               />
             );
@@ -613,6 +605,28 @@ export default function HomeScreen() {
   );
 }
 
+function StreakPill({ streak, colors }: { streak: number; colors: any }) {
+  const active = streak > 0;
+  return (
+    <View
+      style={[
+        styles.streakPill,
+        {
+          backgroundColor: colors.bgSecondary,
+          borderColor: colors.border,
+          opacity: active ? 1 : 0.6,
+        },
+      ]}
+      accessibilityLabel={`${streak} day streak`}
+    >
+      <Ionicons name="flame" size={14} color={colors.text} />
+      <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
+        {streak}
+      </Text>
+    </View>
+  );
+}
+
 function AvatarButton({ name, colors }: { name: string; colors: any }) {
   const navigation = useNavigation<any>();
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -645,6 +659,16 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   avatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 15, fontWeight: "600" },
+  streakPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  streakText: { fontSize: 13, fontWeight: "700" },
 
   dateRow: {
     flexDirection: "row",
@@ -656,14 +680,22 @@ const styles = StyleSheet.create({
   dateLabel: { fontSize: 22, fontWeight: "700", letterSpacing: -0.3 },
   todayLink: { fontSize: 14, fontWeight: "600" },
 
-  dayStrip: { paddingHorizontal: spacing.sm, gap: 0, paddingBottom: spacing.base },
+  dayStrip: {
+    paddingHorizontal: spacing.sm,
+    gap: 0,
+    // Vertical breathing room so the selected chip's filled background
+    // doesn't sit flush against the strip's top/bottom edges.
+    paddingTop: 4,
+    paddingBottom: spacing.base,
+  },
   dayChip: {
     flex: 1,
     minWidth: 52,
-    height: 56,
-    borderRadius: 12,
+    height: 62,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 6,
   },
   dayNum: { fontSize: 16, fontWeight: "600" },
   dayLabel: { fontSize: 11, marginTop: 1 },
@@ -678,16 +710,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
-  taskCard: {
-    borderRadius: 16,
-    paddingHorizontal: spacing.base,
+  taskList: {
+    gap: spacing.sm,
     marginBottom: spacing.lg,
   },
-  taskRow: {
+  taskCard: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.base,
+    borderRadius: 14,
     gap: spacing.md,
   },
   taskDot: {

@@ -6,8 +6,10 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, TextInput, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useActiveWorkout } from "@/src/context/ActiveWorkoutContext";
+import { hapticPress } from "@/src/animations/feedback/haptics";
 
 type WorkoutHeaderProps = {
   onFinish?: () => void;
@@ -30,12 +32,21 @@ export function WorkoutHeader({ onFinish, saving }: WorkoutHeaderProps) {
     }
   };
 
+  // Tap = minimize (state preserved via the root provider; mini-bar
+  // surfaces underneath). Mirrors the swipe-down gesture so the same
+  // affordance is reachable without a gesture.
+  const minimize = () => {
+    if (saving) return;
+    hapticPress();
+    router.dismissTo("/(app)/(tabs)/workout");
+  };
+
   return (
     <View style={[styles.container, { borderBottomColor: colors.border }]}>
-      {/* Top row: close / title / done */}
+      {/* Top row: minimize / title / done */}
       <View style={styles.topRow}>
-        <Pressable onPress={saving ? undefined : actions.discardWorkout} style={styles.button} disabled={saving}>
-          <Ionicons name="close" size={24} color={saving ? colors.textMuted : colors.text} />
+        <Pressable onPress={minimize} style={styles.button} disabled={saving}>
+          <Ionicons name="chevron-down" size={26} color={saving ? colors.textMuted : colors.text} />
         </Pressable>
 
         <View style={styles.center}>
