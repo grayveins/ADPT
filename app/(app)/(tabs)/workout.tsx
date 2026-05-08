@@ -10,10 +10,12 @@ import {
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { spacing, radius } from "@/src/theme";
+import { WorkoutSkeleton } from "@/src/animations/components/SkeletonLoader";
 import {
   fetchScheduledMap,
   resolveDay,
@@ -36,6 +38,7 @@ export default function WorkoutScreen() {
   const [workouts, setWorkouts] = useState<PhaseWorkout[]>([]);
   const [todayWorkout, setTodayWorkout] = useState<PhaseWorkout | null>(null);
   const [todayIsRest, setTodayIsRest] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -65,6 +68,7 @@ export default function WorkoutScreen() {
       setWorkouts([]);
       setTodayWorkout(null);
       setTodayIsRest(false);
+      setInitialLoading(false);
       return;
     }
 
@@ -82,6 +86,7 @@ export default function WorkoutScreen() {
       setWorkouts([]);
       setTodayWorkout(null);
       setTodayIsRest(false);
+      setInitialLoading(false);
       return;
     }
 
@@ -111,6 +116,7 @@ export default function WorkoutScreen() {
       setTodayWorkout((resolved.workout as PhaseWorkout) ?? null);
       setTodayIsRest(false);
     }
+    setInitialLoading(false);
   }, [userId]);
 
   const lastFetchedAt = useRef(0);
@@ -189,6 +195,10 @@ export default function WorkoutScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
+        {initialLoading ? (
+          <WorkoutSkeleton />
+        ) : (
+        <Animated.View entering={FadeIn.duration(220)}>
         {/* Today's Workout */}
         {todayWorkout ? (
           <Pressable
@@ -281,6 +291,8 @@ export default function WorkoutScreen() {
           <MoreRow icon="time-outline" label="Workout History" onPress={() => router.push("/(workout)/history")} colors={colors} />
           <MoreRow icon="barbell-outline" label="Exercise Library" onPress={() => router.push("/(workout)/exercises")} colors={colors} />
         </View>
+        </Animated.View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

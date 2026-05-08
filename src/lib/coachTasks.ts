@@ -35,6 +35,22 @@ export async function fetchTasksForDate(args: {
   return (data ?? []) as CoachTask[];
 }
 
+export async function fetchTasksForRange(args: {
+  clientId: string;
+  fromDate: string; // YYYY-MM-DD inclusive
+  toDate: string;   // YYYY-MM-DD inclusive
+}): Promise<CoachTask[]> {
+  const { data, error } = await supabase
+    .from("coach_tasks")
+    .select("*")
+    .eq("client_id", args.clientId)
+    .gte("scheduled_for", args.fromDate)
+    .lte("scheduled_for", args.toDate)
+    .order("scheduled_for", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as CoachTask[];
+}
+
 export async function setCustomTaskCompleted(
   taskId: string,
   completed: boolean
