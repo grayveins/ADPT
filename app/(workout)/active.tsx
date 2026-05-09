@@ -128,24 +128,6 @@ function ActiveWorkoutInner() {
     }
   }, [state.isActive]);
 
-  // Auto-discard "phantom" sessions: if the screen unmounts (swipe-down,
-  // hardware back, dismissTo) while the workout is still active and the
-  // user logged zero sets, drop the draft so the persistent mini-bar
-  // doesn't surface a workout the user never actually engaged with.
-  // The ref keeps the cleanup closure looking at fresh state.
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  useEffect(() => {
-    return () => {
-      const s = stateRef.current;
-      if (!s.isActive) return; // already torn down by finishWorkout / discard
-      const anyCompleted = s.exercises.some((ex) =>
-        ex.sets.some((set) => set.completed),
-      );
-      if (!anyCompleted) actions.discardWorkout();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const [showExerciseInfo, setShowExerciseInfo] = useState<string | null>(null);
   const [historyExerciseId, setHistoryExerciseId] = useState<string | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);

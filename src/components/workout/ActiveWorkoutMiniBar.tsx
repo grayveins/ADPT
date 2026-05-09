@@ -6,15 +6,16 @@
  * via the existing confirmation flow.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router, usePathname } from "expo-router";
+import { router } from "expo-router";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { useActiveWorkout } from "@/src/context/ActiveWorkoutContext";
+import { DiscardWorkoutSheet } from "./DiscardWorkoutSheet";
 
 function formatElapsed(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
@@ -27,6 +28,7 @@ function formatElapsed(seconds: number): string {
 export function ActiveWorkoutMiniBar() {
   const { colors } = useTheme();
   const { state, actions } = useActiveWorkout();
+  const [showDiscard, setShowDiscard] = useState(false);
 
   // No pathname guard: the workout modal already covers this layout
   // visually when open, so leaving the bar mounted lets it reveal
@@ -43,6 +45,7 @@ export function ActiveWorkoutMiniBar() {
   };
 
   return (
+    <>
     <Pressable
       onPress={expand}
       style={[
@@ -85,11 +88,12 @@ export function ActiveWorkoutMiniBar() {
         hitSlop={10}
         onPress={(e) => {
           e.stopPropagation?.();
-          actions.discardWorkout();
+          hapticPress();
+          setShowDiscard(true);
         }}
         style={styles.iconBtn}
         accessibilityRole="button"
-        accessibilityLabel="End or discard workout"
+        accessibilityLabel="Discard workout"
       >
         <Ionicons name="trash-outline" size={18} color={colors.text} />
       </Pressable>
@@ -107,6 +111,16 @@ export function ActiveWorkoutMiniBar() {
         <Ionicons name="chevron-up" size={20} color={colors.text} />
       </Pressable>
     </Pressable>
+
+    <DiscardWorkoutSheet
+      visible={showDiscard}
+      onCancel={() => setShowDiscard(false)}
+      onConfirm={() => {
+        setShowDiscard(false);
+        actions.discardWorkout();
+      }}
+    />
+    </>
   );
 }
 

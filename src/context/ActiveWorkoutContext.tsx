@@ -1076,26 +1076,13 @@ export function ActiveWorkoutProvider({ children }: ProviderProps) {
     },
 
     discardWorkout: () => {
-      // Always confirm — accidental taps on the mini-bar's trash should
-      // not nuke an in-progress session. Save-and-exit isn't offered here:
-      // saving lives behind the workout screen's Finish button. Navigation
-      // is left to callers (active screen's `wasActive` effect dismisses
-      // the modal; mini-bar just lets the bar disappear in place).
-      Alert.alert(
-        "Discard Workout?",
-        "Are you sure you want to discard the workout in progress?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Discard Workout",
-            style: "destructive",
-            onPress: () => {
-              clearDraft();
-              dispatch({ type: "END_SESSION" });
-            },
-          },
-        ]
-      );
+      // Silent: clear state immediately. Callers (mini-bar trash button,
+      // EndWorkoutSheet's empty-mode "Discard") are responsible for any
+      // confirmation UI before invoking this — keeps the action layer
+      // free of system Alert.alert chrome and lets each surface use
+      // its own themed sheet.
+      clearDraft();
+      dispatch({ type: "END_SESSION" });
     },
 
     saveAsTemplate: async (name) => {
