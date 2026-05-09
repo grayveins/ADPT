@@ -148,7 +148,7 @@ export default function ExercisesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
           Exercises

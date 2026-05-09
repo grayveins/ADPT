@@ -282,7 +282,7 @@ export default function AnalyticsScreen() {
 
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>Analytics</Text>
         <View style={styles.backBtn} />

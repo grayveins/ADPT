@@ -96,7 +96,7 @@ export default function UploadMealPlanScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="close" size={26} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
           Upload meal plan

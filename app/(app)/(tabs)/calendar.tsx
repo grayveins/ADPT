@@ -16,12 +16,12 @@ import { supabase } from "@/lib/supabase";
 import {
   fetchActiveHabits,
   fetchHabitLogs,
-  setHabitLog,
   type HabitAssignment,
   type HabitLog,
 } from "@/src/lib/habits";
-import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
+import { hapticPress } from "@/src/animations/feedback/haptics";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { router } from "expo-router";
 import {
   startOfMonth,
   endOfMonth,
@@ -53,7 +53,6 @@ type WorkoutEvent = {
 
 export default function CalendarScreen() {
   const { colors } = useTheme();
-  const [userId, setUserId] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sessions, setSessions] = useState<SessionEvent[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEvent[]>([]);
@@ -67,7 +66,6 @@ export default function CalendarScreen() {
   const fetchData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setUserId(user.id);
 
     const monthStartIso = startOfMonth(currentMonth).toISOString();
     const monthEndIso = endOfMonth(currentMonth).toISOString();
@@ -182,59 +180,6 @@ export default function CalendarScreen() {
     return habits.filter((h) => new Date(h.created_at).getTime() <= endOfDayMs);
   }, [habits, selectedDate]);
 
-  const toggleHabit = useCallback(
-    async (habit: HabitAssignment) => {
-      if (!userId || isFutureDate) return;
-      const existing = habitLogs.find(
-        (l) => l.assignment_id === habit.id && l.date === selectedDateStr
-      );
-      const wasCompleted = !!existing?.completed;
-      const next = !wasCompleted;
-      if (next) hapticSuccess();
-      else hapticPress();
-
-      // Optimistic update
-      setHabitLogs((prev) => {
-        if (existing) {
-          return prev.map((l) =>
-            l.id === existing.id ? { ...l, completed: next } : l
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: `tmp-${Date.now()}`,
-            assignment_id: habit.id,
-            client_id: userId,
-            date: selectedDateStr,
-            completed: next,
-            value: null,
-            created_at: new Date().toISOString(),
-          },
-        ];
-      });
-
-      try {
-        await setHabitLog({
-          clientId: userId,
-          assignmentId: habit.id,
-          date: selectedDateStr,
-          completed: next,
-        });
-      } catch {
-        setHabitLogs((prev) => {
-          if (existing) {
-            return prev.map((l) =>
-              l.id === existing.id ? { ...l, completed: wasCompleted } : l
-            );
-          }
-          return prev.filter((l) => !l.id.startsWith("tmp-"));
-        });
-      }
-    },
-    [userId, habitLogs, selectedDateStr, isFutureDate]
-  );
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
       {/* Month header */}
@@ -319,7 +264,9 @@ export default function CalendarScreen() {
       {/* Selected day events */}
       <ScrollView
         style={styles.eventList}
+        contentContainerStyle={styles.eventListContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
@@ -349,7 +296,17 @@ export default function CalendarScreen() {
         ))}
 
         {dayEvents.workouts.map((w) => (
-          <View key={w.id} style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
+          <Pressable
+            key={w.id}
+            onPress={() => {
+              hapticPress();
+              router.push({
+                pathname: "/(workout)/session-detail",
+                params: { sessionId: w.id },
+              });
+            }}
+            style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}
+          >
             <Ionicons name="barbell-outline" size={18} color={colors.text} />
             <View style={styles.eventInfo}>
               <Text allowFontScaling={false} style={[styles.eventTitle, { color: colors.text }]}>
@@ -359,10 +316,12 @@ export default function CalendarScreen() {
                 {format(new Date(w.started_at), "h:mm a")}
               </Text>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </Pressable>
         ))}
 
-        {/* Habits — checkable for today + past, read-only for future. */}
+        {/* Habits — read-only audit view. Toggling lives on the Home
+            day-strip; this screen is for at-a-glance review. */}
         {dayHabits.length > 0 && (
           <View style={styles.habitGroup}>
             <Text allowFontScaling={false} style={[styles.groupLabel, { color: colors.textMuted }]}>
@@ -374,10 +333,8 @@ export default function CalendarScreen() {
               );
               const completed = !!log?.completed;
               return (
-                <Pressable
+                <View
                   key={h.id}
-                  onPress={() => toggleHabit(h)}
-                  disabled={isFutureDate}
                   style={[
                     styles.habitRow,
                     {
@@ -385,8 +342,7 @@ export default function CalendarScreen() {
                       opacity: isFutureDate ? 0.6 : 1,
                     },
                   ]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: completed, disabled: isFutureDate }}
+                  accessibilityRole="text"
                   accessibilityLabel={`${h.name}, ${completed ? "completed" : "not completed"}`}
                 >
                   <View
@@ -403,7 +359,7 @@ export default function CalendarScreen() {
                   <Text allowFontScaling={false} style={[styles.habitName, { color: colors.text }]}>
                     {h.name}
                   </Text>
-                </Pressable>
+                </View>
               );
             })}
           </View>
@@ -469,6 +425,7 @@ const styles = StyleSheet.create({
   dotRow: { flexDirection: "row", gap: 3, marginTop: 3 },
   dot: { width: 4, height: 4, borderRadius: 2 },
   eventList: { flex: 1, marginTop: spacing.base },
+  eventListContent: { paddingBottom: 32 },
   dateLabel: { fontSize: 14, fontWeight: "500", marginBottom: spacing.md },
   eventCard: {
     flexDirection: "row",

@@ -117,6 +117,7 @@ export const PainFollowUpModal: React.FC<PainFollowUpModalProps> = ({
           style={[styles.sheet, { backgroundColor: colors.card }]}
         >
           <Animated.View entering={FadeIn.duration(200)}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
             {/* Header */}
             <View style={styles.header}>
               <View style={[styles.headerIcon, { backgroundColor: colors.primaryMuted }]}>
@@ -258,7 +259,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xxl,
     borderTopRightRadius: radius.xxl,
     padding: spacing.xl,
+    paddingTop: 12,
     paddingBottom: 40,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
   },
   header: {
     flexDirection: "row",

@@ -33,6 +33,7 @@ import {
 } from "@/src/components/workout";
 import type { PostWorkoutData } from "@/src/components/workout";
 import { ExerciseHistorySheet } from "@/src/components/workout/ExerciseHistorySheet";
+import { EndWorkoutSheet } from "@/src/components/workout/EndWorkoutSheet";
 // useActiveLimitations removed — causes PGRST errors without migrations applied
 import { useWeeklySummary } from "@/src/hooks/useWeeklySummary";
 import type { BodyRegion } from "@/src/theme";
@@ -126,6 +127,25 @@ function ActiveWorkoutInner() {
       router.dismissTo("/(app)/(tabs)/workout");
     }
   }, [state.isActive]);
+
+  // Auto-discard "phantom" sessions: if the screen unmounts (swipe-down,
+  // hardware back, dismissTo) while the workout is still active and the
+  // user logged zero sets, drop the draft so the persistent mini-bar
+  // doesn't surface a workout the user never actually engaged with.
+  // The ref keeps the cleanup closure looking at fresh state.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  useEffect(() => {
+    return () => {
+      const s = stateRef.current;
+      if (!s.isActive) return; // already torn down by finishWorkout / discard
+      const anyCompleted = s.exercises.some((ex) =>
+        ex.sets.some((set) => set.completed),
+      );
+      if (!anyCompleted) actions.discardWorkout();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showExerciseInfo, setShowExerciseInfo] = useState<string | null>(null);
   const [historyExerciseId, setHistoryExerciseId] = useState<string | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -140,6 +160,7 @@ function ActiveWorkoutInner() {
   const [isFirstWorkout, setIsFirstWorkout] = useState(false);
   const [showCheckin, setShowCheckin] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [showEndSheet, setShowEndSheet] = useState(false);
 
   const limitations: any[] = [];
   const reportLimitation = async (_region: any) => {};
@@ -213,6 +234,22 @@ function ActiveWorkoutInner() {
     },
     [state.exercises, actions, checkPR, updateLocalPR]
   );
+
+  // Per-workout completion summary used by the End-confirmation sheet.
+  // Counts every set across every exercise; an "skipped" exercise = one
+  // with zero completed sets.
+  const endSummary = useMemo(() => {
+    let completed = 0;
+    let total = 0;
+    let skipped = 0;
+    for (const ex of state.exercises) {
+      total += ex.sets.length;
+      const exDone = ex.sets.filter((s) => s.completed).length;
+      completed += exDone;
+      if (exDone === 0) skipped += 1;
+    }
+    return { completed, total, skipped };
+  }, [state.exercises]);
 
   // Compute total volume and collect PRs for celebration screen
   const workoutStats = useMemo(() => {
@@ -295,6 +332,9 @@ function ActiveWorkoutInner() {
     if (finishing) return; // Prevent double-tap spam
     setFinishing(true);
 
+    // Snapshot the count before finishWorkout tears down state.
+    const savedSets = endSummary.completed;
+
     try {
       await actions.finishWorkout();
     } catch {
@@ -304,9 +344,14 @@ function ActiveWorkoutInner() {
 
     awardWorkoutXP(Date.now().toString(), workoutStats.prs.length).catch(() => {});
 
+    showToast({
+      message: `Workout saved · ${savedSets} set${savedSets === 1 ? "" : "s"}`,
+      type: "exerciseComplete",
+    });
+
     // Navigate home — no save-as-template for coaching programs
     router.dismissTo("/(app)/(tabs)/workout");
-  }, [finishing, actions, awardWorkoutXP, workoutStats.prs.length]);
+  }, [finishing, actions, awardWorkoutXP, workoutStats.prs.length, endSummary.completed]);
 
   // Handle checkin data submission
   const handleCheckinComplete = useCallback(async (data: PostWorkoutData) => {
@@ -399,7 +444,29 @@ function ActiveWorkoutInner() {
         saving={finishing}
         onFinish={() => {
           if (finishing) return;
-          setFinishing(true);
+          // Always show the confirm sheet first — never silent-save / silent-discard.
+          setShowEndSheet(true);
+        }}
+      />
+
+      <EndWorkoutSheet
+        visible={showEndSheet}
+        mode={endSummary.completed === 0 ? "empty" : "normal"}
+        completedSets={endSummary.completed}
+        totalSets={endSummary.total}
+        skippedExercises={endSummary.skipped}
+        onCancel={() => setShowEndSheet(false)}
+        onConfirm={() => {
+          setShowEndSheet(false);
+          if (endSummary.completed === 0) {
+            // Discard: clear local state, exit. No DB write.
+            actions.discardWorkout();
+            router.dismissTo("/(app)/(tabs)/workout");
+            return;
+          }
+          // Let `completeFinishFlow` own `finishing`. Setting it here too
+          // would short-circuit completeFinishFlow's own guard via stale
+          // closure under certain re-render orderings.
           completeFinishFlow();
         }}
       />
@@ -581,12 +648,18 @@ export default function ActiveWorkoutScreen() {
     (exercises: ActiveExercise[]) => {
       if (startedRef.current) return;
       startedRef.current = true;
-      actions.startSession({
-        exercises,
-        title: workoutName,
-        sourceType,
-        sourceId: params.sourceId,
-        sessionDate: params.sessionDate,
+      // Resolve user fresh so the session is bound to an account from
+      // moment zero — eliminates the race where the provider's getUser()
+      // hadn't resolved yet when the workout starts.
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        actions.startSession({
+          exercises,
+          title: workoutName,
+          sourceType,
+          sourceId: params.sourceId,
+          sessionDate: params.sessionDate,
+          userId: user?.id ?? undefined,
+        });
       });
     },
     [actions, workoutName, sourceType, params.sourceId, params.sessionDate]

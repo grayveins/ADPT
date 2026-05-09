@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -27,7 +28,9 @@ import { spacing } from "@/src/theme";
 import { useStreak } from "@/src/hooks/useStreak";
 import { useBodyStats } from "@/src/hooks/useBodyStats";
 import { useClientMacros } from "@/src/hooks/useClientMacros";
+import { useHealthKit } from "@/src/hooks/useHealthKit";
 import { MetricCard } from "@/src/components/progress/MetricCard";
+import { HealthKitPermissionCard } from "@/src/components/HealthKitPermissionCard";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import {
   fetchTasksForRange,
@@ -97,6 +100,13 @@ export default function HomeScreen() {
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
   const { currentStreak } = useStreak(userId);
+  const {
+    permissionState: hkPermissionState,
+    steps: hkSteps,
+    activeEnergy: hkActiveEnergy,
+    refresh: refreshHealthKit,
+    requestAuth: requestHealthKitAuth,
+  } = useHealthKit(userId);
 
   const days = useMemo(generateDays, []);
   // Pin "today" to a single Date instance per mount so memos that depend
@@ -201,8 +211,9 @@ export default function HomeScreen() {
     setRefreshing(true);
     await fetchData();
     await refreshStats();
+    await refreshHealthKit();
     setRefreshing(false);
-  }, [fetchData, refreshStats]);
+  }, [fetchData, refreshStats, refreshHealthKit]);
 
   // Fetch coach-scheduled tasks across the visible day-strip (±10 days).
   // We need the full window so the perfect-day badge can light up past
@@ -665,9 +676,24 @@ export default function HomeScreen() {
           {isToday ? "TODAY" : format(selectedDate, "EEEE").toUpperCase()}
         </Text>
         <View style={styles.taskList}>
-          {/* Assigned workout — only show if one exists */}
+          {/* Assigned workout. Tap routes:
+              - If already completed → past-session detail (read-only).
+              - If not completed yet → start the workout flow. */}
           {selectedDayWorkout && (
-            <Pressable onPress={startWorkout} style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+            <Pressable
+              onPress={() => {
+                if (selectedDayCompleted) {
+                  hapticPress();
+                  router.push({
+                    pathname: "/(workout)/session-detail",
+                    params: { sessionId: selectedDayCompleted.id },
+                  });
+                } else {
+                  startWorkout();
+                }
+              }}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}
+            >
               <View style={[styles.taskDot, {
                 backgroundColor: selectedDayCompleted ? colors.success : "transparent",
                 borderColor: selectedDayCompleted ? colors.success : colors.textMuted,
@@ -679,7 +705,7 @@ export default function HomeScreen() {
                   {selectedDayWorkout.name}
                 </Text>
                 <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
-                  {selectedDayCompleted ? "Completed" : `${(selectedDayWorkout.exercises || []).length} exercises`}
+                  {selectedDayCompleted ? "Completed · Tap to view" : `${(selectedDayWorkout.exercises || []).length} exercises`}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
@@ -703,7 +729,16 @@ export default function HomeScreen() {
 
           {/* Completed workout (if no assigned but has a logged session) */}
           {!selectedDayWorkout && selectedDayCompleted && (
-            <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                router.push({
+                  pathname: "/(workout)/session-detail",
+                  params: { sessionId: selectedDayCompleted.id },
+                });
+              }}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}
+            >
               <View style={[styles.taskDot, { backgroundColor: colors.success, borderColor: colors.success }]}>
                 <Ionicons name="checkmark" size={12} color="#fff" />
               </View>
@@ -713,7 +748,8 @@ export default function HomeScreen() {
                 </Text>
                 <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>Completed</Text>
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
           )}
 
           {/* Nutrition row — toggle like a habit; backfill works for past +
@@ -825,6 +861,16 @@ export default function HomeScreen() {
           })}
         </View>
 
+        {/* Apple Health prompt — iOS-only, hides itself when granted. */}
+        {Platform.OS === "ios" && hkPermissionState !== "likely_granted" && (
+          <View style={{ marginTop: spacing.lg }}>
+            <HealthKitPermissionCard
+              state={hkPermissionState}
+              onConnect={requestHealthKitAuth}
+            />
+          </View>
+        )}
+
         {/* My Progress section */}
         <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
           MY PROGRESS
@@ -859,6 +905,22 @@ export default function HomeScreen() {
             unit={workoutsThisWeek === 1 ? "session" : "sessions"}
           />
         </View>
+        {Platform.OS === "ios" && (
+          <View style={styles.cardRow}>
+            <MetricCard
+              title="Steps Today"
+              subtitle="From Apple Health"
+              value={hkSteps != null ? hkSteps.toLocaleString() : "—"}
+              unit="steps"
+            />
+            <MetricCard
+              title="Active Energy"
+              subtitle="Today"
+              value={hkActiveEnergy != null ? `${hkActiveEnergy}` : "—"}
+              unit="kcal"
+            />
+          </View>
+        )}
         </Animated.View>
         )}
       </ScrollView>

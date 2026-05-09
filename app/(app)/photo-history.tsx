@@ -122,7 +122,7 @@ export default function PhotoHistoryScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
           Progress photos

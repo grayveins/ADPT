@@ -86,15 +86,20 @@ export const SetRowNew: React.FC<SetRowNewProps> = ({
   // there's no flicker / no half-open state.
   const swipeEnabled = !!onDelete && !completed && !disabled;
 
+  // Full-height transparent pane; the inner Pressable centers the icon
+  // vertically against whatever the row resolves to. No background, no
+  // colored fill — the swipe gesture itself is the affordance.
   const renderRightActions = () => (
-    <Pressable
-      onPress={handleSwipeDelete}
-      style={[styles.deleteAction, { backgroundColor: colors.bg }]}
-      accessibilityRole="button"
-      accessibilityLabel={`Delete set ${setNumber}`}
-    >
-      <Ionicons name="trash-outline" size={20} color={colors.error} />
-    </Pressable>
+    <View style={styles.deleteAction}>
+      <Pressable
+        onPress={handleSwipeDelete}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete set ${setNumber}`}
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+      </Pressable>
+    </View>
   );
 
   const rowContent = (
@@ -263,8 +268,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   deleteAction: {
-    width: 64,
-    height: 48,
+    width: 56,
     alignItems: "center",
     justifyContent: "center",
   },

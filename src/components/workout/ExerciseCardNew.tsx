@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { SetRowNew } from "./SetRowNew";
+import { MuscleChips } from "./MuscleChips";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 
 export type SetData = {
@@ -92,6 +93,11 @@ export const ExerciseCardNew: React.FC<ExerciseCardNewProps> = ({
           >
             {`Set ${completedSets} of ${totalSets} · ${targetReps || "8-12"} reps · RIR ${targetRIR ?? 2}`}
           </Text>
+          {muscles && muscles.length > 0 && (
+            <View style={styles.muscleRow}>
+              <MuscleChips muscles={muscles} />
+            </View>
+          )}
         </Pressable>
         {currentPRWeight != null && currentPRWeight > 0 && (
           <View style={[styles.prBadge, { borderColor: colors.border }]}>
@@ -216,6 +222,7 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1, gap: 2 },
   exerciseName: { fontSize: 16, fontWeight: "600" },
   meta: { fontSize: 13 },
+  muscleRow: { marginTop: 6 },
   prBadge: {
     borderWidth: 1,
     borderRadius: radius.sm,

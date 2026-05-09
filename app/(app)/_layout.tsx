@@ -217,6 +217,12 @@ export default function AuthenticatedLayout() {
             drawerItemStyle: { display: "none" },
           }}
         />
+        <Drawer.Screen
+          name="view-meal-plan"
+          options={{
+            drawerItemStyle: { display: "none" },
+          }}
+        />
       </Drawer>
       {/* Mounted as the View's last child so it z-orders ABOVE the Drawer
           and stays visible across tabs / progress screens / photo flows. */}

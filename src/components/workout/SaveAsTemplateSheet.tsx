@@ -29,6 +29,7 @@ export function SaveAsTemplateSheet({ visible, defaultName, onSave, onSkip }: Pr
           entering={FadeInUp.duration(300)}
           style={[styles.sheet, { backgroundColor: colors.bg }]}
         >
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
             Save as Template?
           </Text>
@@ -91,7 +92,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    paddingTop: 12,
     paddingBottom: 40,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   title: {
     fontSize: 20,

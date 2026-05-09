@@ -298,7 +298,7 @@ export default function WorkoutPreviewScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>

@@ -38,6 +38,9 @@ export default function WorkoutScreen() {
   const [workouts, setWorkouts] = useState<PhaseWorkout[]>([]);
   const [todayWorkout, setTodayWorkout] = useState<PhaseWorkout | null>(null);
   const [todayIsRest, setTodayIsRest] = useState(false);
+  /** id of today's completed workout_session, if one exists. Drives the
+   *  TODAY hero state ("Start Workout" vs "Completed · Tap to view"). */
+  const [todaySessionId, setTodaySessionId] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +53,11 @@ export default function WorkoutScreen() {
     if (!userId) return;
     // Schedule is per-day; only need a 1-day window for the workout tab.
     const today = new Date();
-    const [{ data: program }, schedMap] = await Promise.all([
+    const dayStart = new Date(today);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(today);
+    dayEnd.setHours(23, 59, 59, 999);
+    const [{ data: program }, schedMap, sessionsRes] = await Promise.all([
       supabase
         .from("coaching_programs")
         .select("id, name, program_phases(id, name, phase_number, status, phase_workouts(id, day_number, name, exercises))")
@@ -60,7 +67,19 @@ export default function WorkoutScreen() {
         .limit(1)
         .maybeSingle(),
       fetchScheduledMap(userId, today, today),
+      // Today's completed session — drives the TODAY hero CTA state.
+      supabase
+        .from("workout_sessions")
+        .select("id, started_at")
+        .eq("user_id", userId)
+        .gte("started_at", dayStart.toISOString())
+        .lte("started_at", dayEnd.toISOString())
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
+
+    setTodaySessionId((sessionsRes.data?.id as string | undefined) ?? null);
 
     if (!program) {
       setProgramName(null);
@@ -68,6 +87,8 @@ export default function WorkoutScreen() {
       setWorkouts([]);
       setTodayWorkout(null);
       setTodayIsRest(false);
+      // Keep todaySessionId — even without a program, a logged session
+      // for today is still meaningful (empty workouts, etc.).
       setInitialLoading(false);
       return;
     }
@@ -199,10 +220,23 @@ export default function WorkoutScreen() {
           <WorkoutSkeleton />
         ) : (
         <Animated.View entering={FadeIn.duration(220)}>
-        {/* Today's Workout */}
+        {/* Today's Workout. Three states:
+            - completed today      → tap routes to session detail
+            - assigned, not done   → tap starts the workout
+            - rest day             → static card */}
         {todayWorkout ? (
           <Pressable
-            onPress={() => openWorkoutDetail(todayWorkout)}
+            onPress={() => {
+              if (todaySessionId) {
+                hapticPress();
+                router.push({
+                  pathname: "/(workout)/session-detail",
+                  params: { sessionId: todaySessionId },
+                });
+              } else {
+                openWorkoutDetail(todayWorkout);
+              }
+            }}
             style={[styles.todayCard, { backgroundColor: colors.text }]}
           >
             <Text allowFontScaling={false} style={[styles.todayLabel, { color: colors.bgSecondary }]}>
@@ -218,9 +252,13 @@ export default function WorkoutScreen() {
             )}
             <View style={styles.todayStart}>
               <Text allowFontScaling={false} style={[styles.todayStartText, { color: colors.bg }]}>
-                Start Workout
+                {todaySessionId ? "Completed · View" : "Start Workout"}
               </Text>
-              <Ionicons name="play" size={16} color={colors.bg} />
+              <Ionicons
+                name={todaySessionId ? "checkmark-circle" : "play"}
+                size={16}
+                color={colors.bg}
+              />
             </View>
           </Pressable>
         ) : todayIsRest ? (
