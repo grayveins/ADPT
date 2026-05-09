@@ -933,12 +933,27 @@ export function ActiveWorkoutProvider({ children }: ProviderProps) {
     finishWorkout: async () => {
       dispatch({ type: "SHOW_CELEBRATION", show: false });
 
-      if (!state.userId) {
-        // Can't persist without a user — tear down locally; the active
-        // screen's `!isActive` effect will leave the modal.
-        dispatch({ type: "END_SESSION" });
-        await clearDraft();
-        return;
+      // Resolve user fresh from auth as a fallback — `state.userId` can be
+      // null if the provider's initial getUser() race lost to the user
+      // starting a workout, or if the draft was hydrated before auth wired
+      // up. Previously we'd silently tear down here, which made every End
+      // tap look like a successful save while writing nothing to the DB.
+      let userId = state.userId;
+      if (!userId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          userId = user?.id ?? null;
+          if (userId) dispatch({ type: "SET_USER_ID", userId });
+        } catch {
+          /* fall through to the throw below */
+        }
+      }
+      if (!userId) {
+        // No auth — surface a real error so the caller's catch fires.
+        // We do NOT tear down state; the user can fix sign-in and retry.
+        throw new Error(
+          "Not signed in. Please re-open the app or sign in again before saving.",
+        );
       }
 
       try {
@@ -952,7 +967,7 @@ export function ActiveWorkoutProvider({ children }: ProviderProps) {
         const { data: sessionData, error: sessionError } = await supabase
           .from("workout_sessions")
           .insert({
-            user_id: state.userId,
+            user_id: userId,
             title: state.title,
             started_at: startedAt.toISOString(),
             ended_at: endedAt.toISOString(),
@@ -1034,7 +1049,7 @@ export function ActiveWorkoutProvider({ children }: ProviderProps) {
           startedAt.getMonth() + 1
         ).padStart(2, "0")}-${String(startedAt.getDate()).padStart(2, "0")}`;
         const { error: streakError } = await supabase.rpc("update_user_streak", {
-          p_user_id: state.userId,
+          p_user_id: userId,
           p_workout_date: workoutDate,
         });
         if (streakError) console.error(streakError);
@@ -1044,10 +1059,15 @@ export function ActiveWorkoutProvider({ children }: ProviderProps) {
         dispatch({ type: "END_SESSION" });
 
         // 6. Invalidate coach cache
-        await invalidateAndNotify(state.userId, "workout_complete").catch(console.error);
+        await invalidateAndNotify(userId, "workout_complete").catch(console.error);
       } catch (e) {
         console.error("Error saving workout:", e);
-        Alert.alert("Error", "Failed to save workout. Please try again.");
+        const detail =
+          (e as any)?.message ?? (typeof e === "string" ? e : "Unknown error");
+        Alert.alert(
+          "Couldn't save workout",
+          `${detail}\n\nYour sets are still in this session — you can try ending again.`,
+        );
         throw e; // Re-throw so caller knows it failed
       }
 

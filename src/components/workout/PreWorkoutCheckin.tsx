@@ -98,6 +98,7 @@ export const PreWorkoutCheckin: React.FC<PreWorkoutCheckinProps> = ({
           entering={FadeInDown.duration(300)}
           style={[styles.sheet, { backgroundColor: colors.card }]}
         >
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -358,8 +359,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    paddingTop: 12,
     paddingBottom: 40,
     maxHeight: "85%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   header: {
     flexDirection: "row",

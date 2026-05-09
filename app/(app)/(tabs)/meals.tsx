@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+/**
+ * Nutrition tab — Cal AI / MacroFactor inspired layout, monochrome.
+ *
+ * Surfaces only data we have today (coach-set targets + binary "hit goal"
+ * flag + meal-plan PDFs). Visual scaffolding for future food-logging.
+ */
+
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,13 +13,21 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
+import { isSignedInUserCoach } from "@/src/lib/mealPlans";
+import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
+import { Skeleton } from "@/src/animations/components/SkeletonLoader";
+import { CalorieRing } from "@/src/components/CalorieRing";
 
 type MacroTargets = {
   calories: number | null;
@@ -29,18 +44,28 @@ type MealPlan = {
   uploaded_at: string;
 };
 
+function todayLocalISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function MealsScreen() {
   const { colors } = useTheme();
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [isCoach, setIsCoach] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [weekHits, setWeekHits] = useState(0);
+
+  const today = todayLocalISO();
+  const macroFlag = useDailyFlag("macros", today);
 
   const fetchData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [macroRes, planRes] = await Promise.all([
+    const [macroRes, planRes, coach, allKeys] = await Promise.all([
       supabase
         .from("client_macros")
         .select("calories, protein_g, carbs_g, fat_g, notes")
@@ -53,14 +78,43 @@ export default function MealsScreen() {
         .select("id, title, storage_path, uploaded_at")
         .eq("client_id", user.id)
         .order("uploaded_at", { ascending: false }),
+      isSignedInUserCoach(),
+      AsyncStorage.getAllKeys().catch(() => [] as readonly string[]),
     ]);
 
     if (macroRes.data) setMacros(macroRes.data);
     if (planRes.data) setMealPlans(planRes.data);
-    setLoading(false);
-  }, []);
+    setIsCoach(coach);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+    // Count this week's macro hits — last 7 days inclusive.
+    const macroKeys = (allKeys as readonly string[]).filter((k) =>
+      k.startsWith("dailyFlag:macros:"),
+    );
+    if (macroKeys.length > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 6);
+      const cutoffYmd = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+      const pairs = await AsyncStorage.multiGet(macroKeys).catch(
+        () => [] as [string, string | null][],
+      );
+      let count = 0;
+      for (const [k, v] of pairs) {
+        if (v !== "1") continue;
+        const ymd = k.split(":")[2];
+        if (!ymd) continue;
+        if (ymd >= cutoffYmd && ymd <= today) count += 1;
+      }
+      setWeekHits(count);
+    } else {
+      setWeekHits(0);
+    }
+
+    setLoading(false);
+  }, [today]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -68,158 +122,336 @@ export default function MealsScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  const openPdf = useCallback(async (path: string) => {
-    const { data } = await supabase.storage
-      .from("meal-plans")
-      .createSignedUrl(path, 3600);
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
+  const openPdf = useCallback((path: string, title: string) => {
+    // Route to our in-app viewer so the bare supabase.co signed URL is
+    // never visible. The viewer regenerates a fresh signed URL itself.
+    router.push({
+      pathname: "/(app)/view-meal-plan",
+      params: { path, title },
+    });
   }, []);
+
+  const onToggleHit = useCallback(() => {
+    if (macroFlag.on) hapticPress();
+    else hapticSuccess();
+    macroFlag.toggle();
+    // Optimistically reflect the toggle in the week count.
+    setWeekHits((c) => Math.max(0, c + (macroFlag.on ? -1 : 1)));
+  }, [macroFlag]);
+
+  const calorieValue = useMemo(() => {
+    if (!macros?.calories) return "—";
+    return macros.calories.toLocaleString();
+  }, [macros?.calories]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
-      <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
-        Nutrition
-      </Text>
+      <View style={styles.titleRow}>
+        <Text allowFontScaling={false} style={[styles.title, { color: colors.text }]}>
+          Nutrition
+        </Text>
+        {isCoach && (
+          <Pressable
+            onPress={() => router.push("/(app)/upload-meal-plan" as any)}
+            hitSlop={12}
+            style={[styles.uploadIcon, { backgroundColor: colors.bgSecondary }]}
+          >
+            <Ionicons name="add" size={22} color={colors.text} />
+          </Pressable>
+        )}
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
-        {/* Macro Targets */}
-        {macros ? (
-          <View style={[styles.macroCard, { backgroundColor: colors.bgSecondary }]}>
-            {macros.calories && (
-              <View style={styles.calorieRow}>
-                <Text allowFontScaling={false} style={[styles.calorieValue, { color: colors.text }]}>
-                  {macros.calories}
+        {loading ? (
+          <MealsSkeleton />
+        ) : (
+          <Animated.View entering={FadeIn.duration(220)}>
+            {/* Hero ring — tap to mark today's nutrition hit */}
+            {macros ? (
+              <View style={styles.heroBlock}>
+                <Pressable onPress={onToggleHit} accessibilityRole="button">
+                  <CalorieRing
+                    size={220}
+                    progress={macroFlag.on ? 1 : 0}
+                    value={calorieValue}
+                    eyebrow="calories"
+                    caption="daily target"
+                  />
+                </Pressable>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.hitLine, { color: colors.textMuted }]}
+                >
+                  {macroFlag.on ? "✓ Hit today" : "Tap ring to mark hit"}
+                  {weekHits > 0 ? `  ·  ${weekHits} day${weekHits === 1 ? "" : "s"} this week` : ""}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.calorieLabel, { color: colors.textMuted }]}>
-                  calories / day
+              </View>
+            ) : (
+              <View style={[styles.emptyHero, { borderColor: colors.border }]}>
+                <Ionicons name="nutrition-outline" size={32} color={colors.textMuted} />
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.emptyTitle, { color: colors.text }]}
+                >
+                  No targets set
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.emptyText, { color: colors.textMuted }]}
+                >
+                  Your coach hasn&apos;t set nutrition targets yet.
                 </Text>
               </View>
             )}
-            <View style={styles.macroRow}>
-              {macros.protein_g != null && (
-                <MacroPill label="Protein" value={`${macros.protein_g}g`} colors={colors} />
-              )}
-              {macros.carbs_g != null && (
-                <MacroPill label="Carbs" value={`${macros.carbs_g}g`} colors={colors} />
-              )}
-              {macros.fat_g != null && (
-                <MacroPill label="Fat" value={`${macros.fat_g}g`} colors={colors} />
-              )}
-            </View>
-            {macros.notes && (
-              <Text allowFontScaling={false} style={[styles.macroNotes, { color: colors.textSecondary }]}>
-                {macros.notes}
-              </Text>
-            )}
-            <Text allowFontScaling={false} style={[styles.setBy, { color: colors.textMuted }]}>
-              Set by your coach
-            </Text>
-          </View>
-        ) : !loading ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.bgSecondary }]}>
-            <Ionicons name="nutrition-outline" size={32} color={colors.textMuted} />
-            <Text allowFontScaling={false} style={[styles.emptyTitle, { color: colors.text }]}>
-              No targets set
-            </Text>
-            <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
-              Your coach hasn&apos;t set nutrition targets yet
-            </Text>
-          </View>
-        ) : null}
 
-        {/* Meal Plans */}
-        <View style={styles.section}>
-          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.text }]}>
-            Meal Plans
-          </Text>
-          {mealPlans.length > 0 ? (
-            mealPlans.map((plan) => (
-              <Pressable
-                key={plan.id}
-                onPress={() => openPdf(plan.storage_path)}
-                style={[styles.planCard, { backgroundColor: colors.bgSecondary }]}
+            {/* Macro cards row */}
+            {macros && (macros.protein_g != null || macros.carbs_g != null || macros.fat_g != null) && (
+              <View style={styles.macroRow}>
+                <MacroCard label="Protein" grams={macros.protein_g} colors={colors} />
+                <MacroCard label="Carbs" grams={macros.carbs_g} colors={colors} />
+                <MacroCard label="Fat" grams={macros.fat_g} colors={colors} />
+              </View>
+            )}
+
+            {/* Coach notes */}
+            {macros?.notes ? (
+              <View style={[styles.notesCard, { backgroundColor: colors.bgSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.notesLabel, { color: colors.textMuted }]}
+                >
+                  COACH NOTES
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.notesBody, { color: colors.text }]}
+                >
+                  {macros.notes}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Meal plans */}
+            <View style={styles.section}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.sectionTitle, { color: colors.text }]}
               >
-                <Ionicons name="document-text-outline" size={20} color={colors.text} />
-                <View style={styles.planInfo}>
-                  <Text allowFontScaling={false} style={[styles.planTitle, { color: colors.text }]}>
-                    {plan.title}
-                  </Text>
-                  <Text allowFontScaling={false} style={[styles.planDate, { color: colors.textMuted }]}>
-                    {new Date(plan.uploaded_at).toLocaleDateString()}
-                  </Text>
-                </View>
-                <Ionicons name="download-outline" size={20} color={colors.textMuted} />
-              </Pressable>
-            ))
-          ) : !loading ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.bgSecondary }]}>
-              <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
-                No meal plans uploaded
+                Meal plans
               </Text>
+              {mealPlans.length > 0 ? (
+                <View style={styles.planList}>
+                  {mealPlans.map((plan, i) => {
+                    const isLast = i === mealPlans.length - 1;
+                    return (
+                      <Pressable
+                        key={plan.id}
+                        onPress={() => openPdf(plan.storage_path, plan.title)}
+                        style={[
+                          styles.planRow,
+                          !isLast && {
+                            borderBottomColor: colors.border,
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.planIcon, { backgroundColor: colors.bgSecondary }]}>
+                          <Ionicons name="document-text-outline" size={18} color={colors.text} />
+                        </View>
+                        <View style={styles.planInfo}>
+                          <Text
+                            allowFontScaling={false}
+                            style={[styles.planTitle, { color: colors.text }]}
+                            numberOfLines={1}
+                          >
+                            {plan.title}
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[styles.planDate, { color: colors.textMuted }]}
+                          >
+                            {new Date(plan.uploaded_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.emptyPlans, { color: colors.textMuted }]}
+                >
+                  No meal plans uploaded
+                </Text>
+              )}
             </View>
-          ) : null}
-        </View>
+          </Animated.View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MacroPill({ label, value, colors }: { label: string; value: string; colors: any }) {
+function MacroCard({
+  label,
+  grams,
+  colors,
+}: {
+  label: string;
+  grams: number | null;
+  colors: any;
+}) {
   return (
-    <View style={[styles.macroPill, { backgroundColor: colors.card }]}>
-      <Text allowFontScaling={false} style={[styles.macroPillValue, { color: colors.text }]}>
-        {value}
+    <View style={[styles.macroCard, { borderColor: colors.border }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.macroValue, { color: colors.text }]}
+      >
+        {grams != null ? `${grams}` : "—"}
       </Text>
-      <Text allowFontScaling={false} style={[styles.macroPillLabel, { color: colors.textMuted }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.macroUnit, { color: colors.textMuted }]}
+      >
+        g
+      </Text>
+      <Text
+        allowFontScaling={false}
+        style={[styles.macroLabel, { color: colors.textMuted }]}
+      >
         {label}
       </Text>
     </View>
   );
 }
 
+function MealsSkeleton() {
+  return (
+    <View style={{ gap: spacing.lg, marginTop: spacing.xs }}>
+      <View style={{ alignItems: "center", marginVertical: spacing.lg }}>
+        <Skeleton width={220} height={220} borderRadius={110} />
+      </View>
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <Skeleton width="32%" height={84} borderRadius={radius.md} />
+        <Skeleton width="32%" height={84} borderRadius={radius.md} />
+        <Skeleton width="32%" height={84} borderRadius={radius.md} />
+      </View>
+      <Skeleton width="40%" height={18} style={{ marginTop: spacing.md }} />
+      <Skeleton width="100%" height={56} borderRadius={radius.md} />
+      <Skeleton width="100%" height={56} borderRadius={radius.md} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: spacing.lg },
-  title: { fontSize: 28, fontWeight: "700", marginTop: spacing.base, marginBottom: spacing.xl },
-  macroCard: { padding: spacing.xl, borderRadius: radius.lg, gap: spacing.base },
-  calorieRow: { alignItems: "center", marginBottom: spacing.sm },
-  calorieValue: { fontSize: 40, fontWeight: "700" },
-  calorieLabel: { fontSize: 14, marginTop: 2 },
-  macroRow: { flexDirection: "row", gap: spacing.sm, justifyContent: "center" },
-  macroPill: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: "center",
-    gap: 2,
-  },
-  macroPillValue: { fontSize: 17, fontWeight: "600" },
-  macroPillLabel: { fontSize: 12 },
-  macroNotes: { fontSize: 14, textAlign: "center" },
-  setBy: { fontSize: 12, textAlign: "center" },
-  section: { marginTop: spacing.xl },
-  sectionTitle: { fontSize: 17, fontWeight: "600", marginBottom: spacing.md },
-  planCard: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.base,
+    marginBottom: spacing.md,
+  },
+  title: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.4 },
+  uploadIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollContent: { paddingBottom: 60 },
+
+  // Hero
+  heroBlock: { alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
+  hitLine: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    marginTop: spacing.md,
+  },
+  emptyHero: {
+    alignItems: "center",
+    paddingVertical: spacing.xl + 8,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
+  emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+
+  // Macro cards
+  macroRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
+  macroCard: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    gap: 0,
+  },
+  macroValue: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
+  macroUnit: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: -2 },
+  macroLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginTop: 6,
+  },
+
+  // Coach notes
+  notesCard: {
     padding: spacing.base,
     borderRadius: radius.md,
-    gap: spacing.md,
+    marginBottom: spacing.xl,
+    gap: 6,
+  },
+  notesLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+  },
+  notesBody: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+
+  // Meal plans
+  section: { marginTop: spacing.sm },
+  sectionTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
     marginBottom: spacing.sm,
   },
-  planInfo: { flex: 1 },
-  planTitle: { fontSize: 15, fontWeight: "500" },
-  planDate: { fontSize: 13, marginTop: 2 },
-  emptyCard: {
-    padding: spacing.xl,
-    borderRadius: radius.lg,
+  planList: {},
+  planRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
   },
-  emptyTitle: { fontSize: 17, fontWeight: "600" },
-  emptyText: { fontSize: 15 },
+  planIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  planInfo: { flex: 1 },
+  planTitle: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  planDate: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  emptyPlans: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingVertical: spacing.lg,
+  },
 });

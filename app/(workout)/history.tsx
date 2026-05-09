@@ -1,6 +1,9 @@
 /**
- * Workout History Screen
- * View past workouts with full details
+ * Workout History — minimalist list of past sessions.
+ *
+ * Cal AI / Linear-style: oversized title, no boxed cards, hairline rows,
+ * monochrome only. Each row is a single tap target that routes to the
+ * read-only session detail screen.
  */
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
@@ -15,8 +18,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { format, parseISO, differenceInMinutes, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
+import Animated, { FadeIn } from "react-native-reanimated";
+import {
+  format,
+  parseISO,
+  differenceInMinutes,
+  isToday,
+  isYesterday,
+  isThisWeek,
+  isThisMonth,
+} from "date-fns";
 
 import { useTheme } from "@/src/context/ThemeContext";
 import { supabase } from "@/lib/supabase";
@@ -26,20 +37,17 @@ import { HistorySkeleton } from "@/src/animations/components";
 import { useFeatureAccess } from "@/src/hooks/useSubscription";
 import UpgradePrompt from "@/src/components/UpgradePrompt";
 
-// Types
 type WorkoutSet = {
   id: string;
   set_number: number;
   weight_lbs: number | null;
   reps: number | null;
-  rir: number | null;
   is_pr: boolean;
 };
 
 type WorkoutExercise = {
   id: string;
   exercise_name: string;
-  muscle_group: string | null;
   order_index: number;
   sets: WorkoutSet[];
 };
@@ -52,334 +60,174 @@ type WorkoutSession = {
   exercises: WorkoutExercise[];
 };
 
-type GroupedWorkouts = {
-  label: string;
-  workouts: WorkoutSession[];
-};
+type GroupedWorkouts = { label: string; workouts: WorkoutSession[] };
 
 export default function WorkoutHistoryScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { hasAccess: hasFullHistory, limit: historyDaysLimit } = useFeatureAccess("fullHistory");
+  const { hasAccess: hasFullHistory, limit: historyDaysLimit } =
+    useFeatureAccess("fullHistory");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
-  const [expandedWorkout, setExpandedWorkout] = useState<string | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  // Fetch workouts
-  const fetchWorkouts = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const fetchWorkouts = useCallback(
+    async (showRefresh = false) => {
+      if (showRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace("/sign-in");
-        return;
-      }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.replace("/sign-in");
+          return;
+        }
 
-      // Fetch sessions with exercises and sets
-      // Free users limited to last N days of history
-      let query = supabase
-        .from("workout_sessions")
-        .select("id, title, started_at, ended_at")
-        .eq("user_id", user.id)
-        .order("started_at", { ascending: false })
-        .limit(50);
+        let query = supabase
+          .from("workout_sessions")
+          .select("id, title, started_at, ended_at")
+          .eq("user_id", user.id)
+          .order("started_at", { ascending: false })
+          .limit(50);
 
-      if (!hasFullHistory) {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - historyDaysLimit);
-        query = query.gte("started_at", cutoff.toISOString());
-      }
+        if (!hasFullHistory) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - historyDaysLimit);
+          query = query.gte("started_at", cutoff.toISOString());
+        }
 
-      const { data: sessions, error: sessionsError } = await query;
+        const { data: sessions, error: sessionsError } = await query;
+        if (sessionsError) throw sessionsError;
 
-      if (sessionsError) throw sessionsError;
+        const sessionIds = sessions?.map((s) => s.id) || [];
+        if (sessionIds.length === 0) {
+          setWorkouts([]);
+          return;
+        }
 
-      // Fetch exercises for these sessions
-      const sessionIds = sessions?.map((s) => s.id) || [];
-      
-      if (sessionIds.length === 0) {
-        setWorkouts([]);
-        return;
-      }
+        const { data: exercises, error: exercisesError } = await supabase
+          .from("workout_exercises")
+          .select("id, session_id, exercise_name, order_index")
+          .in("session_id", sessionIds)
+          .order("order_index", { ascending: true });
+        if (exercisesError) throw exercisesError;
 
-      const { data: exercises, error: exercisesError } = await supabase
-        .from("workout_exercises")
-        .select("id, session_id, exercise_name, muscle_group, order_index")
-        .in("session_id", sessionIds)
-        .order("order_index", { ascending: true });
+        const exerciseIds = exercises?.map((e) => e.id) || [];
+        let sets: any[] = [];
+        if (exerciseIds.length > 0) {
+          const { data: setsData, error: setsError } = await supabase
+            .from("workout_sets")
+            .select("id, workout_exercise_id, set_number, weight_lbs, reps, is_pr")
+            .in("workout_exercise_id", exerciseIds)
+            .order("set_number", { ascending: true });
+          if (setsError) throw setsError;
+          sets = setsData || [];
+        }
 
-      if (exercisesError) throw exercisesError;
-
-      // Fetch sets for these exercises
-      const exerciseIds = exercises?.map((e) => e.id) || [];
-      
-      let sets: any[] = [];
-      if (exerciseIds.length > 0) {
-        const { data: setsData, error: setsError } = await supabase
-          .from("workout_sets")
-          .select("id, workout_exercise_id, set_number, weight_lbs, reps, rir, is_pr")
-          .in("workout_exercise_id", exerciseIds)
-          .order("set_number", { ascending: true });
-
-        if (setsError) throw setsError;
-        sets = setsData || [];
-      }
-
-      // Group sets by exercise
-      const setsByExercise = new Map<string, WorkoutSet[]>();
-      sets.forEach((set) => {
-        const existing = setsByExercise.get(set.workout_exercise_id) || [];
-        existing.push(set);
-        setsByExercise.set(set.workout_exercise_id, existing);
-      });
-
-      // Group exercises by session
-      const exercisesBySession = new Map<string, WorkoutExercise[]>();
-      exercises?.forEach((ex) => {
-        const existing = exercisesBySession.get(ex.session_id) || [];
-        existing.push({
-          ...ex,
-          sets: setsByExercise.get(ex.id) || [],
+        const setsByExercise = new Map<string, WorkoutSet[]>();
+        sets.forEach((set) => {
+          const existing = setsByExercise.get(set.workout_exercise_id) || [];
+          existing.push(set);
+          setsByExercise.set(set.workout_exercise_id, existing);
         });
-        exercisesBySession.set(ex.session_id, existing);
-      });
 
-      // Combine into final structure
-      const fullWorkouts: WorkoutSession[] = (sessions || []).map((session) => ({
-        ...session,
-        exercises: exercisesBySession.get(session.id) || [],
-      }));
+        const exercisesBySession = new Map<string, WorkoutExercise[]>();
+        exercises?.forEach((ex) => {
+          const existing = exercisesBySession.get(ex.session_id) || [];
+          existing.push({ ...ex, sets: setsByExercise.get(ex.id) || [] });
+          exercisesBySession.set(ex.session_id, existing);
+        });
 
-      setWorkouts(fullWorkouts);
-    } catch (err) {
-      console.error("Error fetching workout history:", err);
-      setError("Failed to load workout history");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [hasFullHistory, historyDaysLimit]);
+        const fullWorkouts: WorkoutSession[] = (sessions || []).map((s) => ({
+          ...s,
+          exercises: exercisesBySession.get(s.id) || [],
+        }));
+
+        setWorkouts(fullWorkouts);
+      } catch (err) {
+        console.error("Error fetching workout history:", err);
+        setError("Failed to load workout history");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [hasFullHistory, historyDaysLimit],
+  );
 
   useEffect(() => {
     fetchWorkouts();
   }, [fetchWorkouts]);
 
-  // Group workouts by time period
   const groupedWorkouts = useMemo((): GroupedWorkouts[] => {
-    const groups: { [key: string]: WorkoutSession[] } = {
-      today: [],
-      yesterday: [],
-      thisWeek: [],
-      thisMonth: [],
-      earlier: [],
+    const groups = {
+      today: [] as WorkoutSession[],
+      yesterday: [] as WorkoutSession[],
+      thisWeek: [] as WorkoutSession[],
+      thisMonth: [] as WorkoutSession[],
+      earlier: [] as WorkoutSession[],
     };
-
-    workouts.forEach((workout) => {
-      const date = parseISO(workout.started_at);
-      if (isToday(date)) {
-        groups.today.push(workout);
-      } else if (isYesterday(date)) {
-        groups.yesterday.push(workout);
-      } else if (isThisWeek(date, { weekStartsOn: 1 })) {
-        groups.thisWeek.push(workout);
-      } else if (isThisMonth(date)) {
-        groups.thisMonth.push(workout);
-      } else {
-        groups.earlier.push(workout);
-      }
+    workouts.forEach((w) => {
+      const d = parseISO(w.started_at);
+      if (isToday(d)) groups.today.push(w);
+      else if (isYesterday(d)) groups.yesterday.push(w);
+      else if (isThisWeek(d, { weekStartsOn: 1 })) groups.thisWeek.push(w);
+      else if (isThisMonth(d)) groups.thisMonth.push(w);
+      else groups.earlier.push(w);
     });
-
-    const result: GroupedWorkouts[] = [];
-    if (groups.today.length > 0) result.push({ label: "Today", workouts: groups.today });
-    if (groups.yesterday.length > 0) result.push({ label: "Yesterday", workouts: groups.yesterday });
-    if (groups.thisWeek.length > 0) result.push({ label: "This Week", workouts: groups.thisWeek });
-    if (groups.thisMonth.length > 0) result.push({ label: "This Month", workouts: groups.thisMonth });
-    if (groups.earlier.length > 0) result.push({ label: "Earlier", workouts: groups.earlier });
-
-    return result;
+    const out: GroupedWorkouts[] = [];
+    if (groups.today.length) out.push({ label: "Today", workouts: groups.today });
+    if (groups.yesterday.length) out.push({ label: "Yesterday", workouts: groups.yesterday });
+    if (groups.thisWeek.length) out.push({ label: "This week", workouts: groups.thisWeek });
+    if (groups.thisMonth.length) out.push({ label: "This month", workouts: groups.thisMonth });
+    if (groups.earlier.length) out.push({ label: "Earlier", workouts: groups.earlier });
+    return out;
   }, [workouts]);
 
-  // Calculate workout stats
-  const getWorkoutStats = (workout: WorkoutSession) => {
-    const totalSets = workout.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
-    const totalVolume = workout.exercises.reduce((acc, ex) => {
-      return acc + ex.sets.reduce((setAcc, set) => {
-        const weight = set.weight_lbs || 0;
-        const reps = set.reps || 0;
-        return setAcc + (weight * reps);
-      }, 0);
-    }, 0);
-    const duration = workout.ended_at 
-      ? differenceInMinutes(parseISO(workout.ended_at), parseISO(workout.started_at))
+  const getStats = (w: WorkoutSession) => {
+    const totalSets = w.exercises.reduce((a, ex) => a + ex.sets.length, 0);
+    const duration = w.ended_at
+      ? differenceInMinutes(parseISO(w.ended_at), parseISO(w.started_at))
       : 0;
-    const prCount = workout.exercises.reduce((acc, ex) => {
-      return acc + ex.sets.filter((s) => s.is_pr).length;
-    }, 0);
-
-    return { totalSets, totalVolume, duration, prCount };
-  };
-
-  // Toggle workout expansion
-  const toggleWorkout = (workoutId: string) => {
-    hapticPress();
-    setExpandedWorkout((prev) => (prev === workoutId ? null : workoutId));
-  };
-
-  // Format date for simpler display
-  const formatWorkoutDate = (dateStr: string): string => {
-    const date = parseISO(dateStr);
-    const timeStr = format(date, "h:mm a");
-    
-    if (isToday(date)) {
-      return `Today ${timeStr}`;
-    } else if (isYesterday(date)) {
-      return `Yesterday ${timeStr}`;
-    } else if (isThisWeek(date, { weekStartsOn: 1 })) {
-      return `${format(date, "EEEE")} ${timeStr}`;
-    } else {
-      return `${format(date, "MMM d")} ${timeStr}`;
-    }
-  };
-
-  // Render workout card
-  const renderWorkoutCard = (workout: WorkoutSession, index: number) => {
-    const stats = getWorkoutStats(workout);
-    const isExpanded = expandedWorkout === workout.id;
-
-    return (
-      <Animated.View
-        key={workout.id}
-        entering={FadeInDown.delay(index * 50).duration(300)}
-      >
-        <Pressable
-          onPress={() => toggleWorkout(workout.id)}
-          style={[styles.workoutCard, isExpanded && styles.workoutCardExpanded]}
-        >
-          {/* Header */}
-          <View style={styles.workoutHeader}>
-            <View style={styles.workoutInfo}>
-              <Text style={styles.workoutTitle}>
-                {workout.title || "Workout"}
-              </Text>
-              <Text style={styles.workoutDate}>
-                {formatWorkoutDate(workout.started_at)}
-              </Text>
-            </View>
-            <View style={styles.workoutMeta}>
-              {stats.prCount > 0 && (
-                <View style={styles.prBadge}>
-                  <Ionicons name="trophy" size={12} color={colors.gold} />
-                  <Text style={styles.prBadgeText}>{stats.prCount}</Text>
-                </View>
-              )}
-              <Ionicons
-                name={isExpanded ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textMuted}
-              />
-            </View>
-          </View>
-
-          {/* Quick Stats - Simplified to 3: Duration, Sets, PRs */}
-          <View style={styles.quickStats}>
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{stats.duration}</Text>
-              <Text style={styles.statLabel}>min</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{stats.totalSets}</Text>
-              <Text style={styles.statLabel}>sets</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, stats.prCount > 0 && styles.statValuePR]}>
-                {stats.prCount}
-              </Text>
-              <Text style={styles.statLabel}>PRs</Text>
-            </View>
-          </View>
-
-          {/* Expanded Exercise Details */}
-          {isExpanded && workout.exercises.length > 0 && (
-            <View style={styles.exerciseList}>
-              {workout.exercises.map((exercise) => (
-                <View key={exercise.id} style={styles.exerciseItem}>
-                  <View style={styles.exerciseHeader}>
-                    <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
-                    {exercise.muscle_group && (
-                      <Text style={styles.muscleGroup}>{exercise.muscle_group}</Text>
-                    )}
-                  </View>
-                  <View style={styles.setsList}>
-                    {exercise.sets.map((set) => (
-                      <View key={set.id} style={styles.setItem}>
-                        <Text style={[styles.setText, set.is_pr && styles.setTextPR]}>
-                          {set.weight_lbs || 0} lbs x {set.reps || 0}
-                          {set.is_pr && " PR"}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Empty State for workouts with no details */}
-          {isExpanded && workout.exercises.length === 0 && (
-            <View style={styles.emptyExercises}>
-              <Text style={styles.emptyText}>No exercise details recorded</Text>
-            </View>
-          )}
-        </Pressable>
-      </Animated.View>
+    const prCount = w.exercises.reduce(
+      (a, ex) => a + ex.sets.filter((s) => s.is_pr).length,
+      0,
     );
+    return { totalSets, duration, prCount };
+  };
+
+  const open = (id: string) => {
+    hapticPress();
+    router.push({
+      pathname: "/(workout)/session-detail",
+      params: { sessionId: id },
+    });
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
+      {/* Minimal header — no bottom border, just back + title */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Workout History</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.workoutCount}>{workouts.length} workouts</Text>
-        </View>
+        <View style={{ width: 26 }} />
       </View>
 
-      {/* Content */}
       {loading ? (
         <HistorySkeleton />
       ) : error ? (
-        <ErrorState 
+        <ErrorState
           message={error}
           detail="Please check your connection and try again."
           onRetry={() => fetchWorkouts()}
         />
       ) : workouts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="barbell-outline" size={64} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>No workouts yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Complete your first workout to see it here
-          </Text>
-          <Pressable
-            onPress={() => router.dismissTo("/(app)/(tabs)/workout")}
-            style={styles.startButton}
-          >
-            <Text style={styles.startButtonText}>Start Workout</Text>
-          </Pressable>
-        </View>
+        <EmptyState colors={colors} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -388,31 +236,94 @@ export default function WorkoutHistoryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchWorkouts(true)}
-              tintColor={colors.primary}
+              tintColor={colors.text}
             />
           }
         >
-          {/* Free tier banner */}
-          {!hasFullHistory && (
-            <Pressable
-              onPress={() => setShowUpgrade(true)}
-              style={styles.historyBanner}
-            >
-              <Ionicons name="time-outline" size={16} color={colors.primary} />
-              <Text style={styles.historyBannerText}>
-                Showing last {historyDaysLimit} days
-              </Text>
-              <Text style={styles.historyBannerCta}>Unlock all</Text>
-            </Pressable>
-          )}
+          <Animated.View entering={FadeIn.duration(220)}>
+            {/* Hero title block (Cal AI / Linear) */}
+            <Text allowFontScaling={false} style={styles.title}>
+              History
+            </Text>
+            <Text allowFontScaling={false} style={styles.subtitle}>
+              {workouts.length} workout{workouts.length === 1 ? "" : "s"}
+            </Text>
 
-          {groupedWorkouts.map((group) => (
-            <View key={group.label} style={styles.group}>
-              <Text style={styles.groupLabel}>{group.label}</Text>
-              {group.workouts.map((workout, index) => renderWorkoutCard(workout, index))}
-            </View>
-          ))}
-          <View style={{ height: 40 }} />
+            {/* Free-tier banner — hairline, no fill */}
+            {!hasFullHistory && (
+              <Pressable
+                onPress={() => setShowUpgrade(true)}
+                style={styles.banner}
+              >
+                <Text allowFontScaling={false} style={styles.bannerText}>
+                  Showing last {historyDaysLimit} days
+                </Text>
+                <Text allowFontScaling={false} style={styles.bannerCta}>
+                  Unlock all →
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Grouped list */}
+            {groupedWorkouts.map((group) => (
+              <View key={group.label} style={styles.group}>
+                <Text allowFontScaling={false} style={styles.groupLabel}>
+                  {group.label}
+                </Text>
+                <View style={styles.groupList}>
+                  {group.workouts.map((w, i) => {
+                    const s = getStats(w);
+                    const date = parseISO(w.started_at);
+                    const isLast = i === group.workouts.length - 1;
+                    return (
+                      <Pressable
+                        key={w.id}
+                        onPress={() => open(w.id)}
+                        style={[
+                          styles.row,
+                          !isLast && {
+                            borderBottomColor: colors.border,
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                          },
+                        ]}
+                      >
+                        <View style={styles.rowMain}>
+                          <Text allowFontScaling={false} style={styles.rowTitle} numberOfLines={1}>
+                            {w.title || "Workout"}
+                          </Text>
+                          <Text allowFontScaling={false} style={styles.rowMeta}>
+                            {[
+                              format(date, "EEE, MMM d"),
+                              s.duration > 0 ? `${s.duration} min` : null,
+                              `${s.totalSets} set${s.totalSets === 1 ? "" : "s"}`,
+                              s.prCount > 0 ? `${s.prCount} PR${s.prCount === 1 ? "" : "s"}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </Text>
+                        </View>
+                        {s.prCount > 0 && (
+                          <View style={[styles.prPill, { borderColor: colors.border }]}>
+                            <Ionicons name="trophy-outline" size={11} color={colors.text} />
+                            <Text allowFontScaling={false} style={styles.prPillText}>
+                              {s.prCount}
+                            </Text>
+                          </View>
+                        )}
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={colors.textMuted}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+
+            <View style={{ height: 60 }} />
+          </Animated.View>
         </ScrollView>
       )}
 
@@ -425,255 +336,121 @@ export default function WorkoutHistoryScreen() {
   );
 }
 
+function EmptyState({ colors }: { colors: any }) {
+  return (
+    <View style={emptyStyles.wrap}>
+      <Ionicons name="barbell-outline" size={44} color={colors.textMuted} />
+      <Text allowFontScaling={false} style={[emptyStyles.title, { color: colors.text }]}>
+        No workouts yet
+      </Text>
+      <Text allowFontScaling={false} style={[emptyStyles.body, { color: colors.textMuted }]}>
+        Your finished sessions will land here.
+      </Text>
+      <Pressable
+        onPress={() => router.dismissTo("/(app)/(tabs)/workout")}
+        style={[emptyStyles.cta, { backgroundColor: colors.text }]}
+      >
+        <Text allowFontScaling={false} style={[emptyStyles.ctaText, { color: colors.bg }]}>
+          Start a workout
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const emptyStyles = StyleSheet.create({
+  wrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
+  title: { fontSize: 20, fontFamily: "Inter_600SemiBold", marginTop: 12 },
+  body: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 12 },
+  cta: { paddingHorizontal: 22, paddingVertical: 12, borderRadius: 24 },
+  ctaText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+});
+
 const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    // Header
+    container: { flex: 1, backgroundColor: colors.bg },
     header: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 8,
     },
-    backButton: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-      marginLeft: -8,
-    },
-    headerTitle: {
-      flex: 1,
-      fontSize: 18,
-      fontFamily: "Inter_600SemiBold",
+    scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
+
+    // Hero
+    title: {
+      fontSize: 34,
+      fontFamily: "Inter_700Bold",
       color: colors.text,
-      textAlign: "center",
+      letterSpacing: -0.5,
     },
-    headerRight: {
-      minWidth: 80,
-      alignItems: "flex-end",
-    },
-    workoutCount: {
+    subtitle: {
       fontSize: 14,
       fontFamily: "Inter_400Regular",
       color: colors.textMuted,
+      marginTop: 6,
+      marginBottom: 32,
     },
-    // History limit banner
-    historyBanner: {
+
+    // Banner
+    banner: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      backgroundColor: colors.selected,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 10,
-      marginBottom: 8,
-    },
-    historyBannerText: {
-      flex: 1,
-      fontSize: 13,
-      fontFamily: "Inter_500Medium",
-      color: colors.text,
-    },
-    historyBannerCta: {
-      fontSize: 13,
-      fontFamily: "Inter_600SemiBold",
-      color: colors.primary,
-    },
-    // Loading & Empty
-    loadingContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    emptyContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 32,
-    },
-    emptyTitle: {
-      fontSize: 20,
-      fontFamily: "Inter_600SemiBold",
-      color: colors.text,
-      marginTop: 16,
-    },
-    emptySubtitle: {
-      fontSize: 14,
-      fontFamily: "Inter_400Regular",
-      color: colors.textMuted,
-      marginTop: 8,
-      textAlign: "center",
-    },
-    startButton: {
-      marginTop: 24,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      backgroundColor: colors.primary,
-      borderRadius: 24,
-    },
-    startButtonText: {
-      fontSize: 16,
-      fontFamily: "Inter_600SemiBold",
-      color: colors.textOnPrimary,
-    },
-    // Content
-    scrollContent: {
-      padding: 16,
-    },
-    group: {
+      justifyContent: "space-between",
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
       marginBottom: 24,
     },
+    bannerText: { fontSize: 13, fontFamily: "Inter_400Regular", color: colors.textMuted },
+    bannerCta: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: colors.text },
+
+    // Groups
+    group: { marginBottom: 28 },
     groupLabel: {
-      fontSize: 13,
-      fontFamily: "Inter_500Medium",
-      color: colors.textMuted,
+      fontSize: 11,
+      fontFamily: "Inter_600SemiBold",
+      letterSpacing: 0.8,
       textTransform: "uppercase",
-      letterSpacing: 0.5,
+      color: colors.textMuted,
+      marginTop: 4,
       marginBottom: 12,
     },
-    // Workout Card
-    workoutCard: {
-      backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
-    },
-    workoutCardExpanded: {
-      borderColor: colors.primary,
-      borderWidth: 1,
-    },
-    workoutHeader: {
+    groupList: {},
+
+    // Row
+    row: {
       flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 16,
+      gap: 10,
     },
-    workoutInfo: {
-      flex: 1,
-    },
-    workoutTitle: {
+    rowMain: { flex: 1, gap: 4 },
+    rowTitle: {
       fontSize: 16,
       fontFamily: "Inter_600SemiBold",
       color: colors.text,
     },
-    workoutDate: {
-      fontSize: 13,
-      fontFamily: "Inter_400Regular",
-      color: colors.textMuted,
-      marginTop: 2,
-    },
-    workoutMeta: {
+    rowMeta: { fontSize: 13, fontFamily: "Inter_400Regular", color: colors.textMuted },
+    rowStats: { fontSize: 12, fontFamily: "Inter_400Regular", color: colors.textMuted, marginTop: 2 },
+
+    prPill: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: 3,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
     },
-    prBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      backgroundColor: "rgba(255, 215, 0, 0.15)",
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-    },
-    prBadgeText: {
-      fontSize: 12,
-      fontFamily: "Inter_600SemiBold",
-      color: colors.gold,
-    },
-    // Quick Stats
-    quickStats: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginTop: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    stat: {
-      flex: 1,
-      alignItems: "center",
-    },
-    statValue: {
-      fontSize: 18,
+    prPillText: {
+      fontSize: 11,
       fontFamily: "Inter_600SemiBold",
       color: colors.text,
-    },
-    statValuePR: {
-      color: colors.gold,
-    },
-    statLabel: {
-      fontSize: 12,
-      fontFamily: "Inter_400Regular",
-      color: colors.textMuted,
-      marginTop: 2,
-    },
-    statDivider: {
-      width: 1,
-      height: 24,
-      backgroundColor: colors.border,
-    },
-    // Exercise List
-    exerciseList: {
-      marginTop: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    exerciseItem: {
-      marginBottom: 16,
-    },
-    exerciseHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 8,
-    },
-    exerciseName: {
-      fontSize: 15,
-      fontFamily: "Inter_500Medium",
-      color: colors.text,
-    },
-    muscleGroup: {
-      fontSize: 12,
-      fontFamily: "Inter_400Regular",
-      color: colors.textMuted,
-    },
-    setsList: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-    },
-    setItem: {
-      backgroundColor: colors.cardAlt,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    setText: {
-      fontSize: 13,
-      fontFamily: "Inter_400Regular",
-      color: colors.text,
-    },
-    setTextPR: {
-      color: colors.gold,
-      fontFamily: "Inter_600SemiBold",
-    },
-    emptyExercises: {
-      marginTop: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      alignItems: "center",
-    },
-    emptyText: {
-      fontSize: 14,
-      fontFamily: "Inter_400Regular",
-      color: colors.textMuted,
+      letterSpacing: 0.3,
     },
   });

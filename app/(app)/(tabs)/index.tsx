@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,10 +10,12 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeIn } from "react-native-reanimated";
 import {
   addDays,
   format,
   isSameDay,
+  startOfDay,
   startOfWeek,
   subDays,
 } from "date-fns";
@@ -25,13 +28,16 @@ import { spacing } from "@/src/theme";
 import { useStreak } from "@/src/hooks/useStreak";
 import { useBodyStats } from "@/src/hooks/useBodyStats";
 import { useClientMacros } from "@/src/hooks/useClientMacros";
+import { useHealthKit } from "@/src/hooks/useHealthKit";
 import { MetricCard } from "@/src/components/progress/MetricCard";
+import { HealthKitPermissionCard } from "@/src/components/HealthKitPermissionCard";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import {
-  fetchTasksForDate,
+  fetchTasksForRange,
   setCustomTaskCompleted,
   type CoachTask,
 } from "@/src/lib/coachTasks";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   fetchActiveHabits,
   fetchHabitLogs,
@@ -44,6 +50,12 @@ import {
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
 import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import {
+  fetchScheduledMap,
+  resolveDay,
+  type ScheduledMap,
+  type WorkoutLite,
+} from "@/src/lib/scheduledWorkouts";
 
 const getGreeting = (): string => {
   const h = new Date().getHours();
@@ -65,19 +77,44 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [allWorkouts, setAllWorkouts] = useState<any[]>([]);
+  // All phase_workouts in the active program, keyed by id. Used to look up
+  // a workout that scheduled_workouts references — possibly from a phase
+  // other than the currently-active one.
+  const [workoutsById, setWorkoutsById] = useState<Map<string, WorkoutLite>>(
+    () => new Map(),
+  );
+  const [scheduledByDate, setScheduledByDate] = useState<ScheduledMap>(
+    () => new Map(),
+  );
   const [programName, setProgramName] = useState<string | null>(null);
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
-  const [coachTasks, setCoachTasks] = useState<CoachTask[]>([]);
   const [habits, setHabits] = useState<HabitAssignment[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  // Per-day signals for the perfect-day badge. All keyed by YYYY-MM-DD.
+  const [coachTasksWindow, setCoachTasksWindow] = useState<CoachTask[]>([]);
+  const [progressPhotoDates, setProgressPhotoDates] = useState<Set<string>>(() => new Set());
+  const [bodyStatsDates, setBodyStatsDates] = useState<Set<string>>(() => new Set());
+  const [macroFlagDates, setMacroFlagDates] = useState<Set<string>>(() => new Set());
 
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
   const { currentStreak } = useStreak(userId);
+  const {
+    permissionState: hkPermissionState,
+    steps: hkSteps,
+    activeEnergy: hkActiveEnergy,
+    refresh: refreshHealthKit,
+    requestAuth: requestHealthKitAuth,
+  } = useHealthKit(userId);
 
   const days = useMemo(generateDays, []);
-  const today = new Date();
+  // Pin "today" to a single Date instance per mount so memos that depend
+  // on it don't re-run every render. Per-screen ephemera; no need to
+  // recompute as the day rolls over (user re-mounts when reopening tab).
+  const today = useMemo(() => new Date(), []);
   const isToday = isSameDay(selectedDate, today);
+  const isFutureDate = startOfDay(selectedDate).getTime() > startOfDay(today).getTime();
   const selectedDayOfWeek = selectedDate.getDay() || 7;
 
   const fetchData = useCallback(async () => {
@@ -89,7 +126,11 @@ export default function HomeScreen() {
     // instead of awaiting each one in series. Cuts perceived load time
     // on Home from ~3 round-trips to 1.
     const cutoff = subDays(new Date(), 21).toISOString();
-    const [profileRes, programRes, sessionsRes] = await Promise.all([
+    // Day-strip in this screen spans 14 days back / 14 days forward; fetch
+    // a slightly wider window so quick swipes don't miss schedule rows.
+    const scheduleFrom = subDays(new Date(), 21);
+    const scheduleTo = addDays(new Date(), 21);
+    const [profileRes, programRes, sessionsRes, schedMap] = await Promise.all([
       supabase
         .from("profiles")
         .select("first_name")
@@ -108,6 +149,7 @@ export default function HomeScreen() {
         .eq("user_id", user.id)
         .gte("started_at", cutoff)
         .order("started_at", { ascending: false }),
+      fetchScheduledMap(user.id, scheduleFrom, scheduleTo),
     ]);
 
     const profile = profileRes.data as { first_name?: string } | null;
@@ -123,9 +165,24 @@ export default function HomeScreen() {
       const activePhase =
         sortedPhases.find((p: any) => p.status === "active") || sortedPhases[0];
       setAllWorkouts(activePhase?.phase_workouts ?? []);
+
+      // workoutsById spans every phase in the program, not just the active
+      // one — so a coach scheduling a workout from phase 2 while phase 1 is
+      // still active still resolves correctly.
+      const byId = new Map<string, WorkoutLite>();
+      for (const ph of sortedPhases) {
+        for (const w of (ph.phase_workouts ?? [])) {
+          byId.set(w.id, w as WorkoutLite);
+        }
+      }
+      setWorkoutsById(byId);
+    } else {
+      setWorkoutsById(new Map());
     }
+    setScheduledByDate(schedMap);
 
     setCompletedSessions(sessionsRes.data ?? []);
+    setInitialLoading(false);
   }, []);
 
   const lastFetchedAt = useRef(0);
@@ -154,19 +211,92 @@ export default function HomeScreen() {
     setRefreshing(true);
     await fetchData();
     await refreshStats();
+    await refreshHealthKit();
     setRefreshing(false);
-  }, [fetchData, refreshStats]);
+  }, [fetchData, refreshStats, refreshHealthKit]);
 
-  // Fetch coach-scheduled tasks for the currently selected date.
+  // Fetch coach-scheduled tasks across the visible day-strip (±10 days).
+  // We need the full window so the perfect-day badge can light up past
+  // chips, not just the selected day. The selected-day list is then
+  // derived via memo below.
   useEffect(() => {
     if (!userId) return;
-    const date = format(selectedDate, "yyyy-MM-dd");
     let cancelled = false;
-    fetchTasksForDate({ clientId: userId, date })
-      .then((tasks) => { if (!cancelled) setCoachTasks(tasks); })
-      .catch(() => { if (!cancelled) setCoachTasks([]); });
+    const fromDate = format(subDays(new Date(), 10), "yyyy-MM-dd");
+    const toDate = format(addDays(new Date(), 10), "yyyy-MM-dd");
+    fetchTasksForRange({ clientId: userId, fromDate, toDate })
+      .then((tasks) => { if (!cancelled) setCoachTasksWindow(tasks); })
+      .catch(() => { if (!cancelled) setCoachTasksWindow([]); });
     return () => { cancelled = true; };
-  }, [userId, selectedDate]);
+  }, [userId]);
+
+  // Auxiliary signals for the perfect-day badge: did the user log
+  // photos / body stats / macros for each day in the window? Photos +
+  // stats live in the DB; macros flags live in AsyncStorage (per-device,
+  // per-day). All are read once when userId resolves.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const fromDate = format(subDays(new Date(), 10), "yyyy-MM-dd");
+    const toDate = format(addDays(new Date(), 10), "yyyy-MM-dd");
+
+    (async () => {
+      const [photoRes, statsRes, allKeys] = await Promise.all([
+        supabase
+          .from("progress_photos")
+          .select("taken_at")
+          .eq("client_id", userId)
+          .gte("taken_at", fromDate)
+          .lte("taken_at", toDate),
+        supabase
+          .from("body_stats")
+          .select("date")
+          .eq("client_id", userId)
+          .gte("date", fromDate)
+          .lte("date", toDate),
+        AsyncStorage.getAllKeys().catch(() => [] as readonly string[]),
+      ]);
+      if (cancelled) return;
+
+      setProgressPhotoDates(
+        new Set(((photoRes.data ?? []) as any[]).map((r) => r.taken_at as string))
+      );
+      setBodyStatsDates(
+        new Set(((statsRes.data ?? []) as any[]).map((r) => r.date as string))
+      );
+
+      const macroKeys = (allKeys as readonly string[]).filter((k) =>
+        k.startsWith("dailyFlag:macros:")
+      );
+      if (macroKeys.length === 0) {
+        setMacroFlagDates(new Set());
+        return;
+      }
+      const pairs = await AsyncStorage.multiGet(macroKeys).catch(
+        () => [] as [string, string | null][]
+      );
+      if (cancelled) return;
+      const dates = new Set<string>();
+      for (const [k, v] of pairs) {
+        if (v !== "1") continue;
+        const ymd = k.split(":")[2];
+        if (!ymd) continue;
+        if (ymd >= fromDate && ymd <= toDate) dates.add(ymd);
+      }
+      setMacroFlagDates(dates);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // Selected-day coach tasks — derived from the window; rendering and the
+  // optimistic toggle use this.
+  const coachTasks = useMemo(() => {
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    return coachTasksWindow.filter((t) => t.scheduled_for === dateStr);
+  }, [coachTasksWindow, selectedDate]);
 
   // Habits — only relevant for "today." Future days don't get a checkbox
   // (you can't pre-complete tomorrow's water intake), past days are
@@ -215,10 +345,10 @@ export default function HomeScreen() {
 
   const toggleHabit = useCallback(
     async (habit: HabitAssignment) => {
-      if (!userId || !isToday) return;
-      const today = todayLocalISO();
+      if (!userId || isFutureDate) return;
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
       const existing = habitLogs.find(
-        (l) => l.assignment_id === habit.id && l.date === today
+        (l) => l.assignment_id === habit.id && l.date === dateStr
       );
       const wasCompleted = !!existing?.completed;
       const next = !wasCompleted;
@@ -236,7 +366,7 @@ export default function HomeScreen() {
             id: `tmp-${Date.now()}`,
             assignment_id: habit.id,
             client_id: userId,
-            date: today,
+            date: dateStr,
             completed: next,
             value: null,
             created_at: new Date().toISOString(),
@@ -249,7 +379,7 @@ export default function HomeScreen() {
         await setHabitLog({
           clientId: userId,
           assignmentId: habit.id,
-          date: today,
+          date: dateStr,
           completed: next,
         });
       } catch {
@@ -264,12 +394,12 @@ export default function HomeScreen() {
         });
       }
     },
-    [userId, habitLogs, isToday]
+    [userId, habitLogs, isFutureDate, selectedDate]
   );
 
   const toggleCustomTask = useCallback(async (task: CoachTask) => {
     const wasCompleted = !!task.manually_completed_at;
-    setCoachTasks((prev) =>
+    setCoachTasksWindow((prev) =>
       prev.map((t) =>
         t.id === task.id
           ? { ...t, manually_completed_at: wasCompleted ? null : new Date().toISOString() }
@@ -280,7 +410,7 @@ export default function HomeScreen() {
       await setCustomTaskCompleted(task.id, !wasCompleted);
     } catch {
       // Roll back optimistic update on failure
-      setCoachTasks((prev) =>
+      setCoachTasksWindow((prev) =>
         prev.map((t) =>
           t.id === task.id
             ? { ...t, manually_completed_at: wasCompleted ? new Date().toISOString() : null }
@@ -290,10 +420,25 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Get workout assigned for selected day
-  const selectedDayWorkout = useMemo(() => {
-    return allWorkouts.find((w: any) => w.day_number === selectedDayOfWeek) || null;
-  }, [allWorkouts, selectedDayOfWeek]);
+  // Resolve the day via scheduled_workouts first, fall back to day_number.
+  // Returns the workout to render plus a kind so the UI can distinguish
+  // an explicit rest day from "no workout assigned" (those look the same
+  // when both yield null otherwise).
+  const resolved = useMemo(
+    () =>
+      resolveDay({
+        date: selectedDate,
+        scheduledByDate,
+        workoutsById,
+        activePhaseWorkouts: allWorkouts as WorkoutLite[],
+      }),
+    [selectedDate, scheduledByDate, workoutsById, allWorkouts],
+  );
+  const selectedDayWorkout = useMemo<any>(() => {
+    if (resolved.kind === "rest") return null;
+    return resolved.workout ?? null;
+  }, [resolved]);
+  const selectedDayIsRest = resolved.kind === "rest";
 
   // Check if selected day has a completed session
   const selectedDayCompleted = useMemo(() => {
@@ -318,6 +463,101 @@ export default function HomeScreen() {
   }, [completedSessions]);
 
   const macrosFlag = useDailyFlag("macros", format(selectedDate, "yyyy-MM-dd"));
+
+  // Toggle the macros flag *and* mutate the per-day Set used by the
+  // perfect-day badge so the chip lights up the moment the row flips,
+  // not after a refresh.
+  const toggleMacrosForSelectedDay = useCallback(() => {
+    if (isFutureDate) return;
+    hapticPress();
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const willBeOn = !macrosFlag.on;
+    setMacroFlagDates((prev) => {
+      const next = new Set(prev);
+      if (willBeOn) next.add(dateStr);
+      else next.delete(dateStr);
+      return next;
+    });
+    macrosFlag.toggle();
+  }, [isFutureDate, selectedDate, macrosFlag]);
+
+  // Set of YYYY-MM-DD strings whose Home slate is fully completed.
+  // Recomputes on any state change feeding into "done-ness". Days with
+  // zero applicable items are NOT included — perfection requires at
+  // least one item to have been on the slate.
+  const perfectDates = useMemo(() => {
+    const result = new Set<string>();
+    const todayStartMs = startOfDay(today).getTime();
+    const macrosTargetSet = !!macros;
+
+    for (const day of days) {
+      // Future days can't be perfect.
+      if (startOfDay(day).getTime() > todayStartMs) continue;
+
+      const ymd = format(day, "yyyy-MM-dd");
+      let any = false;
+      let allDone = true;
+
+      // Workout
+      const resolved = resolveDay({
+        date: day,
+        scheduledByDate,
+        workoutsById,
+        activePhaseWorkouts: allWorkouts as WorkoutLite[],
+      });
+      if (resolved.kind === "workout") {
+        any = true;
+        if (!completedDates.has(ymd)) allDone = false;
+      }
+      // resolved.kind === "rest" or "none" → workout doesn't gate
+
+      // Nutrition (only when a coach has set a target)
+      if (macrosTargetSet) {
+        any = true;
+        if (!macroFlagDates.has(ymd)) allDone = false;
+      }
+
+      // Habits — only those that existed on or before EOD of `day`.
+      const endOfDayMs = startOfDay(day).getTime() + 24 * 60 * 60 * 1000 - 1;
+      for (const h of habits) {
+        if (new Date(h.created_at).getTime() > endOfDayMs) continue;
+        any = true;
+        const log = habitLogs.find(
+          (l) => l.assignment_id === h.id && l.date === ymd && l.completed
+        );
+        if (!log) allDone = false;
+      }
+
+      // Coach tasks scheduled for this day
+      for (const t of coachTasksWindow) {
+        if (t.scheduled_for !== ymd) continue;
+        any = true;
+        let done = false;
+        if (t.task_type === "custom") done = !!t.manually_completed_at;
+        else if (t.task_type === "macros") done = macroFlagDates.has(ymd);
+        else if (t.task_type === "photos") done = progressPhotoDates.has(ymd);
+        else if (t.task_type === "body_stats") done = bodyStatsDates.has(ymd);
+        if (!done) allDone = false;
+      }
+
+      if (any && allDone) result.add(ymd);
+    }
+    return result;
+  }, [
+    days,
+    today,
+    macros,
+    macroFlagDates,
+    habits,
+    habitLogs,
+    coachTasksWindow,
+    completedDates,
+    scheduledByDate,
+    workoutsById,
+    allWorkouts,
+    progressPhotoDates,
+    bodyStatsDates,
+  ]);
 
   const startWorkout = () => {
     hapticPress();
@@ -384,6 +624,7 @@ export default function HomeScreen() {
             const isDayToday = isSameDay(day, today);
             const dateStr = format(day, "yyyy-MM-dd");
             const hasCompletion = completedDates.has(dateStr);
+            const isPerfect = perfectDates.has(dateStr);
 
             return (
               <Pressable
@@ -394,6 +635,15 @@ export default function HomeScreen() {
                   isSelected && { backgroundColor: colors.text },
                 ]}
               >
+                {isPerfect && (
+                  <View style={styles.perfectBadge}>
+                    <Ionicons
+                      name="flame"
+                      size={11}
+                      color={isSelected ? colors.bg : colors.text}
+                    />
+                  </View>
+                )}
                 <Text
                   allowFontScaling={false}
                   style={[
@@ -418,13 +668,32 @@ export default function HomeScreen() {
           })}
         </ScrollView>
 
+        {initialLoading ? (
+          <HomeBodySkeleton colors={colors} />
+        ) : (
+        <Animated.View entering={FadeIn.duration(220)}>
         <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
           {isToday ? "TODAY" : format(selectedDate, "EEEE").toUpperCase()}
         </Text>
         <View style={styles.taskList}>
-          {/* Assigned workout — only show if one exists */}
+          {/* Assigned workout. Tap routes:
+              - If already completed → past-session detail (read-only).
+              - If not completed yet → start the workout flow. */}
           {selectedDayWorkout && (
-            <Pressable onPress={startWorkout} style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+            <Pressable
+              onPress={() => {
+                if (selectedDayCompleted) {
+                  hapticPress();
+                  router.push({
+                    pathname: "/(workout)/session-detail",
+                    params: { sessionId: selectedDayCompleted.id },
+                  });
+                } else {
+                  startWorkout();
+                }
+              }}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}
+            >
               <View style={[styles.taskDot, {
                 backgroundColor: selectedDayCompleted ? colors.success : "transparent",
                 borderColor: selectedDayCompleted ? colors.success : colors.textMuted,
@@ -436,16 +705,40 @@ export default function HomeScreen() {
                   {selectedDayWorkout.name}
                 </Text>
                 <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
-                  {selectedDayCompleted ? "Completed" : `${(selectedDayWorkout.exercises || []).length} exercises`}
+                  {selectedDayCompleted ? "Completed · Tap to view" : `${(selectedDayWorkout.exercises || []).length} exercises`}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </Pressable>
           )}
 
+          {/* Rest day — coach explicitly marked this date as rest */}
+          {selectedDayIsRest && !selectedDayCompleted && (
+            <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+              <View style={[styles.taskDot, { borderColor: colors.textMuted, backgroundColor: "transparent" }]} />
+              <View style={styles.taskInfo}>
+                <Text allowFontScaling={false} style={[styles.taskTitle, { color: colors.text }]}>
+                  Rest day
+                </Text>
+                <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>
+                  No workout planned
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Completed workout (if no assigned but has a logged session) */}
           {!selectedDayWorkout && selectedDayCompleted && (
-            <View style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}>
+            <Pressable
+              onPress={() => {
+                hapticPress();
+                router.push({
+                  pathname: "/(workout)/session-detail",
+                  params: { sessionId: selectedDayCompleted.id },
+                });
+              }}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary }]}
+            >
               <View style={[styles.taskDot, { backgroundColor: colors.success, borderColor: colors.success }]}>
                 <Ionicons name="checkmark" size={12} color="#fff" />
               </View>
@@ -455,15 +748,17 @@ export default function HomeScreen() {
                 </Text>
                 <Text allowFontScaling={false} style={[styles.taskSub, { color: colors.textMuted }]}>Completed</Text>
               </View>
-            </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
           )}
 
-          {/* Nutrition row — toggle like a habit; only enabled on today */}
+          {/* Nutrition row — toggle like a habit; backfill works for past +
+              today, future is read-only (you can't "have hit" tomorrow). */}
           {macros && !coachTasks.some((t) => t.task_type === "macros") && (
             <Pressable
-              onPress={() => { if (isToday) { hapticPress(); macrosFlag.toggle(); } }}
-              disabled={!isToday}
-              style={[styles.taskCard, { backgroundColor: colors.bgSecondary, opacity: isToday ? 1 : 0.85 }]}
+              onPress={toggleMacrosForSelectedDay}
+              disabled={isFutureDate}
+              style={[styles.taskCard, { backgroundColor: colors.bgSecondary, opacity: isFutureDate ? 0.6 : 1 }]}
             >
               <View style={[
                 styles.taskDot,
@@ -559,12 +854,22 @@ export default function HomeScreen() {
                 weeklyDone={weeklyDone}
                 streak={streak}
                 completed={completed}
-                enabled={isToday}
+                enabled={!isFutureDate}
                 onToggle={() => toggleHabit(habit)}
               />
             );
           })}
         </View>
+
+        {/* Apple Health prompt — iOS-only, hides itself when granted. */}
+        {Platform.OS === "ios" && hkPermissionState !== "likely_granted" && (
+          <View style={{ marginTop: spacing.lg }}>
+            <HealthKitPermissionCard
+              state={hkPermissionState}
+              onConnect={requestHealthKitAuth}
+            />
+          </View>
+        )}
 
         {/* My Progress section */}
         <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
@@ -600,8 +905,46 @@ export default function HomeScreen() {
             unit={workoutsThisWeek === 1 ? "session" : "sessions"}
           />
         </View>
+        {Platform.OS === "ios" && (
+          <View style={styles.cardRow}>
+            <MetricCard
+              title="Steps Today"
+              subtitle="From Apple Health"
+              value={hkSteps != null ? hkSteps.toLocaleString() : "—"}
+              unit="steps"
+            />
+            <MetricCard
+              title="Active Energy"
+              subtitle="Today"
+              value={hkActiveEnergy != null ? `${hkActiveEnergy}` : "—"}
+              unit="kcal"
+            />
+          </View>
+        )}
+        </Animated.View>
+        )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function HomeBodySkeleton({ colors }: { colors: any }) {
+  return (
+    <View style={{ gap: spacing.md, marginTop: spacing.md }}>
+      <View style={{ height: 14, width: "30%", backgroundColor: colors.border, borderRadius: 4, opacity: 0.4 }} />
+      <View style={{ height: 64, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+      <View style={{ height: 64, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+      <View style={{ height: 64, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+      <View style={{ height: 14, width: "30%", backgroundColor: colors.border, borderRadius: 4, opacity: 0.4, marginTop: spacing.lg }} />
+      <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <View style={{ flex: 1, height: 92, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+        <View style={{ flex: 1, height: 92, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+      </View>
+      <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <View style={{ flex: 1, height: 92, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+        <View style={{ flex: 1, height: 92, backgroundColor: colors.bgSecondary, borderRadius: 14 }} />
+      </View>
+    </View>
   );
 }
 
@@ -700,6 +1043,12 @@ const styles = StyleSheet.create({
   dayNum: { fontSize: 16, fontWeight: "600" },
   dayLabel: { fontSize: 11, marginTop: 1 },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2, position: "absolute", bottom: 4 },
+  perfectBadge: {
+    position: "absolute",
+    top: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
 

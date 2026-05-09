@@ -22,6 +22,7 @@ import Constants from "expo-constants";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useSubscription } from "@/src/hooks/useSubscription";
 import { useReverseTrial } from "@/src/hooks/useReverseTrial";
+import { useHealthKit } from "@/src/hooks/useHealthKit";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import { supabase } from "@/lib/supabase";
 
@@ -30,6 +31,16 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { isPro, isTrialing: rcTrialActive, restorePurchases } = useSubscription();
   const { isTrialActive: reverseTrial, daysRemaining } = useReverseTrial();
+  const [hkUserId, setHkUserId] = useState<string | null>(null);
+  // Resolve auth.uid once for the HealthKit hook so its body-stat upserts
+  // can write under the right client_id. Cheap one-shot read.
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setHkUserId(data.user?.id ?? null));
+  }, []);
+  const {
+    permissionState: hkPermissionState,
+    requestAuth: requestHealthKitAuth,
+  } = useHealthKit(hkUserId);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
@@ -50,6 +61,31 @@ export default function SettingsScreen() {
     hapticPress();
     await restorePurchases();
   };
+
+  const handleAppleHealthRow = () => {
+    hapticPress();
+    if (hkPermissionState === "not_asked") {
+      requestHealthKitAuth();
+      return;
+    }
+    if (hkPermissionState === "likely_denied") {
+      Linking.openURL("app-settings:").catch(() => {});
+      return;
+    }
+    // likely_granted — deep link to Apple Health → Sources where the user
+    // can adjust per-scope sharing. Fall back to system Settings if the
+    // deep link is unavailable (older iOS or simulators).
+    Linking.openURL("x-apple-health://Sources/").catch(() => {
+      Linking.openURL("app-settings:").catch(() => {});
+    });
+  };
+
+  const appleHealthValue =
+    hkPermissionState === "likely_granted"
+      ? "Connected"
+      : hkPermissionState === "likely_denied"
+        ? "Off — open Settings"
+        : "Not connected";
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure?", [
@@ -73,7 +109,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
           Settings
@@ -145,6 +181,20 @@ export default function SettingsScreen() {
           <Row icon="refresh-outline" label="Restore Purchases" colors={colors} onPress={handleRestore} />
           <Row icon="log-out-outline" label="Sign Out" colors={colors} onPress={handleSignOut} destructive last />
         </Section>
+
+        {/* ── Integrations (iOS only) ──────────────────────────────── */}
+        {Platform.OS === "ios" && (
+          <Section title="Integrations" colors={colors}>
+            <Row
+              icon="heart-outline"
+              label="Apple Health"
+              value={appleHealthValue}
+              colors={colors}
+              onPress={handleAppleHealthRow}
+              last
+            />
+          </Section>
+        )}
 
         {/* ── Support ──────────────────────────────────────────────── */}
         <Section title="Support" colors={colors}>

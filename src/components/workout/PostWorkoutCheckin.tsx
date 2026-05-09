@@ -176,6 +176,7 @@ export const PostWorkoutCheckin: React.FC<PostWorkoutCheckinProps> = ({
           entering={FadeInDown.duration(300)}
           style={[styles.sheet, { backgroundColor: colors.card }]}
         >
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
           {step === 1 && (
             /* Step 1: How did that feel? */
             <Animated.View entering={FadeIn.duration(200)}>
@@ -397,7 +398,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xxl,
     borderTopRightRadius: radius.xxl,
     padding: spacing.xl,
+    paddingTop: 12,
     paddingBottom: 40,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
   },
   header: {
     marginBottom: spacing.xl,

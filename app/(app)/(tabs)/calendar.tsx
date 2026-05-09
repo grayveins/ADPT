@@ -14,6 +14,15 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import {
+  fetchActiveHabits,
+  fetchHabitLogs,
+  type HabitAssignment,
+  type HabitLog,
+} from "@/src/lib/habits";
+import { hapticPress } from "@/src/animations/feedback/haptics";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { router } from "expo-router";
+import {
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -24,6 +33,7 @@ import {
   isSameMonth,
   addMonths,
   subMonths,
+  startOfDay,
 } from "date-fns";
 
 type SessionEvent = {
@@ -41,18 +51,13 @@ type WorkoutEvent = {
   title: string | null;
 };
 
-type HabitEvent = {
-  id: string;
-  date: string;
-  habit_name: string;
-};
-
 export default function CalendarScreen() {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sessions, setSessions] = useState<SessionEvent[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutEvent[]>([]);
-  const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
+  const [habits, setHabits] = useState<HabitAssignment[]>([]);
+  const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [macroDates, setMacroDates] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -67,7 +72,9 @@ export default function CalendarScreen() {
     const monthStartYmd = format(startOfMonth(currentMonth), "yyyy-MM-dd");
     const monthEndYmd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-    const [sessionRes, workoutRes, habitRes, allKeys] = await Promise.all([
+    // Habit logs need assignment ids — fetch assignments first, then logs.
+    // Other queries are independent so they go in parallel.
+    const [sessionRes, workoutRes, asgn, allKeys] = await Promise.all([
       supabase
         .from("sessions")
         .select("id, scheduled_at, duration_minutes, location, notes, status")
@@ -82,27 +89,24 @@ export default function CalendarScreen() {
         .gte("started_at", monthStartIso)
         .lte("started_at", monthEndIso)
         .order("started_at"),
-      supabase
-        .from("habit_logs")
-        .select("id, date, completed, habit_assignments(name)")
-        .eq("client_id", user.id)
-        .eq("completed", true)
-        .gte("date", monthStartYmd)
-        .lte("date", monthEndYmd)
-        .order("date"),
+      fetchActiveHabits(user.id).catch(() => [] as HabitAssignment[]),
       AsyncStorage.getAllKeys().catch(() => [] as readonly string[]),
     ]);
 
     if (sessionRes.data) setSessions(sessionRes.data);
     if (workoutRes.data) setWorkouts(workoutRes.data);
-    if (habitRes.data) {
-      const events: HabitEvent[] = (habitRes.data as any[])
-        .map((row) => ({
-          id: row.id as string,
-          date: row.date as string,
-          habit_name: (row.habit_assignments?.name as string) ?? "Habit",
-        }));
-      setHabitEvents(events);
+    setHabits(asgn);
+
+    if (asgn.length > 0) {
+      const logs = await fetchHabitLogs({
+        clientId: user.id,
+        assignmentIds: asgn.map((h) => h.id),
+        fromDate: monthStartYmd,
+        toDate: monthEndYmd,
+      }).catch(() => [] as HabitLog[]);
+      setHabitLogs(logs);
+    } else {
+      setHabitLogs([]);
     }
 
     // Macros per-day flags live in AsyncStorage; read once per month load.
@@ -149,11 +153,14 @@ export default function CalendarScreen() {
     [workouts]
   );
   const habitDates = useMemo(
-    () => new Set(habitEvents.map((h) => h.date)),
-    [habitEvents]
+    () => new Set(habitLogs.filter((l) => l.completed).map((l) => l.date)),
+    [habitLogs]
   );
 
+  const today = useMemo(() => startOfDay(new Date()), []);
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+  const isFutureDate = startOfDay(selectedDate).getTime() > today.getTime();
+
   const dayEvents = useMemo(() => {
     const daySessions = sessions.filter(
       (s) => format(new Date(s.scheduled_at), "yyyy-MM-dd") === selectedDateStr
@@ -161,12 +168,17 @@ export default function CalendarScreen() {
     const dayWorkouts = workouts.filter(
       (w) => format(new Date(w.started_at), "yyyy-MM-dd") === selectedDateStr
     );
-    const dayHabits = habitEvents.filter((h) => h.date === selectedDateStr);
     const macrosHit = macroDates.has(selectedDateStr);
-    return { sessions: daySessions, workouts: dayWorkouts, habits: dayHabits, macrosHit };
-  }, [sessions, workouts, habitEvents, macroDates, selectedDateStr]);
+    return { sessions: daySessions, workouts: dayWorkouts, macrosHit };
+  }, [sessions, workouts, macroDates, selectedDateStr]);
 
-  const today = new Date();
+  // Habits visible on selected day: only show habits that existed on or before
+  // that date. Don't let users log completion for a habit that wasn't assigned
+  // yet — would be nonsense data.
+  const dayHabits = useMemo(() => {
+    const endOfDayMs = startOfDay(selectedDate).getTime() + 24 * 60 * 60 * 1000 - 1;
+    return habits.filter((h) => new Date(h.created_at).getTime() <= endOfDayMs);
+  }, [habits, selectedDate]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
@@ -252,11 +264,14 @@ export default function CalendarScreen() {
       {/* Selected day events */}
       <ScrollView
         style={styles.eventList}
+        contentContainerStyle={styles.eventListContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
       >
+        <Animated.View key={selectedDateStr} entering={FadeIn.duration(200)}>
         <Text allowFontScaling={false} style={[styles.dateLabel, { color: colors.textSecondary }]}>
           {format(selectedDate, "EEEE, MMM d")}
         </Text>
@@ -281,7 +296,17 @@ export default function CalendarScreen() {
         ))}
 
         {dayEvents.workouts.map((w) => (
-          <View key={w.id} style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
+          <Pressable
+            key={w.id}
+            onPress={() => {
+              hapticPress();
+              router.push({
+                pathname: "/(workout)/session-detail",
+                params: { sessionId: w.id },
+              });
+            }}
+            style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}
+          >
             <Ionicons name="barbell-outline" size={18} color={colors.text} />
             <View style={styles.eventInfo}>
               <Text allowFontScaling={false} style={[styles.eventTitle, { color: colors.text }]}>
@@ -291,22 +316,54 @@ export default function CalendarScreen() {
                 {format(new Date(w.started_at), "h:mm a")}
               </Text>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </Pressable>
         ))}
 
-        {dayEvents.habits.map((h) => (
-          <View key={h.id} style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
-            <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
-            <View style={styles.eventInfo}>
-              <Text allowFontScaling={false} style={[styles.eventTitle, { color: colors.text }]}>
-                {h.habit_name}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.eventMeta, { color: colors.textMuted }]}>
-                Habit completed
-              </Text>
-            </View>
+        {/* Habits — read-only audit view. Toggling lives on the Home
+            day-strip; this screen is for at-a-glance review. */}
+        {dayHabits.length > 0 && (
+          <View style={styles.habitGroup}>
+            <Text allowFontScaling={false} style={[styles.groupLabel, { color: colors.textMuted }]}>
+              {isFutureDate ? "HABITS (UPCOMING)" : "HABITS"}
+            </Text>
+            {dayHabits.map((h) => {
+              const log = habitLogs.find(
+                (l) => l.assignment_id === h.id && l.date === selectedDateStr
+              );
+              const completed = !!log?.completed;
+              return (
+                <View
+                  key={h.id}
+                  style={[
+                    styles.habitRow,
+                    {
+                      backgroundColor: colors.bgSecondary,
+                      opacity: isFutureDate ? 0.6 : 1,
+                    },
+                  ]}
+                  accessibilityRole="text"
+                  accessibilityLabel={`${h.name}, ${completed ? "completed" : "not completed"}`}
+                >
+                  <View
+                    style={[
+                      styles.checkDot,
+                      {
+                        backgroundColor: completed ? colors.success : "transparent",
+                        borderColor: completed ? colors.success : colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {completed && <Ionicons name="checkmark" size={12} color="#fff" />}
+                  </View>
+                  <Text allowFontScaling={false} style={[styles.habitName, { color: colors.text }]}>
+                    {h.name}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
-        ))}
+        )}
 
         {dayEvents.macrosHit && (
           <View style={[styles.eventCard, { backgroundColor: colors.bgSecondary }]}>
@@ -321,13 +378,14 @@ export default function CalendarScreen() {
 
         {dayEvents.sessions.length === 0 &&
           dayEvents.workouts.length === 0 &&
-          dayEvents.habits.length === 0 &&
+          dayHabits.length === 0 &&
           !dayEvents.macrosHit &&
           !loading && (
             <Text allowFontScaling={false} style={[styles.noEvents, { color: colors.textMuted }]}>
               Nothing scheduled
             </Text>
           )}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -367,6 +425,7 @@ const styles = StyleSheet.create({
   dotRow: { flexDirection: "row", gap: 3, marginTop: 3 },
   dot: { width: 4, height: 4, borderRadius: 2 },
   eventList: { flex: 1, marginTop: spacing.base },
+  eventListContent: { paddingBottom: 32 },
   dateLabel: { fontSize: 14, fontWeight: "500", marginBottom: spacing.md },
   eventCard: {
     flexDirection: "row",
@@ -380,4 +439,23 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 15, fontWeight: "500" },
   eventMeta: { fontSize: 13, marginTop: 2 },
   noEvents: { fontSize: 14, textAlign: "center", marginTop: spacing.xl },
+  habitGroup: { marginTop: spacing.md, gap: spacing.sm },
+  groupLabel: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5, marginBottom: spacing.xs },
+  habitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: spacing.base,
+    borderRadius: radius.md,
+    gap: spacing.md,
+  },
+  checkDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  habitName: { flex: 1, fontSize: 15, fontWeight: "500" },
 });

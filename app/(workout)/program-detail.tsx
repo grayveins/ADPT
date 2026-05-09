@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { hapticPress } from "@/src/animations/feedback/haptics";
+import { MuscleChips } from "@/src/components/workout/MuscleChips";
 
 type Exercise = {
   name: string;
@@ -60,7 +61,7 @@ export default function ProgramDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.text }]}>
@@ -81,38 +82,53 @@ export default function ProgramDetailScreen() {
 
       {/* Exercise list */}
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {exercises.map((ex, i) => (
-          <View key={i} style={[styles.exerciseRow, { borderBottomColor: colors.border }]}>
-            <View style={[styles.exerciseNumber, { backgroundColor: colors.bgSecondary }]}>
-              <Text allowFontScaling={false} style={[styles.numberText, { color: colors.text }]}>
-                {i + 1}
-              </Text>
+        {exercises.map((ex, i) => {
+          // Consolidated muscle list. Prefer the granular `primary_muscles`
+          // (typed) array; fall back to the freeform `muscleGroup` string,
+          // splitting on common separators so "glutes / hip extension"
+          // becomes two chips.
+          const muscles = ex.primary_muscles && ex.primary_muscles.length > 0
+            ? ex.primary_muscles
+            : (ex.muscleGroup ? ex.muscleGroup.split(/[\/,]+/).map(s => s.trim()).filter(Boolean) : []);
+          const metaBits: string[] = [];
+          metaBits.push(`${ex.sets} sets × ${ex.reps} reps`);
+          if (ex.rir != null) metaBits.push(`RIR ${ex.rir}`);
+          if (ex.rest_seconds) metaBits.push(`${ex.rest_seconds}s rest`);
+          const isLast = i === exercises.length - 1;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.exerciseRow,
+                !isLast && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+              ]}
+            >
+              <View style={[styles.exerciseNumber, { backgroundColor: colors.bgSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.numberText, { color: colors.text }]}>
+                  {i + 1}
+                </Text>
+              </View>
+              <View style={styles.exerciseInfo}>
+                <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
+                  {ex.name || ex.exercise_name}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.exerciseMeta, { color: colors.textMuted }]}>
+                  {metaBits.join(" · ")}
+                </Text>
+                {muscles.length > 0 && (
+                  <View style={styles.muscleRow}>
+                    <MuscleChips muscles={muscles} max={5} />
+                  </View>
+                )}
+                {ex.notes ? (
+                  <Text allowFontScaling={false} style={[styles.exerciseNotes, { color: colors.textSecondary }]}>
+                    {ex.notes}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            <View style={styles.exerciseInfo}>
-              <Text allowFontScaling={false} style={[styles.exerciseName, { color: colors.text }]}>
-                {ex.name || ex.exercise_name}
-              </Text>
-              <Text allowFontScaling={false} style={[styles.exerciseMeta, { color: colors.textMuted }]}>
-                {ex.sets} sets × {ex.reps} reps{ex.rir != null ? ` · RIR ${ex.rir}` : ""}
-              </Text>
-              {ex.rest_seconds ? (
-                <Text allowFontScaling={false} style={[styles.exerciseRest, { color: colors.textMuted }]}>
-                  Rest: {ex.rest_seconds}s
-                </Text>
-              ) : null}
-              {(ex.muscleGroup || ex.primary_muscles?.length) ? (
-                <Text allowFontScaling={false} style={[styles.exerciseMuscle, { color: colors.textSecondary }]}>
-                  {ex.muscleGroup || ex.primary_muscles?.join(", ")}
-                </Text>
-              ) : null}
-              {ex.notes ? (
-                <Text allowFontScaling={false} style={[styles.exerciseNotes, { color: colors.textSecondary }]}>
-                  {ex.notes}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        ))}
+          );
+        })}
 
         {exercises.length === 0 && (
           <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -146,38 +162,37 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "600" },
-  headerSub: { fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
+  headerSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   phaseLabel: {
     fontSize: 12,
-    fontWeight: "500",
+    fontFamily: "Inter_500Medium",
     textAlign: "center",
     marginBottom: spacing.md,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
   exerciseRow: {
     flexDirection: "row",
-    paddingVertical: spacing.base,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.base + 2,
     gap: spacing.md,
   },
   exerciseNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
   },
-  numberText: { fontSize: 14, fontWeight: "600" },
+  numberText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   exerciseInfo: { flex: 1, gap: 2 },
-  exerciseName: { fontSize: 16, fontWeight: "600" },
-  exerciseMeta: { fontSize: 13 },
-  exerciseRest: { fontSize: 12 },
-  exerciseMuscle: { fontSize: 12, textTransform: "capitalize", marginTop: 2 },
-  exerciseNotes: { fontSize: 12, fontStyle: "italic", marginTop: 4 },
-  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14 },
+  exerciseName: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  exerciseMeta: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  muscleRow: { marginTop: 6 },
+  exerciseNotes: { fontSize: 12, fontFamily: "Inter_400Regular", fontStyle: "italic", marginTop: 6 },
+  emptyText: { textAlign: "center", marginTop: 40, fontSize: 14, fontFamily: "Inter_400Regular" },
   bottomBar: {
     position: "absolute",
     bottom: 0,
@@ -195,5 +210,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
   },
-  startText: { fontSize: 16, fontWeight: "700", letterSpacing: 0.5 },
+  startText: { fontSize: 16, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
 });
