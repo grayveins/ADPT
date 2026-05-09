@@ -41,22 +41,23 @@ function canUseHealthKit(): boolean {
   return Platform.OS === "ios" && !isExpoGo;
 }
 
-// Lazy module loader. Cached after first successful load. Wrapped in
-// try/catch because the require itself throws in Expo Go.
-let cachedModule:
-  | typeof import("@kingstinct/react-native-healthkit")
-  | null = null;
-function loadHealthKit():
-  | typeof import("@kingstinct/react-native-healthkit")
-  | null {
+// Lazy module loader. The native HealthKit dependency is intentionally
+// NOT in package.json right now — until we re-enable it on the Apple
+// Developer portal (HealthKit capability + provisioning profile), the
+// require() below will throw "module not found", be caught, and every
+// exported wrapper resolves to null/false. UI gracefully degrades.
+//
+// Typed as `any` so this file compiles without the dep installed; once
+// the dep is back, swap to `typeof import("@kingstinct/react-native-healthkit")`.
+let cachedModule: any | null = null;
+function loadHealthKit(): any | null {
   if (!canUseHealthKit()) return null;
   if (cachedModule) return cachedModule;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require("@kingstinct/react-native-healthkit");
     return cachedModule;
-  } catch (err) {
-    console.warn("[healthkit] failed to load native module", err);
+  } catch {
     return null;
   }
 }
