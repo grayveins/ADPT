@@ -22,9 +22,11 @@ import {
   getActiveEnergyTodayKcal,
   getLatestBodyFatPct,
   getLatestBodyMassKg,
+  getNutritionToday,
   getStepsToday,
   isHealthKitAvailable,
   requestHealthKitAuthorization,
+  type DailyNutrition,
 } from "@/src/lib/healthkit";
 
 const ASKED_KEY = "@adpt/healthkit/asked";
@@ -46,6 +48,8 @@ export type HealthKitState = {
   bodyFat: number | null;
   steps: number | null;
   activeEnergy: number | null;
+  /** Today's intake — null when no nutrition data exists yet. */
+  nutrition: DailyNutrition | null;
   /** Force re-read from HealthKit + re-upsert to Supabase. */
   refresh: () => Promise<void>;
   /** Show the system permission sheet for our read scopes. */
@@ -69,6 +73,7 @@ export function useHealthKit(userId: string | null): HealthKitState {
   const [bodyFat, setBodyFat] = useState<number | null>(null);
   const [steps, setSteps] = useState<number | null>(null);
   const [activeEnergy, setActiveEnergy] = useState<number | null>(null);
+  const [nutrition, setNutrition] = useState<DailyNutrition | null>(null);
 
   const lastFetchedAt = useRef(0);
   // Avoid repeated upserts for the same (date, value) — the user may
@@ -83,14 +88,6 @@ export function useHealthKit(userId: string | null): HealthKitState {
       date: string,
       patch: { weight_kg?: number | null; body_fat_pct?: number | null },
     ) => {
-      // Match log-progress.tsx's literal-shape upsert. Mobile supabase
-      // singleton isn't typed with <Database>, so the upsert overload
-      // resolution chokes on `{ ...patch }` spreads — listing fields
-      // explicitly (with undefined for absent ones) keeps TS happy.
-      // Mobile supabase singleton isn't typed with <Database> (Sprint A
-       // pending), so .from() returns `never` and the upsert overload
-       // can't pick the right shape. Cast through `any` to mirror the
-       // pattern used by other untyped writes in the repo.
       const { error } = await (supabase.from("body_stats") as any).upsert(
         {
           client_id: clientId,
@@ -102,7 +99,53 @@ export function useHealthKit(userId: string | null): HealthKitState {
         { onConflict: "client_id,date,source" },
       );
       if (error) {
-        console.warn("[useHealthKit] upsert failed", error.message);
+        console.warn("[useHealthKit] body_stats upsert failed", error.message);
+      }
+    },
+    [],
+  );
+
+  const upsertNutrition = useCallback(
+    async (clientId: string, date: string, n: DailyNutrition) => {
+      const { error } = await (supabase.from("daily_nutrition") as any).upsert(
+        {
+          client_id: clientId,
+          date,
+          calories: n.calories,
+          protein_g: n.protein_g,
+          carbs_g: n.carbs_g,
+          fat_g: n.fat_g,
+          source: "healthkit",
+          last_synced_at: new Date().toISOString(),
+        },
+        { onConflict: "client_id,date,source" },
+      );
+      if (error) {
+        console.warn("[useHealthKit] daily_nutrition upsert failed", error.message);
+      }
+    },
+    [],
+  );
+
+  const upsertActivity = useCallback(
+    async (
+      clientId: string,
+      date: string,
+      a: { steps: number | null; activeEnergy: number | null },
+    ) => {
+      const { error } = await (supabase.from("daily_activity") as any).upsert(
+        {
+          client_id: clientId,
+          date,
+          steps: a.steps,
+          active_energy_kcal: a.activeEnergy,
+          source: "healthkit",
+          last_synced_at: new Date().toISOString(),
+        },
+        { onConflict: "client_id,date,source" },
+      );
+      if (error) {
+        console.warn("[useHealthKit] daily_activity upsert failed", error.message);
       }
     },
     [],
@@ -111,25 +154,32 @@ export function useHealthKit(userId: string | null): HealthKitState {
   const sync = useCallback(async () => {
     if (!supported) return;
 
-    // Pull all four in parallel — no inter-dependency.
-    const [w, f, s, k] = await Promise.all([
+    // Pull body, activity, and nutrition in parallel — no inter-dependency.
+    const [w, f, s, k, n] = await Promise.all([
       getLatestBodyMassKg(),
       getLatestBodyFatPct(),
       getStepsToday(),
       getActiveEnergyTodayKcal(),
+      getNutritionToday(),
     ]);
 
     setWeight(w?.value ?? null);
     setBodyFat(f?.value ?? null);
     setSteps(s);
     setActiveEnergy(k);
+    setNutrition(n);
 
     // Permission heuristic: any non-null reading means we have at least
-    // one of the four read scopes. All-null after the user was prompted
-    // is our best "denied / no data" signal.
+    // one of the read scopes granted. All-null after the user was prompted
+    // is our best "denied / no data" signal. Nutrition counts toward
+    // "likely_granted" too — MFP users may have only nutrition flowing.
     const asked = (await AsyncStorage.getItem(ASKED_KEY)) === "1";
     const anySignal =
-      w != null || f != null || (s != null && s > 0) || (k != null && k > 0);
+      w != null ||
+      f != null ||
+      (s != null && s > 0) ||
+      (k != null && k > 0) ||
+      (n != null && (n.calories != null && n.calories > 0));
     if (!asked) {
       setPermissionState("not_asked");
     } else if (anySignal) {
@@ -138,9 +188,12 @@ export function useHealthKit(userId: string | null): HealthKitState {
       setPermissionState("likely_denied");
     }
 
+    if (!userId) return;
+    const today = isoDate(new Date());
+
     // Body-metric upserts — gated on (a) fresh sample (within 7 days)
     // and (b) value/date differing from last write.
-    if (userId && w) {
+    if (w) {
       const ageMs = Date.now() - w.date.getTime();
       if (ageMs <= RECENT_SAMPLE_MS) {
         const date = isoDate(w.date);
@@ -151,7 +204,7 @@ export function useHealthKit(userId: string | null): HealthKitState {
         }
       }
     }
-    if (userId && f) {
+    if (f) {
       const ageMs = Date.now() - f.date.getTime();
       if (ageMs <= RECENT_SAMPLE_MS) {
         const date = isoDate(f.date);
@@ -162,7 +215,17 @@ export function useHealthKit(userId: string | null): HealthKitState {
         }
       }
     }
-  }, [supported, userId, upsertBodyStat]);
+
+    // Activity upsert — only when we have at least one non-null signal.
+    if (s != null || k != null) {
+      await upsertActivity(userId, today, { steps: s, activeEnergy: k });
+    }
+
+    // Nutrition upsert — only when HealthKit returned anything.
+    if (n) {
+      await upsertNutrition(userId, today, n);
+    }
+  }, [supported, userId, upsertBodyStat, upsertActivity, upsertNutrition]);
 
   const refresh = useCallback(async () => {
     lastFetchedAt.current = Date.now();
@@ -200,6 +263,7 @@ export function useHealthKit(userId: string | null): HealthKitState {
     bodyFat,
     steps,
     activeEnergy,
+    nutrition,
     refresh,
     requestAuth,
   };

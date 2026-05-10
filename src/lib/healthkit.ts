@@ -23,11 +23,30 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 const READ_TYPES = [
+  // Body
   "HKQuantityTypeIdentifierBodyMass",
   "HKQuantityTypeIdentifierBodyFatPercentage",
+  // Activity
   "HKQuantityTypeIdentifierStepCount",
   "HKQuantityTypeIdentifierActiveEnergyBurned",
+  // Nutrition — surfaced by MyFitnessPal, Cronometer, Lose It!, Carbon,
+  // manual Health-app entry, etc. We aggregate all of them via cumulativeSum
+  // for the day, so we don't care which app wrote the samples.
+  "HKQuantityTypeIdentifierDietaryEnergyConsumed",
+  "HKQuantityTypeIdentifierDietaryProtein",
+  "HKQuantityTypeIdentifierDietaryCarbohydrates",
+  "HKQuantityTypeIdentifierDietaryFatTotal",
 ] as const;
+
+/** Daily intake totals — what the user ate today. Null fields mean
+ *  HealthKit had nothing for that macro (which often happens when the
+ *  user's logger only writes calories). */
+export type DailyNutrition = {
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+};
 
 export type LatestSample = {
   value: number;
@@ -41,16 +60,16 @@ function canUseHealthKit(): boolean {
   return Platform.OS === "ios" && !isExpoGo;
 }
 
-// Lazy module loader. The native HealthKit dependency is intentionally
-// NOT in package.json right now — until we re-enable it on the Apple
-// Developer portal (HealthKit capability + provisioning profile), the
-// require() below will throw "module not found", be caught, and every
-// exported wrapper resolves to null/false. UI gracefully degrades.
-//
-// Typed as `any` so this file compiles without the dep installed; once
-// the dep is back, swap to `typeof import("@kingstinct/react-native-healthkit")`.
-let cachedModule: any | null = null;
-function loadHealthKit(): any | null {
+// Lazy module loader. The library uses NitroModules which crash at import
+// time inside Expo Go (no native bridge). Resolving lazily keeps Expo Go
+// boot working — every exported wrapper falls through to null/false when
+// the module isn't available.
+let cachedModule:
+  | typeof import("@kingstinct/react-native-healthkit")
+  | null = null;
+function loadHealthKit():
+  | typeof import("@kingstinct/react-native-healthkit")
+  | null {
   if (!canUseHealthKit()) return null;
   if (cachedModule) return cachedModule;
   try {
@@ -175,6 +194,65 @@ export async function getActiveEnergyTodayKcal(): Promise<number | null> {
     return res.sumQuantity ? Math.round(res.sumQuantity.quantity) : 0;
   } catch (err) {
     console.warn("[healthkit] getActiveEnergyTodayKcal failed", err);
+    return null;
+  }
+}
+
+/**
+ * Today's nutrition intake, summed across every source app that wrote to
+ * HealthKit (MyFitnessPal, Cronometer, Lose It, Carbon, manual Health-app
+ * entry, etc.). Returns null on hard failure; individual macro fields can
+ * be null when the user's logger only writes calories.
+ *
+ * Calorie unit: `kcal` (HealthKit's "kilocalorie") — matches the way
+ * MFP / Cronometer write samples and the way our `daily_nutrition`
+ * table stores `calories INTEGER`.
+ */
+export async function getNutritionToday(): Promise<DailyNutrition | null> {
+  const hk = loadHealthKit();
+  if (!hk) return null;
+  const filter = {
+    date: { startDate: startOfTodayLocal(), endDate: new Date() },
+  };
+  const sumOf = async (
+    identifier: string,
+    unit: string,
+  ): Promise<number | null> => {
+    try {
+      const res = await hk.queryStatisticsForQuantity(
+        identifier as never,
+        ["cumulativeSum"],
+        { unit: unit as never, filter },
+      );
+      return res.sumQuantity ? Math.round(res.sumQuantity.quantity) : null;
+    } catch (err) {
+      console.warn(`[healthkit] sumOf(${identifier}) failed`, err);
+      return null;
+    }
+  };
+
+  try {
+    const [calories, protein, carbs, fat] = await Promise.all([
+      sumOf("HKQuantityTypeIdentifierDietaryEnergyConsumed", "kcal"),
+      sumOf("HKQuantityTypeIdentifierDietaryProtein", "g"),
+      sumOf("HKQuantityTypeIdentifierDietaryCarbohydrates", "g"),
+      sumOf("HKQuantityTypeIdentifierDietaryFatTotal", "g"),
+    ]);
+
+    // Treat the whole result as null only when EVERY field came back null
+    // — then we know the user has no nutrition data flowing yet, vs the
+    // partial-data case where calories exist but macros don't.
+    if (calories == null && protein == null && carbs == null && fat == null) {
+      return null;
+    }
+    return {
+      calories,
+      protein_g: protein,
+      carbs_g: carbs,
+      fat_g: fat,
+    };
+  } catch (err) {
+    console.warn("[healthkit] getNutritionToday failed", err);
     return null;
   }
 }

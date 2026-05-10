@@ -103,7 +103,7 @@ export default function HomeScreen() {
   const {
     permissionState: hkPermissionState,
     steps: hkSteps,
-    activeEnergy: hkActiveEnergy,
+    activeEnergy: hkActiveEnergyEnergy,
     refresh: refreshHealthKit,
     requestAuth: requestHealthKitAuth,
   } = useHealthKit(userId);
@@ -861,15 +861,44 @@ export default function HomeScreen() {
           })}
         </View>
 
-        {/* Apple Health prompt — iOS-only, hides itself when granted. */}
-        {Platform.OS === "ios" && hkPermissionState !== "likely_granted" && (
-          <View style={{ marginTop: spacing.lg }}>
-            <HealthKitPermissionCard
-              state={hkPermissionState}
-              onConnect={requestHealthKitAuth}
-            />
-          </View>
-        )}
+        {/* Apple Health prompt — only when HealthKit is supported AND
+            we haven't asked yet (or the user denied). When the runtime
+            is "unsupported" (Expo Go, Android, missing native module)
+            we render nothing — the previous version showed a Connect
+            CTA in builds where it'd silently fail. */}
+        {Platform.OS === "ios" &&
+          (hkPermissionState === "not_asked" || hkPermissionState === "likely_denied") && (
+            <View style={{ marginTop: spacing.lg }}>
+              <HealthKitPermissionCard
+                state={hkPermissionState}
+                onConnect={requestHealthKitAuth}
+              />
+            </View>
+          )}
+
+        {/* Activity card — steps + active energy, hidden when no data. */}
+        {hkPermissionState === "likely_granted" &&
+          (hkSteps != null || hkActiveEnergy != null) && (
+            <View style={[styles.activityCard, { backgroundColor: colors.bgSecondary }]}>
+              <View style={styles.activityCol}>
+                <Text allowFontScaling={false} style={[styles.activityValue, { color: colors.text }]}>
+                  {hkSteps != null ? hkSteps.toLocaleString() : "—"}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.activityLabel, { color: colors.textMuted }]}>
+                  STEPS
+                </Text>
+              </View>
+              <View style={[styles.activityDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.activityCol}>
+                <Text allowFontScaling={false} style={[styles.activityValue, { color: colors.text }]}>
+                  {hkActiveEnergy != null ? hkActiveEnergy.toLocaleString() : "—"}
+                </Text>
+                <Text allowFontScaling={false} style={[styles.activityLabel, { color: colors.textMuted }]}>
+                  ACTIVE KCAL
+                </Text>
+              </View>
+            </View>
+          )}
 
         {/* My Progress section */}
         <Text allowFontScaling={false} style={[styles.sectionLabel, { color: colors.textMuted }]}>
@@ -916,7 +945,7 @@ export default function HomeScreen() {
             <MetricCard
               title="Active Energy"
               subtitle="Today"
-              value={hkActiveEnergy != null ? `${hkActiveEnergy}` : "—"}
+              value={hkActiveEnergyEnergy != null ? `${hkActiveEnergyEnergy}` : "—"}
               unit="kcal"
             />
           </View>
@@ -1043,6 +1072,22 @@ const styles = StyleSheet.create({
   dayNum: { fontSize: 16, fontWeight: "600" },
   dayLabel: { fontSize: 11, marginTop: 1 },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2, position: "absolute", bottom: 4 },
+  // Activity card — steps + active energy under the day strip when
+  // HealthKit is connected and has data for today.
+  activityCard: {
+    flexDirection: "row",
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginTop: spacing.lg,
+  },
+  activityCol: { flex: 1, alignItems: "center", gap: 4 },
+  activityValue: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
+  activityLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.6,
+  },
+  activityDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch" },
   perfectBadge: {
     position: "absolute",
     top: 2,

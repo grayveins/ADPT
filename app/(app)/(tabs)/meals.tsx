@@ -25,9 +25,11 @@ import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { isSignedInUserCoach } from "@/src/lib/mealPlans";
 import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import { useTodayNutrition } from "@/src/hooks/useTodayNutrition";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 import { Skeleton } from "@/src/animations/components/SkeletonLoader";
 import { CalorieRing } from "@/src/components/CalorieRing";
+import { MfpConnectCard } from "@/src/components/MfpConnectCard";
 
 type MacroTargets = {
   calories: number | null;
@@ -51,6 +53,7 @@ function todayLocalISO(): string {
 
 export default function MealsScreen() {
   const { colors } = useTheme();
+  const [userId, setUserId] = useState<string | null>(null);
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [isCoach, setIsCoach] = useState(false);
@@ -60,10 +63,15 @@ export default function MealsScreen() {
 
   const today = todayLocalISO();
   const macroFlag = useDailyFlag("macros", today);
+  // Today's actual intake — fed by useHealthKit's foreground sync via
+  // the daily_nutrition table. Null when the user hasn't connected
+  // HealthKit yet (or HealthKit returned nothing).
+  const { data: todayIntake, refresh: refreshIntake } = useTodayNutrition(userId);
 
   const fetchData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     const [macroRes, planRes, coach, allKeys] = await Promise.all([
       supabase
@@ -118,9 +126,9 @@ export default function MealsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([fetchData(), refreshIntake()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [fetchData, refreshIntake]);
 
   const openPdf = useCallback((path: string, title: string) => {
     // Route to our in-app viewer so the bare supabase.co signed URL is
@@ -139,10 +147,33 @@ export default function MealsScreen() {
     setWeekHits((c) => Math.max(0, c + (macroFlag.on ? -1 : 1)));
   }, [macroFlag]);
 
-  const calorieValue = useMemo(() => {
-    if (!macros?.calories) return "—";
-    return macros.calories.toLocaleString();
-  }, [macros?.calories]);
+  // When we have real intake data, the ring shows consumed-vs-target with
+  // the consumed value in the center and the ring filling proportionally.
+  // Without intake data, fall back to showing the target as the hero
+  // number and the binary "hit goal" toggle as before.
+  const hasIntake = !!todayIntake?.calories;
+  const ringHero = useMemo(() => {
+    if (hasIntake) {
+      return {
+        eyebrow: "calories",
+        value: (todayIntake!.calories as number).toLocaleString(),
+        caption:
+          macros?.calories != null
+            ? `of ${macros.calories.toLocaleString()} target`
+            : "logged today",
+        progress:
+          macros?.calories && todayIntake!.calories
+            ? Math.min(1, (todayIntake!.calories as number) / macros.calories)
+            : 0,
+      };
+    }
+    return {
+      eyebrow: "calories",
+      value: macros?.calories ? macros.calories.toLocaleString() : "—",
+      caption: "daily target",
+      progress: macroFlag.on ? 1 : 0,
+    };
+  }, [hasIntake, todayIntake, macros?.calories, macroFlag.on]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
@@ -172,24 +203,35 @@ export default function MealsScreen() {
           <MealsSkeleton />
         ) : (
           <Animated.View entering={FadeIn.duration(220)}>
-            {/* Hero ring — tap to mark today's nutrition hit */}
+            {/* Hero ring — auto-tracks consumed vs target when HealthKit
+                feeds data; falls back to a tap-to-hit toggle otherwise. */}
             {macros ? (
               <View style={styles.heroBlock}>
-                <Pressable onPress={onToggleHit} accessibilityRole="button">
+                <Pressable
+                  onPress={hasIntake ? undefined : onToggleHit}
+                  disabled={hasIntake}
+                  accessibilityRole={hasIntake ? "text" : "button"}
+                >
                   <CalorieRing
                     size={220}
-                    progress={macroFlag.on ? 1 : 0}
-                    value={calorieValue}
-                    eyebrow="calories"
-                    caption="daily target"
+                    progress={ringHero.progress}
+                    value={ringHero.value}
+                    eyebrow={ringHero.eyebrow}
+                    caption={ringHero.caption}
                   />
                 </Pressable>
                 <Text
                   allowFontScaling={false}
                   style={[styles.hitLine, { color: colors.textMuted }]}
                 >
-                  {macroFlag.on ? "✓ Hit today" : "Tap ring to mark hit"}
-                  {weekHits > 0 ? `  ·  ${weekHits} day${weekHits === 1 ? "" : "s"} this week` : ""}
+                  {hasIntake
+                    ? `Auto-synced from Apple Health`
+                    : macroFlag.on
+                      ? "✓ Hit today"
+                      : "Tap ring to mark hit"}
+                  {!hasIntake && weekHits > 0
+                    ? `  ·  ${weekHits} day${weekHits === 1 ? "" : "s"} this week`
+                    : ""}
                 </Text>
               </View>
             ) : (
@@ -213,11 +255,31 @@ export default function MealsScreen() {
             {/* Macro cards row */}
             {macros && (macros.protein_g != null || macros.carbs_g != null || macros.fat_g != null) && (
               <View style={styles.macroRow}>
-                <MacroCard label="Protein" grams={macros.protein_g} colors={colors} />
-                <MacroCard label="Carbs" grams={macros.carbs_g} colors={colors} />
-                <MacroCard label="Fat" grams={macros.fat_g} colors={colors} />
+                <MacroCard
+                  label="Protein"
+                  grams={macros.protein_g}
+                  consumed={hasIntake ? todayIntake?.protein_g ?? null : null}
+                  colors={colors}
+                />
+                <MacroCard
+                  label="Carbs"
+                  grams={macros.carbs_g}
+                  consumed={hasIntake ? todayIntake?.carbs_g ?? null : null}
+                  colors={colors}
+                />
+                <MacroCard
+                  label="Fat"
+                  grams={macros.fat_g}
+                  consumed={hasIntake ? todayIntake?.fat_g ?? null : null}
+                  colors={colors}
+                />
               </View>
             )}
+
+            {/* MFP / Cronometer / Lose It bridge education — only when
+                HealthKit has actually wired up; otherwise this card is
+                misleading because we can't read anything yet. */}
+            {hasIntake && <MfpConnectCard />}
 
             {/* Coach notes */}
             {macros?.notes ? (
@@ -303,25 +365,30 @@ export default function MealsScreen() {
 function MacroCard({
   label,
   grams,
+  consumed,
   colors,
 }: {
   label: string;
+  /** Coach-set target in grams. Null = no target. */
   grams: number | null;
+  /** Today's consumed value in grams. Null = no intake data; show target only. */
+  consumed: number | null;
   colors: any;
 }) {
+  const hasConsumed = consumed != null;
   return (
     <View style={[styles.macroCard, { borderColor: colors.border }]}>
       <Text
         allowFontScaling={false}
         style={[styles.macroValue, { color: colors.text }]}
       >
-        {grams != null ? `${grams}` : "—"}
+        {hasConsumed ? Math.round(consumed!) : grams != null ? `${grams}` : "—"}
       </Text>
       <Text
         allowFontScaling={false}
         style={[styles.macroUnit, { color: colors.textMuted }]}
       >
-        g
+        {hasConsumed && grams != null ? `/ ${grams}g` : "g"}
       </Text>
       <Text
         allowFontScaling={false}

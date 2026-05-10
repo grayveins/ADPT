@@ -51,6 +51,13 @@
         {
           "photosPermission": "ADPT needs photo library access so you can pick progress photos to upload."
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "ADPT reads your weight, body fat, steps, active energy, and nutrition (calories + macros) from Apple Health to keep your coaching dashboard up to date. This includes data written by MyFitnessPal and any other tracker you've connected to Apple Health.",
+          "background": false
+        }
       ]
     ],
     "experiments": {
