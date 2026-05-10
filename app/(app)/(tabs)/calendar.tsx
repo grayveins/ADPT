@@ -19,6 +19,7 @@ import {
   type HabitAssignment,
   type HabitLog,
 } from "@/src/lib/habits";
+import { dailyFlagPrefix, ymdFromDailyFlagKey } from "@/src/hooks/useDailyFlag";
 import { hapticPress } from "@/src/animations/feedback/haptics";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { router } from "expo-router";
@@ -109,16 +110,21 @@ export default function CalendarScreen() {
       setHabitLogs([]);
     }
 
-    // Macros per-day flags live in AsyncStorage; read once per month load.
+    // Macros per-day flags live in AsyncStorage, scoped by user_id so
+    // a fresh account on a device with prior test data doesn't see
+    // legacy flags. The unscoped keys from old builds are inert (ignored
+    // by ymdFromDailyFlagKey) and swept by clearLegacyDailyFlags() on
+    // sign-in.
+    const userPrefix = dailyFlagPrefix(user.id, "macros");
     const macroKeys = (allKeys as readonly string[]).filter((k) =>
-      k.startsWith("dailyFlag:macros:")
+      k.startsWith(userPrefix),
     );
     if (macroKeys.length > 0) {
       const pairs = await AsyncStorage.multiGet(macroKeys).catch(() => [] as [string, string | null][]);
       const dates = new Set<string>();
       for (const [k, v] of pairs) {
         if (v !== "1") continue;
-        const ymd = k.split(":")[2];
+        const ymd = ymdFromDailyFlagKey(k);
         if (!ymd) continue;
         if (ymd >= monthStartYmd && ymd <= monthEndYmd) dates.add(ymd);
       }

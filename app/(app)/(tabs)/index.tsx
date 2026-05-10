@@ -49,7 +49,11 @@ import {
   type HabitLog,
 } from "@/src/lib/habits";
 import { HabitRow } from "@/src/components/HabitRow";
-import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import {
+  useDailyFlag,
+  dailyFlagPrefix,
+  ymdFromDailyFlagKey,
+} from "@/src/hooks/useDailyFlag";
 import {
   fetchScheduledMap,
   resolveDay,
@@ -99,7 +103,7 @@ export default function HomeScreen() {
 
   const { data: bodyStats, refresh: refreshStats } = useBodyStats(userId);
   const { data: macros } = useClientMacros(userId);
-  const { currentStreak } = useStreak(userId);
+  const { currentStreak, todayStatus } = useStreak(userId);
   const {
     permissionState: hkPermissionState,
     steps: hkSteps,
@@ -265,8 +269,11 @@ export default function HomeScreen() {
         new Set(((statsRes.data ?? []) as any[]).map((r) => r.date as string))
       );
 
+      // User-scoped macro flag prefix; ignores legacy unscoped keys
+      // from previous test accounts on the same device.
+      const userPrefix = dailyFlagPrefix(userId, "macros");
       const macroKeys = (allKeys as readonly string[]).filter((k) =>
-        k.startsWith("dailyFlag:macros:")
+        k.startsWith(userPrefix),
       );
       if (macroKeys.length === 0) {
         setMacroFlagDates(new Set());
@@ -279,7 +286,7 @@ export default function HomeScreen() {
       const dates = new Set<string>();
       for (const [k, v] of pairs) {
         if (v !== "1") continue;
-        const ymd = k.split(":")[2];
+        const ymd = ymdFromDailyFlagKey(k);
         if (!ymd) continue;
         if (ymd >= fromDate && ymd <= toDate) dates.add(ymd);
       }
@@ -462,7 +469,7 @@ export default function HomeScreen() {
     return completedSessions.filter((s: any) => new Date(s.started_at) >= start).length;
   }, [completedSessions]);
 
-  const macrosFlag = useDailyFlag("macros", format(selectedDate, "yyyy-MM-dd"));
+  const macrosFlag = useDailyFlag("macros", format(selectedDate, "yyyy-MM-dd"), userId);
 
   // Toggle the macros flag *and* mutate the per-day Set used by the
   // perfect-day badge so the chip lights up the moment the row flips,
@@ -585,7 +592,7 @@ export default function HomeScreen() {
           {greeting}
         </Text>
         <View style={styles.headerActions}>
-          <StreakPill streak={currentStreak} colors={colors} />
+          <StreakPill streak={currentStreak} status={todayStatus} colors={colors} />
           <AvatarButton name={profileName} colors={colors} />
         </View>
       </View>
@@ -977,8 +984,32 @@ function HomeBodySkeleton({ colors }: { colors: any }) {
   );
 }
 
-function StreakPill({ streak, colors }: { streak: number; colors: any }) {
-  const active = streak > 0;
+type StreakStatus = "pending" | "complete" | "rest" | "unmet" | "none";
+
+function StreakPill({
+  streak,
+  status,
+  colors,
+}: {
+  streak: number;
+  status: StreakStatus;
+  colors: any;
+}) {
+  // Visual states:
+  //   complete → lit flame (today's done, streak alive)
+  //   rest     → moon (rest day, habits hit)
+  //   pending  → dim flame (today still has work; streak shows yesterday's count)
+  //   unmet/none → dim flame at low opacity (no live streak)
+  const lit = status === "complete" || status === "rest";
+  const icon: keyof typeof Ionicons.glyphMap = status === "rest" ? "moon" : "flame";
+  const opacity = lit ? 1 : streak > 0 ? 0.7 : 0.5;
+  const a11y =
+    status === "pending"
+      ? `${streak} day streak, today pending`
+      : status === "rest"
+      ? `${streak} day streak, rest day`
+      : `${streak} day streak`;
+
   return (
     <View
       style={[
@@ -986,12 +1017,12 @@ function StreakPill({ streak, colors }: { streak: number; colors: any }) {
         {
           backgroundColor: colors.bgSecondary,
           borderColor: colors.border,
-          opacity: active ? 1 : 0.6,
+          opacity,
         },
       ]}
-      accessibilityLabel={`${streak} day streak`}
+      accessibilityLabel={a11y}
     >
-      <Ionicons name="flame" size={14} color={colors.text} />
+      <Ionicons name={icon} size={14} color={colors.text} />
       <Text allowFontScaling={false} style={[styles.streakText, { color: colors.text }]}>
         {streak}
       </Text>

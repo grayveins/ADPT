@@ -24,7 +24,11 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { spacing, radius } from "@/src/theme";
 import { supabase } from "@/lib/supabase";
 import { isSignedInUserCoach } from "@/src/lib/mealPlans";
-import { useDailyFlag } from "@/src/hooks/useDailyFlag";
+import {
+  useDailyFlag,
+  dailyFlagPrefix,
+  ymdFromDailyFlagKey,
+} from "@/src/hooks/useDailyFlag";
 import { useTodayNutrition } from "@/src/hooks/useTodayNutrition";
 import { hapticPress, hapticSuccess } from "@/src/animations/feedback/haptics";
 import { Skeleton } from "@/src/animations/components/SkeletonLoader";
@@ -62,7 +66,7 @@ export default function MealsScreen() {
   const [weekHits, setWeekHits] = useState(0);
 
   const today = todayLocalISO();
-  const macroFlag = useDailyFlag("macros", today);
+  const macroFlag = useDailyFlag("macros", today, userId);
   // Today's actual intake — fed by useHealthKit's foreground sync via
   // the daily_nutrition table. Null when the user hasn't connected
   // HealthKit yet (or HealthKit returned nothing).
@@ -94,9 +98,11 @@ export default function MealsScreen() {
     if (planRes.data) setMealPlans(planRes.data);
     setIsCoach(coach);
 
-    // Count this week's macro hits — last 7 days inclusive.
+    // Count this week's macro hits — last 7 days inclusive. Scoped by
+    // user_id so a fresh account doesn't inherit prior accounts' flags.
+    const userPrefix = dailyFlagPrefix(user.id, "macros");
     const macroKeys = (allKeys as readonly string[]).filter((k) =>
-      k.startsWith("dailyFlag:macros:"),
+      k.startsWith(userPrefix),
     );
     if (macroKeys.length > 0) {
       const cutoff = new Date();
@@ -108,7 +114,7 @@ export default function MealsScreen() {
       let count = 0;
       for (const [k, v] of pairs) {
         if (v !== "1") continue;
-        const ymd = k.split(":")[2];
+        const ymd = ymdFromDailyFlagKey(k);
         if (!ymd) continue;
         if (ymd >= cutoffYmd && ymd <= today) count += 1;
       }
