@@ -85,7 +85,11 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { unreadCount } = useUnreadMessages();
   // Tab bar configuration - use dynamic safe area
-  const tabBarHeight = Platform.OS === "ios" ? 49 + insets.bottom : 60;
+  // On home-indicator phones, insets.bottom is ~34, giving an ~83px bar.
+  // On iPhone SE/SE2/SE3 (no home indicator), insets.bottom is 0 — without
+  // the floor below, the bar collapses to 49px and the negative
+  // paddingBottom math clips labels off-screen.
+  const tabBarHeight = Platform.OS === "ios" ? Math.max(49 + insets.bottom, 64) : 60;
   const iconSize = 24;
   
   return (
@@ -98,7 +102,7 @@ export default function TabLayout() {
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: StyleSheet.hairlineWidth,
           height: tabBarHeight,
-          paddingBottom: Platform.OS === "ios" ? insets.bottom - 6 : 8,
+          paddingBottom: Platform.OS === "ios" ? Math.max(insets.bottom - 6, 8) : 8,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.tabBarActive,
